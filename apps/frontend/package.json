@@ -1,0 +1,34 @@
+{
+  "name": "@gas-leak/frontend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Gas Leak Detector frontend (Next.js + Shadcn/UI + Mapbox)",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "graphql": "^16.8.0",
+    "graphql-request": "^7.0.0",
+    "lucide-react": "^0.452.0",
+    "mapbox-gl": "^3.1.0",
+    "next": "^15.0.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "react-map-gl": "^7.1.7",
+    "recharts": "^2.12.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/react": "^18.2.66",
+    "@types/react-dom": "^18.2.22",
+    "autoprefixer": "^10.4.18",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "^15.0.0",
+    "postcss": "^8.4.35",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.4.0"
+  }
+}

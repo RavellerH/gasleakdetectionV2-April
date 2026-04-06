@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+  --background: #0B0B0B;
+  --foreground: #FAFAFA;
+  --card: rgba(255, 255, 255, 0.03);
+  --card-foreground: #e2e8f0;
+  --muted: #475569;
+  --muted-foreground: #94a3b8;
+  --border: rgba(255, 255, 255, 0.08); /* subtle line */
+  --primary: #00D48A;
+  --primary-dark: #00A36A;
+  --primary-foreground: #0B0B0B;
+  --accent: #00D48A;
+  --success: #00D48A;
+  --warning: #f59e0b;
+  --danger: #FF4D4D;
+}
+
+@keyframes pulse-ring {
+  0%, 100% { transform: scale(1); opacity: 0.4; }
+  50% { transform: scale(2.2); opacity: 0; }
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideRight {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.4); }
+
+@layer base {
+  html { @apply antialiased; }
+  body {
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border p-5 shadow-sm;
+    background: var(--card);
+    border-color: var(--border);
+    backdrop-filter: blur(12px);
+  }
+  /* Pill Button/Toggles */
+  .pill-nav {
+    @apply flex items-center justify-center rounded-full px-4 py-2 text-sm font-medium transition-colors;
+    background: rgba(255, 255, 255, 0.05);
+    color: #94a3b8;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+  .pill-nav:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--foreground);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  .pill-nav.active {
+    background: rgba(255, 255, 255, 0.15);
+    color: var(--foreground);
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+  
+  .badge { @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium; }
+  .badge-success { background: rgba(0, 212, 138, 0.15); color: var(--success); }
+  .badge-warning { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+  .badge-danger { background: rgba(255, 77, 77, 0.15); color: var(--danger); }
+  .font-mono { font-family: 'JetBrains Mono', monospace; }
+}

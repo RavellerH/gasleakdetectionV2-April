@@ -1,0 +1,62 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  password  String   @default("admin")
+  ruId      String   @default("ALL")
+  role      String   @default("ADMIN") 
+  devices   Device[] @relation("RegisteredBy")
+  createdAt DateTime @default(now())
+}
+
+model Device {
+  id            String   @id @default(cuid())
+  macAddress    String   @unique
+  deviceType    String   // SENSOR, ROUTING_NODE, CLUSTER_HEAD, GATEWAY
+  ruId          String
+  location      String   
+  batteryStats  String   
+  networkStats  String   // Will now store { rssiMesh, rssiStar, role, parentMac }
+  healthScore   Int      @default(100)
+  status        String   @default("ONLINE")
+  registeredBy  String
+  isDummy       Boolean  @default(false)
+  
+  parentId      String?  // For Star Topology tracking
+  parent        Device?  @relation("Topology", fields: [parentId], references: [id])
+  children      Device[] @relation("Topology")
+
+  readings      GasReading[]
+  registeredByUser User? @relation("RegisteredBy", fields: [registeredBy], references: [id])
+  registeredAt  DateTime @default(now())
+
+  @@index([ruId, status])
+}
+
+model GasReading {
+  id            String   @id @default(cuid())
+  deviceId      String
+  ppm           Float
+  isDummy       Boolean  @default(false)
+  timestamp     DateTime @default(now())
+  device        Device   @relation(fields: [deviceId], references: [id])
+
+  @@index([deviceId, timestamp])
+}
+
+model SystemSettings {
+  id                Int     @id @default(1)
+  warningThreshold  Float   @default(50.0)
+  criticalThreshold Float   @default(80.0)
+  refreshInterval   Int     @default(10)
+  updatedAt         DateTime @updatedAt
+}
