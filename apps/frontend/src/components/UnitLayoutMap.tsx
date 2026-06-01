@@ -59,7 +59,7 @@ export function UnitLayoutMap({ devices, onNodeClick }: UnitLayoutMapProps) {
         {/* 3. CLUSTER LAYER */}
         <div className="relative z-10 flex flex-wrap justify-center gap-24 items-center w-full max-w-6xl">
           {clusterHeads.map((ch, idx) => {
-            const children = sensors.filter(s => s.parentMac === ch.name);
+            const children = sensors.filter(s => s.parentMac === ch.macAddress);
             
             return (
               <div key={ch.id} className="flex flex-col items-center gap-12" style={{ margin: '40px' }}>

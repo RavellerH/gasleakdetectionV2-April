@@ -2,7 +2,7 @@ const axios = require('axios');
 
 async function testLogin() {
   try {
-    const res = await axios.post('http://localhost:3001/graphql', {
+    const res = await axios.post('http://localhost:4000/graphql', {
       query: `
         query Login($email: String!, $password: String!) {
           login(email: $email, password: $password) {

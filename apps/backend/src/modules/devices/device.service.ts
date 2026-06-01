@@ -1,10 +1,28 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { Device, DeviceLocation, BatteryMetrics, NetworkMetrics, CreateDeviceInput, GasReading, DashboardStats, RuStats, TimelineEntry, Alert, BatteryDistEntry, NetworkQualityEntry, SystemSettings, UpdateSettingsInput, User, CreateUserInput, LoginResult, AnalyticsStats, WeeklyTrendEntry, HeatmapEntry, SiteRanking } from './device.model';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class DeviceService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private readonly rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+  private readonly MAX_LOGIN_ATTEMPTS = 5;
+  private readonly RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+
+  private checkRateLimit(key: string): boolean {
+    const now = Date.now();
+    const record = this.rateLimitMap.get(key);
+    if (!record || now > record.resetTime) {
+      this.rateLimitMap.set(key, { count: 1, resetTime: now + this.RATE_LIMIT_WINDOW_MS });
+      return true;
+    }
+    if (record.count >= this.MAX_LOGIN_ATTEMPTS) {
+      return false;
+    }
+    record.count++;
+    return true;
+  }
 
   // --- ANALYTICS ---
 
@@ -36,7 +54,7 @@ export class DeviceService {
       }
     });
 
-    const ruIds = ['RU2', 'RU3', 'RU4', 'RU5', 'RU6', 'RU7'];
+    const ruIds = Array.from(new Set(allDevices.map(d => d.ruId))).sort();
     const siteRankings: SiteRanking[] = ruIds.map(ru => {
       const ruDevices = allDevices.filter(d => d.ruId === ru);
       const ruReadings = readings.filter(r => ruDevices.some(d => d.id === r.deviceId));
@@ -71,9 +89,13 @@ export class DeviceService {
   }
 
   async login(email: string, password: string): Promise<LoginResult> {
+    const rateLimitKey = `login:${email}`;
+    if (!this.checkRateLimit(rateLimitKey)) {
+      throw new HttpException('Too many login attempts. Please try again later.', HttpStatus.TOO_MANY_REQUESTS);
+    }
     const user = await this.prisma.user.findUnique({ where: { email } });
-    if (!user) return { error: 'User not found' };
-    if (user.password !== password) return { error: 'Invalid password' };
+    if (!user) return { error: 'Invalid email or password' };
+    if (user.password !== password) return { error: 'Invalid email or password' };
     return { user: { ...user, name: user.name || undefined } };
   }
 
@@ -81,7 +103,7 @@ export class DeviceService {
 
   async getSettings(): Promise<SystemSettings> {
     let settings = await this.prisma.systemSettings.findFirst();
-    if (!settings) { settings = await this.prisma.systemSettings.create({ data: {} }); }
+    if (!settings) { settings = await this.prisma.systemSettings.upsert({ where: { id: 1 }, create: { id: 1 }, update: {} }); }
     return settings;
   }
 
@@ -106,7 +128,7 @@ export class DeviceService {
       this.prisma.gasReading.findMany({ orderBy: { timestamp: 'desc' }, take: 500 })
     ]);
 
-    const ruIds = ['RU2', 'RU3', 'RU4', 'RU5', 'RU6', 'RU7'];
+    const ruIds = Array.from(new Set(allDevices.map(d => d.ruId))).sort();
     const ruData: RuStats[] = ruIds.map(ru => {
       const devices = allDevices.filter(d => d.ruId === ru);
       const devIds = new Set(devices.map(d => d.id));
@@ -210,9 +232,22 @@ export class DeviceService {
 
   // --- DEVICE OPERATIONS ---
 
+  private readonly MAX_PPM = 10000;
+  private readonly MIN_PPM = 0;
+  private readonly RU_SITES = ['RU2', 'RU3', 'RU4', 'RU5', 'RU6', 'RU7'];
+
+  async getRuSites(): Promise<{ id: string }[]> {
+    const devices = await this.prisma.device.findMany({ select: { ruId: true }, distinct: ['ruId'] });
+    const ruIds = devices.map(d => d.ruId);
+    return [...new Set([...this.RU_SITES, ...ruIds])].map(id => ({ id }));
+  }
+
   async addReading(macAddress: string, ppm: number): Promise<GasReading> {
+    if (typeof ppm !== 'number' || ppm < this.MIN_PPM || ppm > this.MAX_PPM || !Number.isFinite(ppm)) {
+      throw new HttpException(`Invalid PPM value: must be between ${this.MIN_PPM} and ${this.MAX_PPM}`, HttpStatus.BAD_REQUEST);
+    }
     const device = await this.prisma.device.findUnique({ where: { macAddress } });
-    if (!device) throw new Error(`Device with MAC ${macAddress} not found`);
+    if (!device) throw new HttpException(`Device with MAC ${macAddress} not found`, HttpStatus.NOT_FOUND);
     const r = await this.prisma.gasReading.create({ data: { deviceId: device.id, ppm, isDummy: device.isDummy } });
     return { id: r.id, deviceId: r.deviceId, ppm: r.ppm, timestamp: r.timestamp };
   }
@@ -221,6 +256,7 @@ export class DeviceService {
     const d = await this.prisma.device.create({
       data: {
         macAddress: input.macAddress,
+        name: input.name || input.macAddress,
         deviceType: input.deviceType,
         ruId: input.ruId,
         location: JSON.stringify(input.location),
@@ -248,13 +284,19 @@ export class DeviceService {
     return this.mapToDevice(d);
   }
 
+  async updateName(deviceId: string, name: string): Promise<Device | null> {
+    const d = await this.prisma.device.update({ where: { id: deviceId }, data: { name } });
+    return this.mapToDevice(d);
+  }
+
   private mapToDevice(d: any): Device {
     try {
       const netStats = JSON.parse(d.networkStats || '{}');
       const batStats = JSON.parse(d.batteryStats || '{}');
       return {
         id: d.id,
-        name: d.macAddress,
+        macAddress: d.macAddress,
+        name: d.name || d.macAddress,
         ruId: d.ruId,
         type: d.deviceType,
         parentMac: netStats.parentMac || null,
@@ -278,7 +320,7 @@ export class DeviceService {
     } catch (e) {
       console.error('[mapToDevice] Error mapping device:', d.id, e);
       return {
-        id: d.id, name: d.macAddress, ruId: d.ruId, type: d.deviceType, location: { lat: 0, lng: 0 },
+        id: d.id, macAddress: d.macAddress, name: d.macAddress, ruId: d.ruId, type: d.deviceType, location: { lat: 0, lng: 0 },
         battery: { voltage: 0, soc: 0 }, network: { rssi: -100 }, healthScore: 0, status: 'ERROR'
       };
     }

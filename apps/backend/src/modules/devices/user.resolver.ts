@@ -18,23 +18,23 @@ export class UserResolver {
 
   @Query(() => LoginResult)
   async login(
-    @Args('email') email: string,
-    @Args('password') password: string
+    @Args('email', { type: () => String }) email: string,
+    @Args('password', { type: () => String }) password: string
   ): Promise<LoginResult> {
     return this.deviceService.login(email, password);
   }
 
   @Mutation(() => User)
   async createUser(
-    @Args('input') input: CreateUserInput,
-    @Args('creatorId') creatorId: string
+    @Args('input', { type: () => CreateUserInput }) input: CreateUserInput,
+    @Args('creatorId', { type: () => String }) creatorId: string
   ): Promise<User> {
     return this.deviceService.createUser(input, creatorId);
   }
 
   @Mutation(() => Boolean)
   async deleteUser(
-    @Args('id') id: string
+    @Args('id', { type: () => String }) id: string
   ): Promise<boolean> {
     return this.deviceService.deleteUser(id);
   }
