@@ -21,6 +21,7 @@ model User {
 model Device {
   id            String   @id @default(cuid())
   macAddress    String   @unique
+  name          String   // User-friendly device name
   deviceType    String   // SENSOR, ROUTING_NODE, CLUSTER_HEAD, GATEWAY
   ruId          String
   location      String   

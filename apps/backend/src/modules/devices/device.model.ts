@@ -1,20 +1,20 @@
-import { Field, ID, InputType, Int, ObjectType } from '@nestjs/graphql';
+import { Field, ID, InputType, Int, ObjectType, Float } from '@nestjs/graphql';
 import { IsNumber, IsOptional, IsString } from 'class-validator';
 
 @InputType()
 export class CoordinatesInput {
-  @Field(() => Number)
+  @Field(() => Float)
   @IsNumber()
   lat!: number;
 
-  @Field(() => Number)
+  @Field(() => Float)
   @IsNumber()
   lng!: number;
 }
 
 @ObjectType()
 export class BatteryMetrics {
-  @Field(() => Number)
+  @Field(() => Float)
   voltage!: number;
 
   @Field(() => Int)
@@ -53,10 +53,10 @@ export class NetworkMetrics {
 
 @ObjectType()
 export class DeviceLocation {
-  @Field(() => Number)
+  @Field(() => Float)
   lat!: number;
 
-  @Field(() => Number)
+  @Field(() => Float)
   lng!: number;
 }
 
@@ -65,6 +65,11 @@ export class CreateDeviceInput {
   @Field()
   @IsString()
   macAddress!: string;
+
+  @Field({ nullable: true })
+  @IsString()
+  @IsOptional()
+  name?: string;
 
   @Field()
   @IsString()
@@ -141,10 +146,10 @@ export class SystemSettings {
   @Field(() => Int)
   id!: number;
 
-  @Field(() => Number)
+  @Field(() => Float)
   warningThreshold!: number;
 
-  @Field(() => Number)
+  @Field(() => Float)
   criticalThreshold!: number;
 
   @Field(() => Int)
@@ -153,12 +158,12 @@ export class SystemSettings {
 
 @InputType()
 export class UpdateSettingsInput {
-  @Field(() => Number, { nullable: true })
+  @Field(() => Float, { nullable: true })
   @IsNumber()
   @IsOptional()
   warningThreshold?: number;
 
-  @Field(() => Number, { nullable: true })
+  @Field(() => Float, { nullable: true })
   @IsNumber()
   @IsOptional()
   criticalThreshold?: number;
@@ -173,7 +178,7 @@ export class UpdateSettingsInput {
 export class WeeklyTrendEntry {
   @Field()
   day!: string;
-  @Field(() => Number)
+  @Field(() => Float)
   avgPpm!: number;
   @Field(() => Int)
   alertCount!: number;
@@ -193,11 +198,11 @@ export class HeatmapEntry {
 export class SiteRanking {
   @Field()
   ru!: string;
-  @Field(() => Number)
+  @Field(() => Float)
   uptime!: number;
   @Field(() => Int)
   incidents!: number;
-  @Field(() => Number)
+  @Field(() => Float)
   avgResponseTime!: number;
 }
 
@@ -321,11 +326,17 @@ export class TimelineEntry {
   @Field()
   time!: string;
 
-  @Field(() => Number)
+  @Field(() => Float)
   ppm!: number;
 
   @Field(() => Int)
   alerts!: number;
+}
+
+@ObjectType()
+export class RuSite {
+  @Field()
+  id!: string;
 }
 
 @ObjectType()
@@ -336,7 +347,7 @@ export class GasReading {
   @Field()
   deviceId!: string;
 
-  @Field(() => Number)
+  @Field(() => Float)
   ppm!: number;
 
   @Field(() => Date)
@@ -347,6 +358,9 @@ export class GasReading {
 export class Device {
   @Field(() => ID)
   id!: string;
+
+  @Field()
+  macAddress!: string;
 
   @Field()
   name!: string;
@@ -372,7 +386,7 @@ export class Device {
   @Field(() => Int)
   healthScore!: number;
 
-  @Field(() => Number, { nullable: true })
+  @Field(() => Float, { nullable: true })
   latestPpm?: number;
 
   @Field()

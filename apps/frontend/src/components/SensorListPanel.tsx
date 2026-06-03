@@ -13,7 +13,7 @@ export function SensorListPanel({ devices }: SensorListPanelProps) {
   
   // Group sensors by their parent cluster head
   const groups = clusterHeads.map(ch => {
-    const children = devices.filter(d => d.parentMac === ch.name && d.type === 'SENSOR');
+    const children = devices.filter(d => d.parentMac === ch.macAddress && d.type === 'SENSOR');
     return {
       ch,
       sensors: children
@@ -23,7 +23,7 @@ export function SensorListPanel({ devices }: SensorListPanelProps) {
   // Handle sensors that might not have a parent or parent is a gateway directly
   const orphanedSensors = devices.filter(d => 
     d.type === 'SENSOR' && 
-    !clusterHeads.some(ch => ch.name === d.parentMac)
+    !clusterHeads.some(ch => ch.macAddress === d.parentMac)
   );
 
   return (

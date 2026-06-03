@@ -26,6 +26,7 @@ import {
   Activity,
   AlertTriangle,
   BellRing,
+  ChevronLeft,
   Clock,
   Cpu,
   Flame,
@@ -48,12 +49,34 @@ import {
   RefreshCw,
   LogOut,
 } from 'lucide-react';
-import { fetchDevices, fetchDashboardStats, fetchSettings, updateSettings, fetchUsers, createUser, deleteUser, login, fetchAnalytics, type Device, type DashboardStats, type RuStats, type TimelineEntry, type Alert, type BatteryDistEntry, type NetworkQualityEntry, type SystemSettings, type User, type AnalyticsStats } from '@/lib/graphql';
-import { DeviceMap } from './DeviceMap';
+import dynamic from 'next/dynamic';
+import { fetchDevices, fetchDashboardStats, fetchSettings, updateSettings, fetchUsers, createUser, deleteUser, login, fetchAnalytics, updateDeviceName, type Device, type DashboardStats, type RuStats, type TimelineEntry, type Alert, type BatteryDistEntry, type NetworkQualityEntry, type SystemSettings, type User, type AnalyticsStats } from '@/lib/graphql';
+
+const DeviceMap = dynamic(() => import('./DeviceMap').then((m) => m.DeviceMap), {
+  ssr: false,
+  loading: () => (
+    <div style={{ height: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--card-bg)', borderRadius: 12, border: '1px solid var(--card-border)', color: 'var(--t4)', fontSize: 13, fontFamily: "'JetBrains Mono', monospace" }}>
+      <RefreshCw size={20} className="animate-spin" style={{ marginRight: 10 }} />
+      INITIALIZING GEOSPATIAL ENGINE...
+    </div>
+  ),
+});
+
 import { SensorListPanel } from './SensorListPanel';
 import { UnitLayoutMap } from './UnitLayoutMap';
+import { Badge } from './ui/Badge';
+import { Card } from './ui/Card';
+import { Button } from './ui/Button';
 
 const RU_LIST = ['ALL', 'RU2', 'RU3', 'RU4', 'RU5', 'RU6', 'RU7'];
+
+const RU_LIST_QUERY = `
+  query GetRUSites {
+    ruSites {
+      id
+    }
+  }
+`;
 
 const MONTHLY_EVENTS = [
   { month: 'Sep', leaks: 2, falseAlarms: 5, maintenance: 8 },
@@ -212,6 +235,10 @@ export default function GasLeakDashboard() {
   const [alarmScenarioFilter, setAlarmScenarioFilter] = useState('ALL');
   const [alarmStatusFilter, setAlarmStatusFilter] = useState('ALL');
 
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [deviceToRename, setDeviceToRename] = useState<Device | null>(null);
+  const [newDeviceName, setNewDeviceName] = useState('');
+
   const loadDashboardData = useCallback(async () => {
     try {
       const [s, settings, uList, aStats] = await Promise.all([fetchDashboardStats(), fetchSettings(), fetchUsers(), fetchAnalytics()]);
@@ -234,16 +261,24 @@ export default function GasLeakDashboard() {
 
   const loadDevices = useCallback(async (ruId: string) => {
     setDevicesLoading(true);
-    if (ruId === 'ALL') {
-      try {
-        const all: Device[] = []; const rus = ['RU2', 'RU3', 'RU4', 'RU5', 'RU6', 'RU7'];
-        for (const ru of rus) { try { const d = await fetchDevices(ru); all.push(...d); } catch (err) { console.error(err); } }
+    try {
+      if (ruId === 'ALL') {
+        const all: Device[] = [];
+        const rus = ['RU2', 'RU3', 'RU4', 'RU5', 'RU6', 'RU7'];
+        const results = await Promise.allSettled(rus.map(ru => fetchDevices(ru)));
+        results.forEach((result) => {
+          if (result.status === 'fulfilled') all.push(...result.value);
+        });
         setApiDevices(all);
-      } finally { setDevicesLoading(false); }
-    } else {
-      try { const d = await fetchDevices(ruId); setApiDevices(d); }
-      catch (err) { console.error(err); setApiDevices([]); }
-      finally { setDevicesLoading(false); }
+      } else {
+        const d = await fetchDevices(ruId);
+        setApiDevices(d);
+      }
+    } catch (err) {
+      console.error('[Dashboard] Failed to load devices:', err);
+      setApiDevices([]);
+    } finally {
+      setDevicesLoading(false);
     }
   }, []);
 
@@ -261,6 +296,23 @@ export default function GasLeakDashboard() {
   const handleDeleteUser = async (id: string) => {
     if (!confirm('Are you sure?')) return;
     try { await deleteUser(id); loadDashboardData(); } catch (err) { console.error(err); }
+  };
+
+  const handleUpdateDeviceName = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!deviceToRename || !newDeviceName.trim()) return;
+    setIsSaving(true);
+    try {
+      await updateDeviceName(deviceToRename.id, newDeviceName.trim());
+      setShowRenameModal(false);
+      setDeviceToRename(null);
+      setNewDeviceName('');
+      loadDevices(activeRU);
+    } catch (err) {
+      console.error('[Dashboard] Failed to rename device:', err);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleUpdateAlertStatus = (alertId: string, status: string) => {
@@ -352,11 +404,14 @@ export default function GasLeakDashboard() {
         * { transition: background-color 0.3s ease, border-color 0.3s ease, color 0.2s ease; }
       `}</style>
 
-      <nav style={{ width: sidebarCollapsed ? 70 : 240, background: 'var(--sidebar-bg)', borderRight: '1px solid var(--sidebar-border)', display: 'flex', flexDirection: 'column', transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)', zIndex: 50, backdropFilter: 'blur(20px)' }}>
+      <nav style={{ width: sidebarCollapsed ? 70 : 240, background: 'var(--sidebar-bg)', borderRight: '1px solid var(--sidebar-border)', display: 'flex', flexDirection: 'column', transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)', zIndex: 50, backdropFilter: 'blur(20px)', position: 'relative' }}>
         <div style={{ padding: '20px 16px', borderBottom: '1px solid var(--divider)', display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg, #0e7490, #0284c7)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Flame size={16} color="#fff" /></div>
           {!sidebarCollapsed && <div><div style={{ fontWeight: 700, fontSize: 15, color: 'var(--t1)', letterSpacing: -0.5 }}>GLD System</div><div style={{ fontSize: 9, color: '#38bdf8', letterSpacing: 1.5, fontWeight: 500, fontFamily: "'JetBrains Mono', monospace" }}>MULTI-RU</div></div>}
         </div>
+        <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} style={{ position: 'absolute', right: -12, top: 60, width: 24, height: 24, borderRadius: '50%', background: 'var(--card-bg)', border: '1px solid var(--card-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 60, boxShadow: '0 2px 8px rgba(0,0,0,0.15)', transition: 'transform 0.3s', transform: sidebarCollapsed ? 'rotate(180deg)' : 'none' }}>
+          <ChevronLeft size={14} color="var(--t3)" />
+        </button>
         <div style={{ flex: 1, padding: '16px 10px', display: 'flex', flexDirection: 'column', gap: 2 }}>
           {SIDEBAR_ITEMS.map((item) => {
             const Icon = item.icon; const active = tab === item.key;
@@ -460,25 +515,36 @@ export default function GasLeakDashboard() {
           )}
 
           {tab === 'overview' && (
-            <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, animation: 'fadeIn 0.5s ease' }}>
+            <div className="flex flex-col gap-6 animate-fadeIn">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
-                  { label: 'Total Devices', value: totalDevices, icon: HardDrive, color: '#00D48A', sub: 'Across all RU sites', spark: [40, 50, 55, 60, 58, 62, 65], bg: 'var(--panel-green)' },
-                  { label: 'Online', value: onlineDevices, icon: Wifi, color: '#00D48A', sub: `${totalDevices > 0 ? Math.round((onlineDevices / totalDevices) * 100) : 0}% active`, spark: [55, 57, 56, 58, 59, 58, 60], bg: 'var(--panel-navy)' },
-                  { label: 'Active Alerts', value: totalAlerts, icon: AlertTriangle, color: '#FF4D4D', sub: 'Require attention', spark: [12, 8, 10, 6, 9, 5, 7], bg: 'var(--panel-purple)' },
-                  { label: 'Avg Health', value: avgHealth, icon: Activity, color: '#38bdf8', sub: 'System index', spark: [88, 90, 89, 92, 91, 93, 92], suffix: '%', bg: 'var(--card-bg)' },
+                  { label: 'Total Devices', value: totalDevices, icon: HardDrive, color: '#00D48A', sub: 'Across all RU sites', spark: [40, 50, 55, 60, 58, 62, 65], bg: 'bg-panel-green/20' },
+                  { label: 'Online', value: onlineDevices, icon: Wifi, color: '#00D48A', sub: `${totalDevices > 0 ? Math.round((onlineDevices / totalDevices) * 100) : 0}% active`, spark: [55, 57, 56, 58, 59, 58, 60], bg: 'bg-panel-navy/20' },
+                  { label: 'Active Alerts', value: totalAlerts, icon: AlertTriangle, color: '#FF4D4D', sub: 'Require attention', spark: [12, 8, 10, 6, 9, 5, 7], bg: 'bg-panel-purple/20' },
+                  { label: 'Avg Health', value: avgHealth, icon: Activity, color: '#38bdf8', sub: 'System index', spark: [88, 90, 89, 92, 91, 93, 92], suffix: '%', bg: 'bg-card-bg' },
                 ].map((kpi, i) => {
                   const Icon = kpi.icon;
                   return (
-                    <div key={i} style={{ background: kpi.bg, border: '1px solid var(--card-border)', borderRadius: 12, padding: '16px 18px', backdropFilter: 'blur(12px)', animation: `fadeIn 0.5s ease ${i * 0.1}s both` }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div 
+                      key={i} 
+                      className={`border border-card-border rounded-xl p-4 backdrop-blur-xl transition-all hover:scale-[1.02] duration-300 ${kpi.bg}`}
+                      style={{ animationDelay: `${i * 0.1}s` }}
+                    >
+                      <div className="flex justify-between items-start">
                         <div>
-                          <div style={{ fontSize: 11, color: 'var(--t4)', fontWeight: 600, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>{kpi.label}</div>
-                          <div style={{ fontSize: 28, fontWeight: 700, color: kpi.color, lineHeight: 1 }}><AnimNum value={kpi.value} suffix={kpi.suffix || ''} /></div>
-                          <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 6 }}>{kpi.sub}</div>
+                          <div className="text-[11px] text-t4 font-bold uppercase tracking-wider mb-1.5">{kpi.label}</div>
+                          <div className="text-3xl font-bold leading-none" style={{ color: kpi.color }}>
+                            <AnimNum value={kpi.value} suffix={kpi.suffix || ''} />
+                          </div>
+                          <div className="text-[11px] text-t3 mt-2 font-medium">{kpi.sub}</div>
                         </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-                          <div style={{ width: 32, height: 32, borderRadius: 8, background: `${kpi.color}12`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon size={16} color={kpi.color} /></div>
+                        <div className="flex flex-col items-end gap-2">
+                          <div 
+                            className="w-8 h-8 rounded-lg flex items-center justify-center shadow-sm"
+                            style={{ background: `${kpi.color}15` }}
+                          >
+                            <Icon size={16} style={{ color: kpi.color }} />
+                          </div>
                           <Sparkline data={kpi.spark} color={kpi.color} />
                         </div>
                       </div>
@@ -488,19 +554,30 @@ export default function GasLeakDashboard() {
               </div>
 
               {/* Timeline + Alerts */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 14, animation: 'fadeIn 0.6s ease 0.2s both' }}>
-                <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 12, padding: '18px 20px', backdropFilter: 'blur(12px)', height: 300, display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexShrink: 0 }}>
-                    <div><div style={{ fontWeight: 600, fontSize: 15, color: 'var(--t1)' }}>Gas Concentration Timeline</div><div style={{ fontSize: 11, color: 'var(--t3)', fontFamily: "'JetBrains Mono', monospace" }}>24h rolling window (PPM)</div></div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}><PulseDot color="#22d3ee" /><span style={{ fontSize: 11, color: 'var(--t4)', fontFamily: "'JetBrains Mono', monospace" }}>LIVE</span></div>
+              <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-4">
+                <div className="bg-card-bg border border-card-border rounded-xl p-5 backdrop-blur-xl h-[300px] flex flex-col">
+                  <div className="flex justify-between items-center mb-4 flex-shrink-0">
+                    <div>
+                      <div className="font-bold text-[15px] text-t1 tracking-tight">Gas Concentration Timeline</div>
+                      <div className="text-[11px] text-t3 font-mono">24h rolling window (PPM)</div>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <PulseDot color="#22d3ee" />
+                      <span className="text-[11px] text-t4 font-mono font-bold uppercase tracking-wider">Live</span>
+                    </div>
                   </div>
-                  <div style={{ flex: 1, minHeight: 0 }}>
+                  <div className="flex-1 min-h-0">
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={timelineData}>
-                        <defs><linearGradient id="ppmGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#22d3ee" stopOpacity={0.2} /><stop offset="95%" stopColor="#22d3ee" stopOpacity={0} /></linearGradient></defs>
+                        <defs>
+                          <linearGradient id="ppmGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.2} />
+                            <stop offset="95%" stopColor="#22d3ee" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(56,189,248,0.04)" vertical={false} />
-                        <XAxis dataKey="time" tick={{ fill: '#475569', fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }} axisLine={false} tickLine={false} interval={3} />
-                        <YAxis tick={{ fill: '#475569', fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }} axisLine={false} tickLine={false} />
+                        <XAxis dataKey="time" tick={{ fill: 'var(--t4)', fontSize: 10, fontFamily: "'JetBrains Mono', monospace" }} axisLine={false} tickLine={false} interval={3} />
+                        <YAxis tick={{ fill: 'var(--t4)', fontSize: 10, fontFamily: "'JetBrains Mono', monospace" }} axisLine={false} tickLine={false} />
                         <Tooltip content={<CustomTooltip />} />
                         <Area type="monotone" dataKey="ppm" stroke="#22d3ee" strokeWidth={2} fill="url(#ppmGrad)" />
                         <Line type="monotone" dataKey="threshold" stroke="#ef4444" strokeWidth={1} strokeDasharray="6 3" dot={false} />
@@ -508,95 +585,222 @@ export default function GasLeakDashboard() {
                     </ResponsiveContainer>
                   </div>
                 </div>
-                <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 12, padding: '18px 20px', backdropFilter: 'blur(12px)', display: 'flex', flexDirection: 'column', height: 300 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexShrink: 0 }}>
-                    <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--t1)' }}>Recent Alerts</div>
-                    <span style={{ fontSize: 11, color: '#ef4444', fontFamily: "'JetBrains Mono', monospace", background: 'rgba(239,68,68,0.1)', padding: '2px 6px', borderRadius: 4 }}>{totalAlerts} active</span>
+
+                <div className="bg-card-bg border border-card-border rounded-xl p-5 backdrop-blur-xl flex flex-col h-[300px]">
+                  <div className="flex justify-between items-center mb-4 flex-shrink-0">
+                    <div className="font-bold text-[15px] text-t1 tracking-tight">Recent Alerts</div>
+                    <span className="text-[10px] font-bold text-status-offline bg-status-offline/10 px-2 py-0.5 rounded-md font-mono border border-status-offline/20 uppercase tracking-wider">
+                      {totalAlerts} active
+                    </span>
                   </div>
-                  <div className="custom-scrollbar" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div className="custom-scrollbar flex-1 overflow-y-auto pr-1 flex flex-col gap-2">
                     {recentAlerts.map((a, i) => (
-                      <div key={a.id} style={{ padding: '8px 10px', borderRadius: 8, background: `${severityColor(a.severity)}08`, border: `1px solid ${severityColor(a.severity)}15`, animation: `fadeIn 0.4s ease ${i * 0.08}s both` }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
-                          <span style={{ width: 5, height: 5, borderRadius: '50%', background: severityColor(a.severity) }} />
-                          <span style={{ fontSize: 9, fontWeight: 700, color: severityColor(a.severity), fontFamily: "'JetBrains Mono', monospace" }}>{a.severity}</span>
-                          <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--t3)', fontFamily: "'JetBrains Mono', monospace" }}>{a.time}</span>
+                      <div 
+                        key={a.id} 
+                        className="p-3 rounded-lg border transition-colors duration-200"
+                        style={{ 
+                          backgroundColor: `${severityColor(a.severity)}08`, 
+                          borderColor: `${severityColor(a.severity)}15`,
+                          animation: `fadeIn 0.4s ease ${i * 0.08}s both`
+                        }}
+                      >
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: severityColor(a.severity) }} />
+                          <span className="text-[10px] font-bold uppercase tracking-widest font-mono" style={{ color: severityColor(a.severity) }}>
+                            {a.severity}
+                          </span>
+                          <span className="ml-auto text-[10px] text-t4 font-mono font-medium">{a.time}</span>
                         </div>
-                        <div style={{ fontSize: 12, color: 'var(--t3)', lineHeight: 1.3 }}>{a.message}</div>
-                        <div style={{ display: 'flex', gap: 6, marginTop: 3 }}>
-                          <span style={{ fontSize: 10, color: '#38bdf8', fontFamily: "'JetBrains Mono', monospace" }}>{a.ru}</span>
-                          <span style={{ fontSize: 10, color: 'var(--t4)', fontFamily: "'JetBrains Mono', monospace" }}>{a.device}</span>
+                        <div className="text-[12.5px] text-t2 font-medium leading-relaxed mb-2">{a.message}</div>
+                        <div className="flex gap-3 items-center">
+                          <span className="text-[10px] text-brand-cyan font-bold font-mono tracking-tight">{a.ru}</span>
+                          <span className="text-[10px] text-t4 font-mono uppercase font-semibold">{a.device}</span>
                         </div>
                       </div>
                     ))}
-                    {recentAlerts.length === 0 && <div style={{ fontSize: 12, color: 'var(--t4)', textAlign: 'center', marginTop: 20 }}>Clear</div>}
+                    {recentAlerts.length === 0 && (
+                      <div className="flex-1 flex flex-col items-center justify-center text-t4 opacity-40">
+                        <Shield size={32} className="mb-2" />
+                        <div className="text-xs font-mono uppercase tracking-widest font-bold">System Clear</div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
 
-              <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 12, padding: '18px 20px', backdropFilter: 'blur(12px)', display: 'flex', flexDirection: 'column', height: 240 }}>
-                <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--t1)', marginBottom: 12, flexShrink: 0 }}>Hardware Distribution by RU</div>
-                <div className="custom-scrollbar" style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
-                      <tr style={{ background: darkMode ? '#111' : '#fff' }}>{['RU', 'Cluster Head', 'Gateway', 'Sensors', 'Total', 'Online', 'Health'].map((h) => (<th key={h} style={{ textAlign: 'left', padding: '8px', fontSize: 11, color: 'var(--t3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, fontFamily: "'JetBrains Mono', monospace", borderBottom: '1px solid var(--divider)' }}>{h}</th>))}</tr>
+              <div className="bg-card-bg border border-card-border rounded-xl p-5 backdrop-blur-xl flex flex-col h-[260px]">
+                <div className="flex justify-between items-center mb-4 flex-shrink-0">
+                  <div className="font-bold text-[15px] text-t1 tracking-tight">Hardware Distribution by RU</div>
+                  <div className="text-[10px] text-t4 font-mono font-bold uppercase tracking-widest bg-card-bg-alt px-2 py-0.5 rounded border border-divider">
+                    Multi-Site Index
+                  </div>
+                </div>
+                <div className="custom-scrollbar flex-1 overflow-y-auto overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead className="sticky top-0 z-10 bg-sidebar-bg/95 backdrop-blur-sm shadow-[0_1px_0_var(--divider)]">
+                      <tr>
+                        {['RU', 'Cluster Head', 'Gateway', 'Sensors', 'Total', 'Online', 'Health'].map((h) => (
+                          <th key={h} className="text-left py-2.5 px-3 text-[10px] text-t4 font-bold uppercase tracking-widest font-mono border-b border-divider">
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-divider/50">
                       {ruData.map((r, i) => (
-                        <tr key={r.ru} style={{ background: i % 2 === 0 ? 'var(--card-bg-alt)' : 'transparent' }}>
-                          <td style={{ padding: '10px 8px', fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700, color: '#38bdf8' }}>{r.ru}</td>
-                          <td style={{ padding: '10px 8px', fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: 'var(--t3)' }}>{r.clusterHead}</td>
-                          <td style={{ padding: '10px 8px', fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: 'var(--t3)' }}>{r.gateway}</td>
-                          <td style={{ padding: '10px 8px', fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: 'var(--t3)' }}>{r.nodeSensor}</td>
-                          <td style={{ padding: '10px 8px', fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700, color: 'var(--t2)' }}>{r.total}</td>
-                          <td style={{ padding: '10px 8px' }}><div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ flex: 1, height: 4, width: 50, background: 'rgba(255,255,255,0.05)', borderRadius: 10, overflow: 'hidden' }}><div style={{ width: `${(r.online / r.total) * 100}%`, height: '100%', background: 'linear-gradient(90deg, #22d3ee, #0284c7)' }} /></div><span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#22d3ee' }}>{r.online}</span></div></td>
-                          <td style={{ padding: '10px 8px' }}><span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, color: healthColor(r.health), background: `${healthColor(r.health)}12`, padding: '2px 6px', borderRadius: 4 }}>{r.health}%</span></td>
+                        <tr key={r.ru} className="hover:bg-card-bg-alt/50 transition-colors group">
+                          <td className="py-3 px-3 font-mono text-[13px] font-bold text-brand-cyan group-hover:text-t1 transition-colors">{r.ru}</td>
+                          <td className="py-3 px-3 font-mono text-[12px] text-t3">{r.clusterHead}</td>
+                          <td className="py-3 px-3 font-mono text-[12px] text-t3">{r.gateway}</td>
+                          <td className="py-3 px-3 font-mono text-[12px] text-t3">{r.nodeSensor}</td>
+                          <td className="py-3 px-3 font-mono text-[13px] font-bold text-t2">{r.total}</td>
+                          <td className="py-3 px-3">
+                            <div className="flex items-center gap-3 w-[100px]">
+                              <div className="flex-1 h-1.5 bg-card-bg-alt rounded-full overflow-hidden border border-white/5">
+                                <div 
+                                  className="h-full bg-gradient-to-r from-brand-navy to-brand-blue rounded-full transition-all duration-1000" 
+                                  style={{ width: `${(r.online / r.total) * 100}%` }} 
+                                />
+                              </div>
+                              <span className="font-mono text-[11px] font-bold text-brand-cyan">{r.online}</span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-3">
+                            <Badge variant="health" value={r.health} className="text-[10px]" />
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
               </div>
-            </>
+            </div>
           )}
 
           {tab === 'devices' && (
-            <div style={{ animation: 'fadeIn 0.5s ease', display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="flex flex-col gap-5 animate-fadeIn">
+              <div className="flex justify-between items-center bg-card-bg border border-card-border p-4 rounded-xl backdrop-blur-md">
                 <div>
-                  <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--t1)' }}>Device Fleet Status</div>
-                  <div style={{ fontSize: 11, color: 'var(--t3)', fontFamily: "'JetBrains Mono', monospace" }}>{filteredDevices.length} active nodes in {activeRU}</div>
+                  <div className="font-bold text-lg text-t1 tracking-tight">Device Fleet Status</div>
+                  <div className="text-[11px] text-t3 font-mono font-medium uppercase tracking-wider">
+                    {filteredDevices.length} nodes active in <span className="text-brand-cyan">{activeRU}</span>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <div style={{ display: 'flex', gap: 4, background: 'var(--input-bg)', padding: 3, borderRadius: 8, border: '1px solid var(--card-border)' }}>
+                <div className="flex items-center gap-4">
+                  <div className="flex gap-1 bg-input-bg p-1 rounded-lg border border-card-border">
                     {['ALL', 'GATEWAY', 'CLUSTER', 'SENSOR'].map(type => (
-                      <button key={type} onClick={() => setActiveType(type)} style={{ padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", background: activeType === type ? 'linear-gradient(135deg, #0e7490, #0284c7)' : 'transparent', color: activeType === type ? '#fff' : 'var(--t4)' }}>{type}</button>
+                      <button 
+                        key={type} 
+                        onClick={() => setActiveType(type)} 
+                        className={`px-3 py-1.5 rounded-md text-[10px] font-bold font-mono transition-all ${activeType === type ? 'bg-gradient-to-br from-brand-navy to-brand-blue text-white shadow-sm' : 'text-t4 hover:text-t2'}`}
+                      >
+                        {type}
+                      </button>
                     ))}
                   </div>
-                  <div style={{ position: 'relative' }}>
-                    <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--t4)' }} />
-                    <input placeholder="Search fleet..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ background: 'var(--input-bg)', border: '1px solid var(--card-border)', borderRadius: 8, padding: '8px 12px 8px 32px', color: 'var(--t1)', fontSize: 12, width: 200, outline: 'none' }} />
+                  <div className="relative group">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-t4 group-focus-within:text-brand-cyan transition-colors" />
+                    <input 
+                      placeholder="Search fleet..." 
+                      value={searchTerm} 
+                      onChange={(e) => setSearchTerm(e.target.value)} 
+                      className="bg-input-bg border border-card-border rounded-lg py-2 pl-9 pr-4 text-t1 text-xs w-56 outline-none focus:border-brand-cyan/50 transition-all font-medium"
+                    />
                   </div>
                 </div>
               </div>
 
-              <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 12, overflow: 'hidden' }}>
-                <div style={{ overflowX: 'auto', maxHeight: '600px', overflowY: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--sidebar-bg)' }}>
-                      <tr>{[{ label: 'Entity', key: 'id' }, { label: 'Type', key: 'type' }, { label: 'Site', key: 'ru' }, { label: 'Battery', key: 'battery' }, { label: 'Signal', key: 'rssi' }, { label: 'Health', key: 'health' }, { label: 'Status', key: 'status' }].map((col) => (<th key={col.key} onClick={() => { if (sortCol === col.key) setSortDir(sortDir === 'asc' ? 'desc' : 'asc'); else { setSortCol(col.key); setSortDir('asc'); } }} style={{ textAlign: 'left', padding: '12px 14px', fontSize: 11, color: 'var(--t3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, fontFamily: "'JetBrains Mono', monospace", borderBottom: '1px solid var(--divider)', cursor: 'pointer' }}><div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>{col.label}{sortCol === col.key && <TrendingUp size={10} style={{ transform: sortDir === 'desc' ? 'rotate(180deg)' : 'none', color: '#38bdf8' }} />}</div></th>))}</tr>
+              <div className="bg-card-bg border border-card-border rounded-xl overflow-hidden backdrop-blur-xl">
+                <div className="overflow-x-auto max-h-[600px] custom-scrollbar overflow-y-auto">
+                  <table className="w-full border-collapse">
+                    <thead className="sticky top-0 z-10 bg-sidebar-bg/95 backdrop-blur-sm shadow-[0_1px_0_var(--divider)]">
+                      <tr>
+                        {[
+                          { label: 'Entity', key: 'id' }, 
+                          { label: 'Type', key: 'type' }, 
+                          { label: 'Site', key: 'ru' }, 
+                          { label: 'Battery', key: 'battery' }, 
+                          { label: 'Signal', key: 'rssi' }, 
+                          { label: 'Health', key: 'health' }, 
+                          { label: 'Status', key: 'status' }, 
+                          { label: 'Actions', key: 'actions' }
+                        ].map((col) => (
+                          <th 
+                            key={col.key} 
+                            onClick={() => { if (col.key !== 'actions') { if (sortCol === col.key) setSortDir(sortDir === 'asc' ? 'desc' : 'asc'); else { setSortCol(col.key); setSortDir('asc'); } } }} 
+                            className={`text-left py-3.5 px-4 text-[10px] text-t4 font-bold uppercase tracking-widest font-mono border-b border-divider ${col.key !== 'actions' ? 'cursor-pointer group hover:text-t2' : ''}`}
+                          >
+                            <div className="flex items-center gap-2">
+                              {col.label}
+                              {sortCol === col.key && <TrendingUp size={10} className={`text-brand-cyan transition-transform ${sortDir === 'desc' ? 'rotate-180' : ''}`} />}
+                            </div>
+                          </th>
+                        ))}
+                      </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-divider/50">
                       {filteredDevices.map((d, i) => {
-                        const Icon = typeIcon(d.type); const isAlert = d.latestPpm && d.latestPpm > (sysSettings?.warningThreshold || 50);
+                        const Icon = typeIcon(d.type); 
+                        const isAlert = d.latestPpm && d.latestPpm > (sysSettings?.warningThreshold || 50);
                         return (
-                          <tr key={d.id} onClick={() => setSelectedDevice(d)} style={{ background: i % 2 === 0 ? 'var(--card-bg-alt)' : 'transparent', cursor: 'pointer', borderBottom: '1px solid var(--divider)', outline: selectedDevice?.id === d.id ? '1px solid rgba(56,189,248,0.3)' : 'none' }}>
-                            <td style={{ padding: '10px 14px' }}><div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><div style={{ width: 30, height: 30, borderRadius: 8, background: isAlert ? 'rgba(239,68,68,0.1)' : 'rgba(56,189,248,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon size={15} color={isAlert ? '#ef4444' : '#38bdf8'} /></div><div><div style={{ fontSize: 13, fontWeight: 600, color: 'var(--t2)' }}>{d.name}</div><div style={{ fontSize: 11, color: 'var(--t4)', fontFamily: "'JetBrains Mono', monospace" }}>{d.id.slice(-6).toUpperCase()}</div></div></div></td>
-                            <td style={{ padding: '8px' }}><div style={{ fontSize: 12, color: 'var(--t2)', fontWeight: 600, fontFamily: "'JetBrains Mono', monospace" }}>{d.type}</div><div style={{ fontSize: 9, color: '#38bdf8', textTransform: 'uppercase', fontFamily: "'JetBrains Mono', monospace" }}>{d.type === 'CLUSTER' ? 'Mesh Hub' : 'End Node'}</div></td>
-                            <td style={{ padding: '8px', fontSize: 12, fontWeight: 600, color: '#38bdf8', fontFamily: "'JetBrains Mono', monospace" }}>{d.ruId}</td>
-                            <td style={{ padding: '8px' }}><div style={{ display: 'flex', alignItems: 'center', gap: 5 }}><div style={{ width: 30, height: 4, borderRadius: 10, background: 'rgba(56,189,248,0.05)', overflow: 'hidden' }}><div style={{ width: `${d.battery.soc}%`, height: '100%', background: batteryColor(d.battery.soc) }} /></div><span style={{ fontSize: 11, fontWeight: 600, color: batteryColor(d.battery.soc), fontFamily: "'JetBrains Mono', monospace" }}>{d.battery.soc}%</span></div></td>
-                            <td style={{ padding: '8px' }}><span style={{ fontSize: 11, color: d.network.rssi > -60 ? '#22d3ee' : '#f59e0b', fontFamily: "'JetBrains Mono', monospace" }}>{d.network.rssi} dBm</span></td>
-                            <td style={{ padding: '8px' }}><span style={{ fontSize: 11, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: healthColor(d.healthScore) }}>{d.healthScore}%</span></td>
-                            <td style={{ padding: '8px' }}><div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><PulseDot color={statusColor(d.status)} size={5} /><span style={{ fontSize: 11, color: statusColor(d.status), fontFamily: "'JetBrains Mono', monospace" }}>{d.status}</span></div></td>
+                          <tr 
+                            key={d.id} 
+                            onClick={() => setSelectedDevice(d)} 
+                            className={`hover:bg-card-bg-alt/50 transition-all cursor-pointer group ${selectedDevice?.id === d.id ? 'bg-brand-cyan/5 ring-1 ring-inset ring-brand-cyan/20' : ''}`}
+                          >
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-3">
+                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${isAlert ? 'bg-status-offline/10 text-status-offline' : 'bg-brand-cyan/10 text-brand-cyan group-hover:bg-brand-cyan/20'}`}>
+                                  <Icon size={16} />
+                                </div>
+                                <div>
+                                  <div className="text-[13px] font-bold text-t1">{d.name}</div>
+                                  <div className="text-[10px] text-t4 font-mono font-medium uppercase tracking-tight">{d.id.slice(-8).toUpperCase()}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="text-[11px] font-bold text-t2 font-mono uppercase">{d.type}</div>
+                              <div className="text-[9px] text-t4 font-medium uppercase tracking-tighter">{d.type === 'CLUSTER' ? 'Mesh Hub' : d.type === 'GATEWAY' ? 'Root' : 'End Node'}</div>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className="text-[11px] font-bold text-brand-cyan font-mono">{d.ruId}</span>
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-1.5 bg-card-bg-alt rounded-full overflow-hidden border border-white/5">
+                                  <div className="h-full transition-all duration-1000" style={{ width: `${d.battery.soc}%`, backgroundColor: batteryColor(d.battery.soc) }} />
+                                </div>
+                                <span className="text-[11px] font-bold font-mono" style={{ color: batteryColor(d.battery.soc) }}>{d.battery.soc}%</span>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-[11px] font-mono font-medium">
+                              <span className={d.network.rssi > -60 ? 'text-brand-cyan' : 'text-status-warning'}>{d.network.rssi} dBm</span>
+                            </td>
+                            <td className="py-3 px-4">
+                              <Badge variant="health" value={d.healthScore} className="text-[9px]" />
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-2">
+                                <PulseDot color={statusColor(d.status)} size={5} />
+                                <span className="text-[10px] font-bold font-mono tracking-wide" style={{ color: statusColor(d.status) }}>{d.status}</span>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4">
+                              <Button 
+                                size="sm" 
+                                variant="secondary" 
+                                className="text-[9px] h-7 px-3 font-bold tracking-widest"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeviceToRename(d);
+                                  setNewDeviceName(d.name);
+                                  setShowRenameModal(true);
+                                }}
+                              >
+                                RENAME
+                              </Button>
+                            </td>
                           </tr>
                         );
                       })}
@@ -968,6 +1172,34 @@ export default function GasLeakDashboard() {
           </div>
         </div>
       </main>
+
+      {showRenameModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+          <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 16, padding: 28, width: '100%', maxWidth: '400px', animation: 'fadeIn 0.3s ease' }}>
+            <h3 style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 600, fontSize: 20, color: 'var(--t1)', marginBottom: 8 }}>Rename Device</h3>
+            <p style={{ fontSize: 13, color: 'var(--t3)', marginBottom: 20 }}>Modify display name for <span style={{ fontFamily: "'JetBrains Mono', monospace", color: '#38bdf8' }}>{deviceToRename?.macAddress}</span></p>
+            <form onSubmit={handleUpdateDeviceName} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 11, color: 'var(--t4)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Display Name</label>
+                <input
+                  autoFocus
+                  placeholder="Kitchen Node 1"
+                  required
+                  value={newDeviceName}
+                  onChange={(e) => setNewDeviceName(e.target.value)}
+                  style={{ width: '100%', background: 'var(--input-bg)', border: '1px solid var(--card-border)', borderRadius: 8, padding: '10px 12px', color: 'var(--t1)', fontSize: 14, outline: 'none' }}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 12, marginTop: 10 }}>
+                <button type="button" onClick={() => setShowRenameModal(false)} style={{ flex: 1, background: 'transparent', border: '1px solid var(--card-border)', color: 'var(--t3)', borderRadius: 8, padding: '10px', fontSize: 14, cursor: 'pointer' }}>Cancel</button>
+                <button type="submit" disabled={isSaving} style={{ flex: 1, background: 'linear-gradient(135deg, #0e7490, #0284c7)', border: 'none', color: '#fff', borderRadius: 8, padding: '10px', fontSize: 14, fontWeight: 600, cursor: 'pointer', opacity: isSaving ? 0.7 : 1 }}>
+                  {isSaving ? 'Updating...' : 'Save Name'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

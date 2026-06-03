@@ -36,6 +36,7 @@ async function main() {
       const gw = await prisma.device.create({
         data: {
           macAddress: `${ru}-GW-0${i}`,
+          name: `${ru} Gateway ${i}`,
           deviceType: 'GATEWAY',
           ruId: ru,
           isDummy: true,
@@ -55,6 +56,7 @@ async function main() {
       const ch = await prisma.device.create({
         data: {
           macAddress: `${ru}-CH-0${i < 10 ? '0' + i : i}`,
+          name: `${ru} Cluster Head ${i}`,
           deviceType: 'CLUSTER',
           ruId: ru,
           parentId: parentGw.id,
@@ -82,6 +84,7 @@ async function main() {
       await prisma.device.create({
         data: {
           macAddress: `${ru}-SNS-0${i < 10 ? '0' + i : i}`,
+          name: `${ru} Sensor ${i}`,
           deviceType: 'SENSOR',
           ruId: ru,
           parentId: parentCh.id,

@@ -1,7 +1,7 @@
 import { GraphQLClient } from 'graphql-request';
 
 const endpoint =
-  process.env.NEXT_PUBLIC_GRAPHQL_URL ?? 'http://127.0.0.1:3001/graphql';
+  process.env.NEXT_PUBLIC_GRAPHQL_URL ?? 'http://127.0.0.1:4000/graphql';
 
 export const graphqlClient = new GraphQLClient(endpoint);
 
@@ -29,6 +29,7 @@ export interface NetworkMetrics {
 
 export interface Device {
   id: string;
+  macAddress: string;
   name: string;
   ruId: string;
   parentMac?: string | null;
@@ -45,6 +46,7 @@ const DEVICES_QUERY = /* GraphQL */ `
   query Devices($ruId: String!) {
     devices(ruId: $ruId) {
       id
+      macAddress
       name
       ruId
       type
@@ -64,6 +66,15 @@ const UPDATE_DEVICE_LOCATION_MUTATION = /* GraphQL */ `
     updateDeviceLocation(deviceId: $deviceId, location: $location) {
       id
       location { lat lng }
+    }
+  }
+`;
+
+const UPDATE_DEVICE_NAME_MUTATION = /* GraphQL */ `
+  mutation UpdateDeviceName($deviceId: String!, $name: String!) {
+    updateDeviceName(deviceId: $deviceId, name: $name) {
+      id
+      name
     }
   }
 `;
@@ -278,9 +289,34 @@ const DELETE_USER_MUTATION = /* GraphQL */ `
   }
 `;
 
+const RU_SITES_QUERY = /* GraphQL */ `
+  query GetRUSites {
+    ruSites {
+      id
+    }
+  }
+`;
+
+export interface RuSite {
+  id: string;
+}
+
+export async function fetchRuSites(): Promise<RuSite[]> {
+  const data = await graphqlClient.request<{ ruSites: RuSite[] }>(RU_SITES_QUERY);
+  return data.ruSites;
+}
+
 export async function fetchUsers(): Promise<User[]> {
   const data = await graphqlClient.request<{ users: User[] }>(USERS_QUERY);
   return data.users;
+}
+
+export interface CreateUserInput {
+  email: string;
+  name?: string;
+  password: string;
+  ruId: string;
+  role: string;
 }
 
 export async function login(email: string, password: string): Promise<LoginResult> {
@@ -288,7 +324,7 @@ export async function login(email: string, password: string): Promise<LoginResul
   return data.login;
 }
 
-export async function createUser(input: any, creatorId: string): Promise<User> {
+export async function createUser(input: CreateUserInput, creatorId: string): Promise<User> {
   const data = await graphqlClient.request<{ createUser: User }>(CREATE_USER_MUTATION, { input, creatorId });
   return data.createUser;
 }
@@ -369,4 +405,14 @@ export async function updateDeviceLocation(
     updateDeviceLocation: { id: string; location: DeviceLocation } | null;
   }>(UPDATE_DEVICE_LOCATION_MUTATION, { deviceId, location });
   return data.updateDeviceLocation;
+}
+
+export async function updateDeviceName(
+  deviceId: string,
+  name: string
+): Promise<{ id: string; name: string } | null> {
+  const data = await graphqlClient.request<{
+    updateDeviceName: { id: string; name: string } | null;
+  }>(UPDATE_DEVICE_NAME_MUTATION, { deviceId, name });
+  return data.updateDeviceName;
 }
