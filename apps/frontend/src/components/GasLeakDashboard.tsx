@@ -201,7 +201,6 @@ export default function GasLeakDashboard() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
@@ -250,14 +249,14 @@ export default function GasLeakDashboard() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault(); setIsLoggingIn(true); setLoginError('');
     try {
-      const res = await login(loginEmail, loginPassword);
+      const res = await login(loginEmail);
       if (res.user) { setCurrentUser(res.user); localStorage.setItem('gld_user', JSON.stringify(res.user)); }
-      else { setLoginError(res.error || 'Invalid credentials'); }
+      else { setLoginError(res.error || 'No account found for that email'); }
     } catch (err) { setLoginError('Server connection failed'); }
     finally { setIsLoggingIn(false); }
   };
 
-  const handleLogout = () => { setCurrentUser(null); localStorage.removeItem('gld_user'); setLoginEmail(''); setLoginPassword(''); };
+  const handleLogout = () => { setCurrentUser(null); localStorage.removeItem('gld_user'); setLoginEmail(''); };
 
   const loadDevices = useCallback(async (ruId: string) => {
     setDevicesLoading(true);
@@ -380,10 +379,6 @@ export default function GasLeakDashboard() {
             <div>
               <label style={{ display: 'block', fontSize: 11, color: '#64748b', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600 }}>Email Address</label>
               <input type="email" placeholder="admin@gld.com" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} required style={{ width: '100%', background: 'var(--input-bg)', border: '1px solid var(--card-border)', borderRadius: 10, padding: '10px 14px', color: 'var(--t1)', fontSize: 13, outline: 'none' }} />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: 11, color: '#64748b', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600 }}>Password</label>
-              <input type="password" placeholder="••••••••" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} required style={{ width: '100%', background: 'var(--input-bg)', border: '1px solid var(--card-border)', borderRadius: 10, padding: '10px 14px', color: 'var(--t1)', fontSize: 13, outline: 'none' }} />
             </div>
             <button type="submit" disabled={isLoggingIn} style={{ width: '100%', padding: '12px', borderRadius: 10, background: 'linear-gradient(135deg, #0e7490, #0284c7)', color: '#fff', fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer', marginTop: 8, boxShadow: '0 8px 12px -3px rgba(14, 116, 144, 0.3)', opacity: isLoggingIn ? 0.7 : 1 }}>
               {isLoggingIn ? 'AUTHENTICATING...' : 'ACCESS CONTROL PANEL'}

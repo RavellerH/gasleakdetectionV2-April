@@ -19,9 +19,8 @@ export class UserResolver {
   @Query(() => LoginResult)
   async login(
     @Args('email', { type: () => String }) email: string,
-    @Args('password', { type: () => String }) password: string
   ): Promise<LoginResult> {
-    return this.deviceService.login(email, password);
+    return this.deviceService.login(email);
   }
 
   @Mutation(() => User)

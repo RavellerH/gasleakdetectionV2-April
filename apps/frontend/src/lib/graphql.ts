@@ -264,8 +264,8 @@ const USERS_QUERY = /* GraphQL */ `
 `;
 
 const LOGIN_QUERY = /* GraphQL */ `
-  query Login($email: String!, $password: String!) {
-    login(email: $email, password: $password) {
+  query Login($email: String!) {
+    login(email: $email) {
       user { id email name ruId role }
       error
     }
@@ -319,8 +319,8 @@ export interface CreateUserInput {
   role: string;
 }
 
-export async function login(email: string, password: string): Promise<LoginResult> {
-  const data = await graphqlClient.request<{ login: LoginResult }>(LOGIN_QUERY, { email, password });
+export async function login(email: string): Promise<LoginResult> {
+  const data = await graphqlClient.request<{ login: LoginResult }>(LOGIN_QUERY, { email });
   return data.login;
 }
 

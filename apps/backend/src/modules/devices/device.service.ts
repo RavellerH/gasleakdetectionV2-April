@@ -88,14 +88,10 @@ export class DeviceService {
     return true;
   }
 
-  async login(email: string, password: string): Promise<LoginResult> {
-    const rateLimitKey = `login:${email}`;
-    if (!this.checkRateLimit(rateLimitKey)) {
-      throw new HttpException('Too many login attempts. Please try again later.', HttpStatus.TOO_MANY_REQUESTS);
-    }
+  // DEV MODE: password check disabled
+  async login(email: string): Promise<LoginResult> {
     const user = await this.prisma.user.findUnique({ where: { email } });
-    if (!user) return { error: 'Invalid email or password' };
-    if (user.password !== password) return { error: 'Invalid email or password' };
+    if (!user) return { error: 'No account found for that email' };
     return { user: { ...user, name: user.name || undefined } };
   }
 
