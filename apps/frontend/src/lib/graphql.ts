@@ -202,37 +202,62 @@ export interface SiteRanking {
   avgResponseTime: number;
 }
 
+export interface TrendPoint { label: string; avgPpm: number; breachCount: number; }
+
+export interface RuComparisonEntry {
+  ruId: string; avgPpm: number; maxPpm: number; breachCount: number;
+  totalDevices: number; onlineDevices: number; avgHealth: number;
+}
+
+export interface HeatmapCell { hour: number; ruId: string; avgPpm: number; }
+
+export interface TopSensorEntry {
+  deviceId: string; deviceName: string; ruId: string;
+  avgPpm: number; maxPpm: number; breachCount: number;
+}
+
+export interface FleetBatteryBucket { range: string; count: number; }
+export interface FleetNetworkBucket { grade: string; count: number; }
+export interface FleetHealthStats {
+  online: number; offline: number; total: number;
+  batteryDist: FleetBatteryBucket[];
+  networkDist: FleetNetworkBucket[];
+}
+
 export interface AnalyticsStats {
   weeklyTrends: WeeklyTrendEntry[];
   incidentsHeatmap: HeatmapEntry[];
   siteRankings: SiteRanking[];
+  trendData: TrendPoint[];
+  ruComparison: RuComparisonEntry[];
+  heatmap: HeatmapCell[];
+  topSensors: TopSensorEntry[];
+  fleetHealth: FleetHealthStats;
 }
 
 const ANALYTICS_QUERY = /* GraphQL */ `
-  query GetAnalytics {
-    getAnalytics {
-      weeklyTrends {
-        day
-        avgPpm
-        alertCount
-      }
-      incidentsHeatmap {
-        day
-        hour
-        value
-      }
-      siteRankings {
-        ru
-        uptime
-        incidents
-        avgResponseTime
+  query GetAnalytics($ruId: String, $hours: Int) {
+    getAnalytics(ruId: $ruId, hours: $hours) {
+      weeklyTrends { day avgPpm alertCount }
+      siteRankings { ru uptime incidents avgResponseTime }
+      trendData { label avgPpm breachCount }
+      ruComparison { ruId avgPpm maxPpm breachCount totalDevices onlineDevices avgHealth }
+      heatmap { hour ruId avgPpm }
+      topSensors { deviceId deviceName ruId avgPpm maxPpm breachCount }
+      fleetHealth {
+        online offline total
+        batteryDist { range count }
+        networkDist { grade count }
       }
     }
   }
 `;
 
-export async function fetchAnalytics(): Promise<AnalyticsStats> {
-  const data = await graphqlClient.request<{ getAnalytics: AnalyticsStats }>(ANALYTICS_QUERY);
+export async function fetchAnalytics(params?: { ruId?: string; hours?: number }): Promise<AnalyticsStats> {
+  const data = await graphqlClient.request<{ getAnalytics: AnalyticsStats }>(ANALYTICS_QUERY, {
+    ruId: params?.ruId,
+    hours: params?.hours,
+  });
   return data.getAnalytics;
 }
 
@@ -415,4 +440,101 @@ export async function updateDeviceName(
     updateDeviceName: { id: string; name: string } | null;
   }>(UPDATE_DEVICE_NAME_MUTATION, { deviceId, name });
   return data.updateDeviceName;
+}
+
+// ── EVENT LOG ──────────────────────────────────────────────────
+
+export interface EventLog {
+  id: string;
+  type: string;
+  severity: string;
+  deviceId?: string | null;
+  ruId?: string | null;
+  operatorId?: string | null;
+  operatorEmail?: string | null;
+  message: string;
+  details?: string | null;
+  acknowledged: boolean;
+  acknowledgedBy?: string | null;
+  acknowledgedAt?: string | null;
+  ackNote?: string | null;
+  timestamp: string;
+}
+
+const EVENT_LOG_FIELDS = `
+  id type severity deviceId ruId operatorId operatorEmail
+  message details acknowledged acknowledgedBy acknowledgedAt ackNote timestamp
+`;
+
+const EVENT_LOGS_QUERY = /* GraphQL */ `
+  query EventLogs($ruId: String, $limit: Int) {
+    eventLogs(ruId: $ruId, limit: $limit) { ${EVENT_LOG_FIELDS} }
+  }
+`;
+
+const CREATE_EVENT_LOG_MUTATION = /* GraphQL */ `
+  mutation CreateEventLog($input: CreateEventLogInput!) {
+    createEventLog(input: $input) { ${EVENT_LOG_FIELDS} }
+  }
+`;
+
+const ACKNOWLEDGE_EVENT_MUTATION = /* GraphQL */ `
+  mutation AcknowledgeEvent($id: String!, $note: String!, $operatorId: String!, $operatorEmail: String!) {
+    acknowledgeEvent(id: $id, note: $note, operatorId: $operatorId, operatorEmail: $operatorEmail) { ${EVENT_LOG_FIELDS} }
+  }
+`;
+
+export async function fetchEventLogs(filter?: { ruId?: string; limit?: number }): Promise<EventLog[]> {
+  const data = await graphqlClient.request<{ eventLogs: EventLog[] }>(EVENT_LOGS_QUERY, {
+    ruId: filter?.ruId,
+    limit: filter?.limit,
+  });
+  return data.eventLogs;
+}
+
+export async function createEventLog(input: {
+  type: string; severity?: string; deviceId?: string; ruId?: string;
+  operatorId?: string; operatorEmail?: string; message: string; details?: string;
+}): Promise<EventLog> {
+  const data = await graphqlClient.request<{ createEventLog: EventLog }>(CREATE_EVENT_LOG_MUTATION, { input });
+  return data.createEventLog;
+}
+
+export async function acknowledgeEvent(
+  id: string, note: string, operatorId: string, operatorEmail: string
+): Promise<EventLog> {
+  const data = await graphqlClient.request<{ acknowledgeEvent: EventLog }>(ACKNOWLEDGE_EVENT_MUTATION, {
+    id, note, operatorId, operatorEmail,
+  });
+  return data.acknowledgeEvent;
+}
+
+// ── SENSOR TIMELINE ────────────────────────────────────────────
+
+export interface SensorDataPoint {
+  hour: string;
+  ppm: number;
+}
+
+export interface SensorTimeline {
+  deviceId: string;
+  deviceName: string;
+  ruId: string;
+  data: SensorDataPoint[];
+}
+
+const SENSOR_TIMELINE_QUERY = /* GraphQL */ `
+  query SensorTimeline($ruId: String!) {
+    sensorTimeline(ruId: $ruId) {
+      deviceId deviceName ruId
+      data { hour ppm }
+    }
+  }
+`;
+
+export async function fetchSensorTimeline(ruId: string): Promise<SensorTimeline[]> {
+  const data = await graphqlClient.request<{ sensorTimeline: SensorTimeline[] }>(
+    SENSOR_TIMELINE_QUERY, { ruId }
+  );
+  return data.sensorTimeline;
 }

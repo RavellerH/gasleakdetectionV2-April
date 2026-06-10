@@ -1,5 +1,5 @@
 import { Args, Mutation, Query, Resolver, Float } from '@nestjs/graphql';
-import { CoordinatesInput, CreateDeviceInput, Device, GasReading, DashboardStats, SystemSettings, UpdateSettingsInput, User, CreateUserInput, LoginResult, RuSite } from './device.model';
+import { CoordinatesInput, CreateDeviceInput, Device, GasReading, DashboardStats, SystemSettings, UpdateSettingsInput, User, CreateUserInput, LoginResult, RuSite, SensorTimeline } from './device.model';
 import { DeviceService } from './device.service';
 
 @Resolver(() => Device)
@@ -61,6 +61,13 @@ export class DeviceResolver {
     @Args('name', { type: () => String }) name: string
   ): Promise<Device | null> {
     return this.deviceService.updateName(deviceId, name);
+  }
+
+  @Query(() => [SensorTimeline])
+  async sensorTimeline(
+    @Args('ruId', { type: () => String }) ruId: string,
+  ): Promise<SensorTimeline[]> {
+    return this.deviceService.getSensorTimeline(ruId);
   }
 }
 

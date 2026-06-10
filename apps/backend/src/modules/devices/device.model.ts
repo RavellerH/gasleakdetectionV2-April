@@ -207,15 +207,72 @@ export class SiteRanking {
 }
 
 @ObjectType()
+export class TrendPoint {
+  @Field() label!: string;
+  @Field(() => Float) avgPpm!: number;
+  @Field(() => Int) breachCount!: number;
+}
+
+@ObjectType()
+export class RuComparisonEntry {
+  @Field() ruId!: string;
+  @Field(() => Float) avgPpm!: number;
+  @Field(() => Float) maxPpm!: number;
+  @Field(() => Int) breachCount!: number;
+  @Field(() => Int) totalDevices!: number;
+  @Field(() => Int) onlineDevices!: number;
+  @Field(() => Int) avgHealth!: number;
+}
+
+@ObjectType()
+export class HeatmapCell {
+  @Field(() => Int) hour!: number;
+  @Field() ruId!: string;
+  @Field(() => Float) avgPpm!: number;
+}
+
+@ObjectType()
+export class TopSensorEntry {
+  @Field() deviceId!: string;
+  @Field() deviceName!: string;
+  @Field() ruId!: string;
+  @Field(() => Float) avgPpm!: number;
+  @Field(() => Float) maxPpm!: number;
+  @Field(() => Int) breachCount!: number;
+}
+
+@ObjectType()
+export class FleetBatteryBucket {
+  @Field() range!: string;
+  @Field(() => Int) count!: number;
+}
+
+@ObjectType()
+export class FleetNetworkBucket {
+  @Field() grade!: string;
+  @Field(() => Int) count!: number;
+}
+
+@ObjectType()
+export class FleetHealthStats {
+  @Field(() => Int) online!: number;
+  @Field(() => Int) offline!: number;
+  @Field(() => Int) total!: number;
+  @Field(() => [FleetBatteryBucket]) batteryDist!: FleetBatteryBucket[];
+  @Field(() => [FleetNetworkBucket]) networkDist!: FleetNetworkBucket[];
+}
+
+@ObjectType()
 export class AnalyticsStats {
-  @Field(() => [WeeklyTrendEntry])
-  weeklyTrends!: WeeklyTrendEntry[];
+  @Field(() => [WeeklyTrendEntry]) weeklyTrends!: WeeklyTrendEntry[];
+  @Field(() => [HeatmapEntry]) incidentsHeatmap!: HeatmapEntry[];
+  @Field(() => [SiteRanking]) siteRankings!: SiteRanking[];
 
-  @Field(() => [HeatmapEntry])
-  incidentsHeatmap!: HeatmapEntry[];
-
-  @Field(() => [SiteRanking])
-  siteRankings!: SiteRanking[];
+  @Field(() => [TrendPoint]) trendData!: TrendPoint[];
+  @Field(() => [RuComparisonEntry]) ruComparison!: RuComparisonEntry[];
+  @Field(() => [HeatmapCell]) heatmap!: HeatmapCell[];
+  @Field(() => [TopSensorEntry]) topSensors!: TopSensorEntry[];
+  @Field(() => FleetHealthStats) fleetHealth!: FleetHealthStats;
 }
 
 @ObjectType()
@@ -337,6 +394,116 @@ export class TimelineEntry {
 export class RuSite {
   @Field()
   id!: string;
+}
+
+@ObjectType()
+export class EventLog {
+  @Field(() => ID)
+  id!: string;
+
+  @Field()
+  type!: string;
+
+  @Field()
+  severity!: string;
+
+  @Field({ nullable: true })
+  deviceId?: string;
+
+  @Field({ nullable: true })
+  ruId?: string;
+
+  @Field({ nullable: true })
+  operatorId?: string;
+
+  @Field({ nullable: true })
+  operatorEmail?: string;
+
+  @Field()
+  message!: string;
+
+  @Field({ nullable: true })
+  details?: string;
+
+  @Field(() => Boolean)
+  acknowledged!: boolean;
+
+  @Field({ nullable: true })
+  acknowledgedBy?: string;
+
+  @Field({ nullable: true })
+  acknowledgedAt?: string;
+
+  @Field({ nullable: true })
+  ackNote?: string;
+
+  @Field(() => String)
+  timestamp!: Date;
+}
+
+@InputType()
+export class CreateEventLogInput {
+  @Field()
+  @IsString()
+  type!: string;
+
+  @Field({ nullable: true })
+  @IsString()
+  @IsOptional()
+  severity?: string;
+
+  @Field({ nullable: true })
+  @IsString()
+  @IsOptional()
+  deviceId?: string;
+
+  @Field({ nullable: true })
+  @IsString()
+  @IsOptional()
+  ruId?: string;
+
+  @Field({ nullable: true })
+  @IsString()
+  @IsOptional()
+  operatorId?: string;
+
+  @Field({ nullable: true })
+  @IsString()
+  @IsOptional()
+  operatorEmail?: string;
+
+  @Field()
+  @IsString()
+  message!: string;
+
+  @Field({ nullable: true })
+  @IsString()
+  @IsOptional()
+  details?: string;
+}
+
+@ObjectType()
+export class SensorDataPoint {
+  @Field()
+  hour!: string;
+
+  @Field(() => Float)
+  ppm!: number;
+}
+
+@ObjectType()
+export class SensorTimeline {
+  @Field()
+  deviceId!: string;
+
+  @Field()
+  deviceName!: string;
+
+  @Field()
+  ruId!: string;
+
+  @Field(() => [SensorDataPoint])
+  data!: SensorDataPoint[];
 }
 
 @ObjectType()

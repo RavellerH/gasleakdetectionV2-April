@@ -1,5 +1,5 @@
-import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
-import { User, CreateUserInput, LoginResult, AnalyticsStats } from './device.model';
+import { Args, Mutation, Query, Resolver, Int } from '@nestjs/graphql';
+import { User, CreateUserInput, LoginResult, AnalyticsStats, EventLog, CreateEventLogInput } from './device.model';
 import { DeviceService } from './device.service';
 
 @Resolver(() => User)
@@ -7,8 +7,11 @@ export class UserResolver {
   constructor(private readonly deviceService: DeviceService) {}
 
   @Query(() => AnalyticsStats)
-  async getAnalytics(): Promise<AnalyticsStats> {
-    return this.deviceService.getAnalytics();
+  async getAnalytics(
+    @Args('ruId', { type: () => String, nullable: true }) ruId?: string,
+    @Args('hours', { type: () => Int, nullable: true }) hours?: number,
+  ): Promise<AnalyticsStats> {
+    return this.deviceService.getAnalytics(ruId, hours ?? 24);
   }
 
   @Query(() => [User])
@@ -36,5 +39,30 @@ export class UserResolver {
     @Args('id', { type: () => String }) id: string
   ): Promise<boolean> {
     return this.deviceService.deleteUser(id);
+  }
+
+  @Query(() => [EventLog])
+  async eventLogs(
+    @Args('ruId', { type: () => String, nullable: true }) ruId?: string,
+    @Args('limit', { type: () => Int, nullable: true }) limit?: number,
+  ): Promise<EventLog[]> {
+    return this.deviceService.getEventLogs({ ruId, limit });
+  }
+
+  @Mutation(() => EventLog)
+  async createEventLog(
+    @Args('input', { type: () => CreateEventLogInput }) input: CreateEventLogInput,
+  ): Promise<EventLog> {
+    return this.deviceService.createEventLog(input);
+  }
+
+  @Mutation(() => EventLog)
+  async acknowledgeEvent(
+    @Args('id', { type: () => String }) id: string,
+    @Args('note', { type: () => String }) note: string,
+    @Args('operatorId', { type: () => String }) operatorId: string,
+    @Args('operatorEmail', { type: () => String }) operatorEmail: string,
+  ): Promise<EventLog> {
+    return this.deviceService.acknowledgeEvent(id, note, operatorId, operatorEmail);
   }
 }

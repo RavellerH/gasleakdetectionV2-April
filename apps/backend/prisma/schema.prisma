@@ -61,3 +61,23 @@ model SystemSettings {
   refreshInterval   Int     @default(10)
   updatedAt         DateTime @updatedAt
 }
+
+model EventLog {
+  id             String    @id @default(cuid())
+  type           String
+  severity       String    @default("INFO")
+  deviceId       String?
+  ruId           String?
+  operatorId     String?
+  operatorEmail  String?
+  message        String
+  details        String?
+  acknowledged   Boolean   @default(false)
+  acknowledgedBy String?
+  acknowledgedAt DateTime?
+  ackNote        String?
+  timestamp      DateTime  @default(now())
+
+  @@index([timestamp])
+  @@index([acknowledged])
+}
