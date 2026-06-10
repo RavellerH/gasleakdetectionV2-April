@@ -59,6 +59,10 @@ echo.
 echo  [3/4] Setting up database...
 cd apps\backend
 
+echo  Generating Prisma client...
+call npx prisma generate >nul 2>&1
+echo  [OK] Prisma client generated.
+
 call npx prisma migrate deploy >nul 2>&1
 if %errorlevel% neq 0 (
     echo  [INFO] Applying schema directly...
@@ -73,6 +77,13 @@ node prisma\seed.js
 echo  [OK] Demo data loaded.
 
 cd ..\..
+
+:: ── Clear stale Next.js build cache ────────────────────────────
+if exist "apps\frontend\.next" (
+    echo  Clearing frontend build cache...
+    rmdir /s /q "apps\frontend\.next" >nul 2>&1
+    echo  [OK] Build cache cleared.
+)
 
 :: ── Check port 4000 ────────────────────────────────────────────
 echo.
