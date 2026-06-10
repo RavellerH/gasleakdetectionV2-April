@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   AreaChart, Area, BarChart, Bar, LineChart, Line, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend, ReferenceLine,
@@ -175,6 +175,8 @@ export default function GasLeakDashboard() {
   const [localAlerts, setLocalAlerts] = useState<Alert[]>([]);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [sensorTimeline, setSensorTimeline] = useState<SensorTimeline[]>([]);
+  const [backendReady, setBackendReady] = useState(false);
+  const backendReadyRef = useRef(false);
 
   /* ui state */
   const [searchTerm, setSearchTerm] = useState('');
@@ -203,7 +205,11 @@ export default function GasLeakDashboard() {
       setStats(s); setSysSettings(settings); setUsers(uList);
       if (s.recentAlerts) setLocalAlerts(s.recentAlerts);
       setLastUpdated(new Date());
-    } catch (err) { console.error('[Dashboard] fetch error:', err); }
+      if (!backendReadyRef.current) { backendReadyRef.current = true; setBackendReady(true); }
+    } catch (err) {
+      console.error('[Dashboard] fetch error:', err);
+      if (backendReadyRef.current) { backendReadyRef.current = false; setBackendReady(false); }
+    }
   }, []);
 
   const loadDevices = useCallback(async (ruId: string) => {
@@ -250,9 +256,23 @@ export default function GasLeakDashboard() {
     } catch { /* non-critical */ }
   }, []);
 
-  useEffect(() => { if (currentUser) { loadDashboardData(); const id = setInterval(loadDashboardData, 10000); return () => clearInterval(id); } }, [loadDashboardData, currentUser]);
-  useEffect(() => { if (currentUser) loadDevices(activeRU); }, [activeRU, loadDevices, currentUser]);
-  useEffect(() => { if (currentUser) loadSensorTimeline(activeRU); }, [activeRU, loadSensorTimeline, currentUser]);
+  /* fast probe: retry every 2s until backend responds */
+  useEffect(() => {
+    if (!currentUser || backendReady) return;
+    loadDashboardData();
+    const id = setInterval(loadDashboardData, 2000);
+    return () => clearInterval(id);
+  }, [currentUser, backendReady, loadDashboardData]);
+
+  /* normal polling: every 10s once backend is up */
+  useEffect(() => {
+    if (!currentUser || !backendReady) return;
+    const id = setInterval(loadDashboardData, 10000);
+    return () => clearInterval(id);
+  }, [currentUser, backendReady, loadDashboardData]);
+
+  useEffect(() => { if (currentUser && backendReady) loadDevices(activeRU); }, [activeRU, loadDevices, currentUser, backendReady]);
+  useEffect(() => { if (currentUser && backendReady) loadSensorTimeline(activeRU); }, [activeRU, loadSensorTimeline, currentUser, backendReady]);
 
   /* handlers */
   const handleLogin = async (e: React.FormEvent) => {
@@ -408,6 +428,14 @@ export default function GasLeakDashboard() {
 
       {/* Syner ambient glow */}
       <div style={{ position: 'fixed', top: -150, right: -150, width: 600, height: 600, borderRadius: '50%', background: 'radial-gradient(circle,rgba(56,189,248,0.08) 0%,transparent 65%)', pointerEvents: 'none', zIndex: 0 }} />
+
+      {/* Backend connecting banner */}
+      {!backendReady && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 999, background: 'linear-gradient(90deg,#0c2447,#0284c7)', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center', fontSize: 13, color: '#bae6fd', boxShadow: '0 2px 12px rgba(0,0,0,0.4)' }}>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#38bdf8', animation: 'pulse 1.2s ease-in-out infinite', flexShrink: 0 }} />
+          Connecting to server — please wait while the backend starts up...
+        </div>
+      )}
 
       {/* ── SIDEBAR ── */}
       <aside style={{ width: S.sidebar.width, background: S.sidebar.bg, borderRight: S.sidebar.border, display: 'flex', flexDirection: 'column', transition: 'width 0.3s ease', zIndex: 50, flexShrink: 0, position: 'relative' }}>
