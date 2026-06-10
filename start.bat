@@ -63,11 +63,10 @@ echo  Generating Prisma client...
 call npx prisma generate >nul 2>&1
 echo  [OK] Prisma client generated.
 
-call npx prisma migrate deploy >nul 2>&1
-if %errorlevel% neq 0 (
-    echo  [INFO] Applying schema directly...
-    call npx prisma db push --accept-data-loss >nul 2>&1
-)
+echo  Resetting database to current schema...
+if exist "prisma\dev.db" del /f /q "prisma\dev.db" >nul 2>&1
+if exist "prisma\dev.db-journal" del /f /q "prisma\dev.db-journal" >nul 2>&1
+call npx prisma db push --skip-generate >nul 2>&1
 echo  [OK] Database schema ready.
 
 :: ── Step 4: Seed demo data ─────────────────────────────────────
