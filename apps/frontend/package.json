@@ -1,6 +1,6 @@
 {
   "name": "@gas-leak/frontend",
-  "version": "1.0.0",
+  "version": "0.15.0",
   "private": true,
   "description": "Gas Leak Detector frontend (Next.js + Shadcn/UI + Mapbox)",
   "scripts": {

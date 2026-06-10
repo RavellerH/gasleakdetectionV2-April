@@ -1,38 +1,83 @@
-## Gas Leak Detector Monitoring Platform
+# Gas Leak Detection System — v0.15
 
-This repository contains a **multi-RU gas leak detector monitoring platform** based on `Gas-Leak-Design-v2.1.md`.
+Multi-RU gas leak monitoring platform for Pertamina refineries (RU2–RU7).  
+Real-time sensor dashboard · Interactive map · Network topology · Event log · Analytics
 
-The app is structured as a small monorepo:
+---
 
-- `apps/backend`: Nest-style GraphQL API with Prisma data model for devices, users, and health metrics
-- `apps/frontend`: Next.js app with RU-aware dashboards, maps, and device management UI
+## Quick Start (Windows)
 
-### Tech Stack (Planned)
+### Requirements
+- **Node.js LTS** — download from [https://nodejs.org](https://nodejs.org) (click the LTS button, run the installer, keep all defaults)
+- That's it. No database, no Docker, no other installs needed.
 
-- **Backend**: Node.js, Nest-style modules, GraphQL (code-first), Prisma ORM (Timescale/PostgreSQL)
-- **Frontend**: Next.js (App Router), Shadcn/UI, Mapbox GL JS
-- **Infra**: Docker Compose for local dev (backend, frontend, db, redis)
+### Run the app
 
-### Development
+1. Download / clone this repository
+2. **Double-click `start.bat`**
+3. Wait for the setup to finish (first run: ~2 minutes)
+4. Open your browser at **http://localhost:3000**
 
-Install dependencies from the repo root:
-
-```bash
-npm install
+```
+Login:    admin@gld.com
+Password: admin
 ```
 
-Then run backend and frontend together:
+> `start.bat` handles everything automatically:  
+> installs packages → creates config → sets up database → loads demo data → starts servers
 
-```bash
-npm run dev
+---
+
+## What's inside
+
+| Area | Stack |
+|------|-------|
+| Backend API | Node.js · NestJS · GraphQL · Prisma ORM |
+| Database | SQLite (file-based, no install needed) |
+| Frontend | Next.js 15 · Mapbox GL JS · Recharts |
+| Map | Mapbox (50,000 free map loads/month) |
+
+### Refinery Units covered
+| Unit | Location |
+|------|----------|
+| RU2 | Dumai, Riau |
+| RU3 | Plaju, Palembang |
+| RU4 | Cilacap, Central Java |
+| RU5 | Balikpapan, East Kalimantan |
+| RU6 | Balongan, Indramayu |
+| RU7 | Kasim, Sorong Regency |
+
+---
+
+## Stopping the app
+
+Press **Ctrl+C** in the terminal window that opened, or simply close it.
+
+## Restarting after the first setup
+
+Double-click `start.bat` again — it skips the first-time setup steps and goes straight to launching.
+
+---
+
+## Monorepo structure
+
+```
+apps/
+  backend/   NestJS GraphQL API  (port 4000)
+  frontend/  Next.js dashboard   (port 3000)
 ```
 
-Or individually:
+## Manual dev commands (optional)
 
 ```bash
-npm run dev:backend
-npm run dev:frontend
+npm install          # install all dependencies
+npm run dev          # start both servers together
+npm run dev:backend  # backend only
+npm run dev:frontend # frontend only
 ```
 
-> NOTE: The codebase is scaffolded to follow the architecture in `Gas-Leak-Design-v2.1.md`. Many advanced features (MQTT, Kafka, thermal camera, full RBAC, etc.) are left as future work.
-
+To reset demo data:
+```bash
+cd apps/backend
+node prisma/seed.js
+```
