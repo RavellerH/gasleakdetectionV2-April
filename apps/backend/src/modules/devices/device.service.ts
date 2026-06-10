@@ -1,5 +1,5 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
-import { Device, DeviceLocation, BatteryMetrics, NetworkMetrics, CreateDeviceInput, GasReading, DashboardStats, RuStats, TimelineEntry, Alert, BatteryDistEntry, NetworkQualityEntry, SystemSettings, UpdateSettingsInput, User, CreateUserInput, LoginResult, AnalyticsStats, WeeklyTrendEntry, HeatmapEntry, SiteRanking } from './device.model';
+import { Device, DeviceLocation, BatteryMetrics, NetworkMetrics, CreateDeviceInput, GasReading, DashboardStats, RuStats, TimelineEntry, Alert, BatteryDistEntry, NetworkQualityEntry, SystemSettings, UpdateSettingsInput, User, CreateUserInput, LoginResult, AnalyticsStats, WeeklyTrendEntry, HeatmapEntry, SiteRanking, EventLog, CreateEventLogInput, SensorTimeline, TrendPoint, RuComparisonEntry, HeatmapCell, TopSensorEntry, FleetBatteryBucket, FleetNetworkBucket, FleetHealthStats } from './device.model';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -26,47 +26,181 @@ export class DeviceService {
 
   // --- ANALYTICS ---
 
-  async getAnalytics(): Promise<AnalyticsStats> {
+  async getAnalytics(ruId?: string, hours: number = 24): Promise<AnalyticsStats> {
     const settings = await this.getSettings();
+    const { warningThreshold: warning } = settings;
+
+    const now = Date.now();
+    const cutoff = new Date(now - hours * 3600000);
+    const cutoff7d = new Date(now - 7 * 24 * 3600000);
+
+    // Fetch all devices and all 7-day readings in one query each
     const allDevices = await this.prisma.device.findMany();
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-    const readings = await this.prisma.gasReading.findMany({
-      where: { timestamp: { gte: sevenDaysAgo } }
+    const allReadings7d = await this.prisma.gasReading.findMany({
+      where: { timestamp: { gte: cutoff7d } },
+      orderBy: { timestamp: 'asc' },
     });
 
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    
-    const weeklyTrends: WeeklyTrendEntry[] = days.map((day, idx) => {
-      const dayReadings = readings.filter(r => new Date(r.timestamp).getDay() === idx);
-      return {
-        day,
-        avgPpm: dayReadings.length > 0 ? dayReadings.reduce((s, r) => s + r.ppm, 0) / dayReadings.length : 0,
-        alertCount: dayReadings.filter(r => r.ppm >= settings.warningThreshold).length
-      };
-    });
+    // Scoped to the selected RU (for trend, topSensors, fleetHealth)
+    const scopedDevices = ruId && ruId !== 'ALL'
+      ? allDevices.filter(d => d.ruId === ruId)
+      : allDevices;
+    const scopedIds = new Set(scopedDevices.map(d => d.id));
+    const scopedReadings7d = allReadings7d.filter(r => scopedIds.has(r.deviceId));
+    const scopedReadings = scopedReadings7d.filter(r => new Date(r.timestamp).getTime() >= cutoff.getTime());
 
-    const incidentsHeatmap: HeatmapEntry[] = [];
-    days.forEach(day => {
-      for (let h = 0; h < 24; h += 2) {
-        incidentsHeatmap.push({ day, hour: h, value: Math.floor(Math.random() * 5) });
+    // ── Trend data (scoped, hourly or daily) ─────────────────────────────
+    const trendData: TrendPoint[] = [];
+    if (hours <= 24) {
+      for (let h = hours - 1; h >= 0; h--) {
+        const bStart = new Date(now - (h + 1) * 3600000);
+        const bEnd = new Date(now - h * 3600000);
+        const bucket = scopedReadings.filter(r => {
+          const t = new Date(r.timestamp).getTime();
+          return t >= bStart.getTime() && t < bEnd.getTime();
+        });
+        const label = `${String(bEnd.getHours()).padStart(2, '0')}:00`;
+        trendData.push({
+          label,
+          avgPpm: bucket.length > 0 ? Math.round(bucket.reduce((s, r) => s + r.ppm, 0) / bucket.length * 10) / 10 : 0,
+          breachCount: bucket.filter(r => r.ppm >= warning).length,
+        });
       }
-    });
+    } else {
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      for (let d = 6; d >= 0; d--) {
+        const bStart = new Date(now - (d + 1) * 24 * 3600000);
+        const bEnd = new Date(now - d * 24 * 3600000);
+        const bucket = scopedReadings7d.filter(r => {
+          const t = new Date(r.timestamp).getTime();
+          return t >= bStart.getTime() && t < bEnd.getTime();
+        });
+        trendData.push({
+          label: dayNames[bEnd.getDay()],
+          avgPpm: bucket.length > 0 ? Math.round(bucket.reduce((s, r) => s + r.ppm, 0) / bucket.length * 10) / 10 : 0,
+          breachCount: bucket.filter(r => r.ppm >= warning).length,
+        });
+      }
+    }
 
-    const ruIds = Array.from(new Set(allDevices.map(d => d.ruId))).sort();
-    const siteRankings: SiteRanking[] = ruIds.map(ru => {
-      const ruDevices = allDevices.filter(d => d.ruId === ru);
-      const ruReadings = readings.filter(r => ruDevices.some(d => d.id === r.deviceId));
+    // ── RU Comparison (always all RUs, 7d window) ─────────────────────────
+    const ruIds = Array.from<string>(new Set(allDevices.map(d => d.ruId))).sort();
+    const twoHoursAgo = new Date(now - 2 * 3600000);
+
+    const ruComparison: RuComparisonEntry[] = ruIds.map(ru => {
+      const ruDevs = allDevices.filter(d => d.ruId === ru);
+      const ruIds7d = new Set(ruDevs.map(d => d.id));
+      const ruR = allReadings7d.filter(r => ruIds7d.has(r.deviceId));
+      const ruRScoped = ruR.filter(r => new Date(r.timestamp).getTime() >= cutoff.getTime());
+      const avgPpm = ruRScoped.length > 0 ? ruRScoped.reduce((s, r) => s + r.ppm, 0) / ruRScoped.length : 0;
+      const maxPpm = ruRScoped.length > 0 ? Math.max(...ruRScoped.map(r => r.ppm)) : 0;
+
+      const socValues = ruDevs.map(d => {
+        try { return (JSON.parse(d.batteryStats as string) as any).soc ?? 0; } catch { return 0; }
+      });
+      const avgHealth = socValues.length > 0 ? Math.round(socValues.reduce((s, v) => s + v, 0) / socValues.length) : 0;
+
+      const recentDeviceIds = new Set(allReadings7d
+        .filter(r => ruIds7d.has(r.deviceId) && new Date(r.timestamp).getTime() >= twoHoursAgo.getTime())
+        .map(r => r.deviceId));
+
       return {
-        ru,
-        uptime: 95 + Math.random() * 4.5,
-        incidents: ruReadings.filter(r => r.ppm >= settings.warningThreshold).length,
-        avgResponseTime: 2 + Math.random() * 8
+        ruId: ru,
+        avgPpm: Math.round(avgPpm * 10) / 10,
+        maxPpm: Math.round(maxPpm * 10) / 10,
+        breachCount: ruRScoped.filter(r => r.ppm >= warning).length,
+        totalDevices: ruDevs.length,
+        onlineDevices: recentDeviceIds.size,
+        avgHealth,
       };
     });
 
-    return { weeklyTrends, incidentsHeatmap, siteRankings };
+    // ── Heatmap: hour-of-day × RU, avg PPM over 7 days ───────────────────
+    const heatmap: HeatmapCell[] = [];
+    for (const ru of ruIds) {
+      const ruDevs = allDevices.filter(d => d.ruId === ru);
+      const ruDevIds = new Set(ruDevs.map(d => d.id));
+      const ruR = allReadings7d.filter(r => ruDevIds.has(r.deviceId));
+      for (let h = 0; h < 24; h++) {
+        const hourReadings = ruR.filter(r => new Date(r.timestamp).getHours() === h);
+        heatmap.push({
+          hour: h,
+          ruId: ru,
+          avgPpm: hourReadings.length > 0
+            ? Math.round(hourReadings.reduce((s, r) => s + r.ppm, 0) / hourReadings.length * 10) / 10
+            : 0,
+        });
+      }
+    }
+
+    // ── Top risky sensors (scoped, selected time window) ──────────────────
+    const sensorDevices = scopedDevices.filter(d => d.deviceType === 'SENSOR');
+    const topSensors: TopSensorEntry[] = sensorDevices.map(sensor => {
+      const sr = scopedReadings.filter(r => r.deviceId === sensor.id);
+      const avgPpm = sr.length > 0 ? sr.reduce((s, r) => s + r.ppm, 0) / sr.length : 0;
+      const maxPpm = sr.length > 0 ? Math.max(...sr.map(r => r.ppm)) : 0;
+      return {
+        deviceId: sensor.id,
+        deviceName: sensor.name,
+        ruId: sensor.ruId,
+        avgPpm: Math.round(avgPpm * 10) / 10,
+        maxPpm: Math.round(maxPpm * 10) / 10,
+        breachCount: sr.filter(r => r.ppm >= warning).length,
+      };
+    }).sort((a, b) => b.avgPpm - a.avgPpm).slice(0, 15);
+
+    // ── Fleet health (scoped) ─────────────────────────────────────────────
+    const BATTERY_BUCKETS = [
+      { range: '75–100%', min: 75, max: 101 },
+      { range: '50–74%', min: 50, max: 75 },
+      { range: '25–49%', min: 25, max: 50 },
+      { range: '0–24%', min: 0, max: 25 },
+    ];
+    const batteryDist: FleetBatteryBucket[] = BATTERY_BUCKETS.map(b => ({
+      range: b.range,
+      count: scopedDevices.filter(d => {
+        try {
+          const soc = (JSON.parse(d.batteryStats as string) as any).soc ?? -1;
+          return soc >= b.min && soc < b.max;
+        } catch { return false; }
+      }).length,
+    }));
+
+    const networkDist: FleetNetworkBucket[] = ['A', 'B', 'C', 'D'].map(grade => ({
+      grade,
+      count: scopedDevices.filter(d => {
+        try {
+          return (JSON.parse(d.networkStats as string) as any).qualityScore === grade;
+        } catch { return false; }
+      }).length,
+    }));
+
+    const onlineSensorIds = new Set(scopedReadings7d
+      .filter(r => new Date(r.timestamp).getTime() >= twoHoursAgo.getTime())
+      .map(r => r.deviceId));
+    const sensorCount = scopedDevices.filter(d => d.deviceType === 'SENSOR').length;
+    const online = scopedDevices.filter(d => d.deviceType === 'SENSOR' && onlineSensorIds.has(d.id)).length;
+
+    const fleetHealth: FleetHealthStats = {
+      online,
+      offline: sensorCount - online,
+      total: scopedDevices.length,
+      batteryDist,
+      networkDist,
+    };
+
+    // ── Backwards-compat fields ───────────────────────────────────────────
+    const weeklyTrends: WeeklyTrendEntry[] = trendData.map(t => ({
+      day: t.label, avgPpm: t.avgPpm, alertCount: t.breachCount,
+    }));
+    const siteRankings: SiteRanking[] = ruComparison.map(r => ({
+      ru: r.ruId, uptime: 97, incidents: r.breachCount, avgResponseTime: 3,
+    }));
+
+    return {
+      weeklyTrends, incidentsHeatmap: [], siteRankings,
+      trendData, ruComparison, heatmap, topSensors, fleetHealth,
+    };
   }
 
   // --- USER MANAGEMENT ---
@@ -92,7 +226,104 @@ export class DeviceService {
   async login(email: string): Promise<LoginResult> {
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) return { error: 'No account found for that email' };
+    await this.prisma.eventLog.create({
+      data: { type: 'LOGIN', severity: 'INFO', operatorId: user.id, operatorEmail: email, message: `Operator ${email} signed in` }
+    });
     return { user: { ...user, name: user.name || undefined } };
+  }
+
+  // --- EVENT LOG ---
+
+  private serializeEvent(l: any): EventLog {
+    return {
+      id: l.id,
+      type: l.type,
+      severity: l.severity,
+      message: l.message,
+      acknowledged: l.acknowledged,
+      timestamp: l.timestamp instanceof Date ? l.timestamp.toISOString() : String(l.timestamp),
+      acknowledgedAt: l.acknowledgedAt instanceof Date ? l.acknowledgedAt.toISOString() : (l.acknowledgedAt ?? undefined),
+      deviceId: l.deviceId ?? undefined,
+      ruId: l.ruId ?? undefined,
+      operatorId: l.operatorId ?? undefined,
+      operatorEmail: l.operatorEmail ?? undefined,
+      details: l.details ?? undefined,
+      acknowledgedBy: l.acknowledgedBy ?? undefined,
+      ackNote: l.ackNote ?? undefined,
+    };
+  }
+
+  async getEventLogs(filter?: { ruId?: string; limit?: number }): Promise<EventLog[]> {
+    const where: any = {};
+    if (filter?.ruId && filter.ruId !== 'ALL') where.ruId = filter.ruId;
+    const logs = await this.prisma.eventLog.findMany({
+      where,
+      orderBy: { timestamp: 'desc' },
+      take: filter?.limit ?? 300,
+    });
+    return logs.map(l => this.serializeEvent(l));
+  }
+
+  async createEventLog(input: CreateEventLogInput): Promise<EventLog> {
+    const log = await this.prisma.eventLog.create({
+      data: {
+        type: input.type,
+        severity: input.severity || 'INFO',
+        deviceId: input.deviceId,
+        ruId: input.ruId,
+        operatorId: input.operatorId,
+        operatorEmail: input.operatorEmail,
+        message: input.message,
+        details: input.details,
+      }
+    });
+    return this.serializeEvent(log);
+  }
+
+  async acknowledgeEvent(id: string, note: string, operatorId: string, operatorEmail: string): Promise<EventLog> {
+    const log = await this.prisma.eventLog.update({
+      where: { id },
+      data: { acknowledged: true, ackNote: note, acknowledgedBy: operatorEmail, acknowledgedAt: new Date() }
+    });
+    await this.prisma.eventLog.create({
+      data: {
+        type: 'ACK',
+        severity: 'INFO',
+        ruId: log.ruId ?? undefined,
+        operatorId,
+        operatorEmail,
+        message: `Event acknowledged by ${operatorEmail}: "${log.message.slice(0, 80)}"`,
+        details: JSON.stringify({ originalEventId: id, ackNote: note }),
+      }
+    });
+    return this.serializeEvent(log);
+  }
+
+  // --- SENSOR TIMELINE ---
+
+  async getSensorTimeline(ruId: string): Promise<SensorTimeline[]> {
+    const where: any = { deviceType: 'SENSOR' };
+    if (ruId && ruId !== 'ALL') where.ruId = ruId;
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const sensors = await this.prisma.device.findMany({
+      where,
+      include: {
+        readings: { where: { timestamp: { gte: twentyFourHoursAgo } }, orderBy: { timestamp: 'asc' } }
+      },
+      take: 15,
+    });
+    return sensors.map(s => {
+      const hourlyMap = new Map<string, number[]>();
+      s.readings.forEach(r => {
+        const hour = new Date(r.timestamp).getHours().toString().padStart(2, '0') + ':00';
+        if (!hourlyMap.has(hour)) hourlyMap.set(hour, []);
+        hourlyMap.get(hour)!.push(r.ppm);
+      });
+      const data = Array.from(hourlyMap.entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([hour, ppms]) => ({ hour, ppm: ppms.reduce((s, p) => s + p, 0) / ppms.length }));
+      return { deviceId: s.id, deviceName: s.name, ruId: s.ruId, data };
+    });
   }
 
   // --- SETTINGS ---
@@ -124,7 +355,7 @@ export class DeviceService {
       this.prisma.gasReading.findMany({ orderBy: { timestamp: 'desc' }, take: 500 })
     ]);
 
-    const ruIds = Array.from(new Set(allDevices.map(d => d.ruId))).sort();
+    const ruIds = Array.from<string>(new Set(allDevices.map(d => d.ruId))).sort();
     const ruData: RuStats[] = ruIds.map(ru => {
       const devices = allDevices.filter(d => d.ruId === ru);
       const devIds = new Set(devices.map(d => d.id));
@@ -245,6 +476,26 @@ export class DeviceService {
     const device = await this.prisma.device.findUnique({ where: { macAddress } });
     if (!device) throw new HttpException(`Device with MAC ${macAddress} not found`, HttpStatus.NOT_FOUND);
     const r = await this.prisma.gasReading.create({ data: { deviceId: device.id, ppm, isDummy: device.isDummy } });
+    // Auto-log threshold breach (deduplicated per device per 15 min)
+    const settings = await this.getSettings();
+    if (ppm >= settings.warningThreshold) {
+      const recent = await this.prisma.eventLog.findFirst({
+        where: { deviceId: device.id, type: 'THRESHOLD_BREACH', timestamp: { gte: new Date(Date.now() - 15 * 60 * 1000) } }
+      });
+      if (!recent) {
+        const isCritical = ppm >= settings.criticalThreshold;
+        await this.prisma.eventLog.create({
+          data: {
+            type: 'THRESHOLD_BREACH',
+            severity: isCritical ? 'CRITICAL' : 'WARNING',
+            deviceId: device.id,
+            ruId: device.ruId,
+            message: `${device.name} — ${ppm.toFixed(1)} ppm ${isCritical ? 'exceeds CRITICAL' : 'exceeds WARNING'} threshold`,
+            details: JSON.stringify({ ppm, macAddress, deviceName: device.name }),
+          }
+        });
+      }
+    }
     return { id: r.id, deviceId: r.deviceId, ppm: r.ppm, timestamp: r.timestamp };
   }
 
