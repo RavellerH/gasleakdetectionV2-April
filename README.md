@@ -1,7 +1,26 @@
-# Gas Leak Detection System — v0.15
+# 🔥 Gas Leak Detection System — v0.15
 
-Multi-RU gas leak monitoring platform for Pertamina refineries (RU2–RU7).  
-Real-time sensor dashboard · Interactive map · Network topology · Event log · Analytics
+> **AI-powered multi-refinery gas leak monitoring platform** for Pertamina refineries (RU2–RU7).  
+> Real-time sensor dashboard · Interactive map · Network topology · Event log · Analytics
+
+![Node.js](https://img.shields.io/badge/Node.js-LTS-339933?logo=node.js&logoColor=white)
+![NestJS](https://img.shields.io/badge/Backend-NestJS-E0234E?logo=nestjs&logoColor=white)
+![Next.js](https://img.shields.io/badge/Frontend-Next.js%2015-000000?logo=next.js&logoColor=white)
+![SQLite](https://img.shields.io/badge/Database-SQLite-003B57?logo=sqlite&logoColor=white)
+
+---
+
+## Overview
+
+A full-stack IoT monitoring platform that aggregates gas sensor data from edge firmware nodes across 6 Pertamina refinery units. The system uses an on-device AI model to classify gas leak events in real time — replacing raw PPM readings with actionable `confidence`, `aiClass`, and `riskLevel` metrics surfaced directly in the dashboard.
+
+**Key capabilities:**
+- 🗺️ **Interactive map** — live sensor positions plotted per refinery unit (Mapbox GL JS)
+- 📊 **Real-time dashboard** — risk-level indicators, trend charts, and event timeline
+- 🔗 **Network topology view** — visualize edge node connectivity
+- 📋 **Event log** — filterable history of detected leak events with AI classification
+- 🤖 **AI inference** — edge-side confidence scoring and risk classification (no raw PPM)
+- 🔐 **Auth** — role-based access, default admin account for demo
 
 ---
 
@@ -28,16 +47,21 @@ Password: admin
 
 ---
 
-## What's inside
+## Tech Stack
 
-| Area | Stack |
-|------|-------|
+| Layer | Stack |
+|-------|-------|
 | Backend API | Node.js · NestJS · GraphQL · Prisma ORM |
-| Database | SQLite (file-based, no install needed) |
+| Database | SQLite (file-based, zero install) |
 | Frontend | Next.js 15 · Mapbox GL JS · Recharts |
-| Map | Mapbox (50,000 free map loads/month) |
+| Edge Firmware | C++ (ESP32 / embedded) |
+| AI / Inference | On-device classification → `aiClass`, `confidence`, `riskLevel` |
+| Map | Mapbox (50,000 free tile loads/month) |
 
-### Refinery Units covered
+---
+
+## Refinery Units Covered
+
 | Unit | Location |
 |------|----------|
 | RU2 | Dumai, Riau |
@@ -49,31 +73,38 @@ Password: admin
 
 ---
 
-## Stopping the app
-
-Press **Ctrl+C** in the terminal window that opened, or simply close it.
-
-## Restarting after the first setup
-
-Double-click `start.bat` again — it skips the first-time setup steps and goes straight to launching.
-
----
-
-## Monorepo structure
+## Monorepo Structure
 
 ```
 apps/
-  backend/   NestJS GraphQL API  (port 4000)
-  frontend/  Next.js dashboard   (port 3000)
+  backend/         NestJS GraphQL API       (port 4000)
+  frontend/        Next.js dashboard        (port 3000)
+edge firmware/
+  src/             C++ firmware for ESP32 edge nodes
+Documentation/     Design docs and study notes
+memory/            Project context / agent memory notes
+presentation/      Slide deck assets
 ```
 
-## Manual dev commands (optional)
+---
+
+## Stopping the App
+
+Press **Ctrl+C** in the terminal window that opened, or simply close it.
+
+## Restarting After First Setup
+
+Double-click `start.bat` again — it skips the first-time setup and goes straight to launching.
+
+---
+
+## Manual Dev Commands (Optional)
 
 ```bash
-npm install          # install all dependencies
-npm run dev          # start both servers together
-npm run dev:backend  # backend only
-npm run dev:frontend # frontend only
+npm install           # install all dependencies
+npm run dev           # start both servers together
+npm run dev:backend   # backend only
+npm run dev:frontend  # frontend only
 ```
 
 To reset demo data:
@@ -81,3 +112,9 @@ To reset demo data:
 cd apps/backend
 node prisma/seed.js
 ```
+
+---
+
+## License
+
+Internal / research project — Pertamina refinery monitoring use case.
