@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GASGUARD v2.1 — System Presentation</title>
+<style>
+  :root {
+    --bg: #07090e;
+    --card: #0f1117;
+    --card2: #161b26;
+    --border: rgba(56,189,248,0.15);
+    --cyan: #38bdf8;
+    --cyan2: #7dd3fc;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --green: #38bdf8;
+    --danger: #ef4444;
+    --warn: #f59e0b;
+    --success: #22c55e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', 'Segoe UI', system-ui, sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* ── Progress Bar ── */
+  #progress-bar {
+    position: fixed; top: 0; left: 0; height: 3px;
+    background: linear-gradient(90deg, var(--cyan), #818cf8);
+    transition: width 0.4s ease;
+    z-index: 999;
+  }
+
+  /* ── Slide Container ── */
+  #slides-wrapper {
+    width: 100vw; height: 100vh;
+    position: relative;
+  }
+
+  .slide {
+    position: absolute; inset: 0;
+    display: flex; align-items: stretch;
+    opacity: 0; pointer-events: none;
+    transform: translateX(60px);
+    transition: opacity 0.45s ease, transform 0.45s ease;
+    padding: 0;
+  }
+  .slide.active {
+    opacity: 1; pointer-events: all;
+    transform: translateX(0);
+  }
+  .slide.exit-left {
+    opacity: 0;
+    transform: translateX(-60px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+
+  /* ── Title Slide ── */
+  .slide-title {
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    background: radial-gradient(ellipse 80% 60% at 50% 40%, rgba(56,189,248,0.08) 0%, transparent 70%);
+  }
+  .slide-title .logo-ring {
+    width: 120px; height: 120px;
+    border: 2px solid var(--cyan);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 32px;
+    box-shadow: 0 0 60px rgba(56,189,248,0.2), inset 0 0 40px rgba(56,189,248,0.05);
+    animation: pulse-ring 3s ease-in-out infinite;
+  }
+  @keyframes pulse-ring {
+    0%,100% { box-shadow: 0 0 40px rgba(56,189,248,0.2), inset 0 0 30px rgba(56,189,248,0.05); }
+    50%      { box-shadow: 0 0 80px rgba(56,189,248,0.35), inset 0 0 50px rgba(56,189,248,0.1); }
+  }
+  .slide-title h1 {
+    font-size: 56px; font-weight: 800; letter-spacing: -2px;
+    background: linear-gradient(135deg, #fff 30%, var(--cyan));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 12px;
+  }
+  .slide-title .sub { font-size: 18px; color: var(--muted); margin-bottom: 40px; }
+  .slide-title .badges {
+    display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-bottom: 48px;
+  }
+  .badge {
+    padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600;
+    background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.3); color: var(--cyan);
+    letter-spacing: 0.5px;
+  }
+  .badge.purple { background: rgba(129,140,248,0.1); border-color: rgba(129,140,248,0.3); color: #818cf8; }
+  .badge.green  { background: rgba(34,197,94,0.1);  border-color: rgba(34,197,94,0.3);  color: #22c55e; }
+  .stat-row {
+    display: flex; gap: 32px; justify-content: center;
+  }
+  .stat-box {
+    text-align: center; padding: 20px 28px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+  }
+  .stat-box .num { font-size: 36px; font-weight: 700; color: var(--cyan); }
+  .stat-box .lbl { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  /* ── Normal Slide: Left (content) + Right (screenshot) ── */
+  .slide-split {
+    flex-direction: row;
+  }
+  .slide-left {
+    width: 420px; min-width: 380px;
+    background: var(--card);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    padding: 48px 36px 32px;
+    position: relative;
+    overflow-y: auto;
+  }
+  .slide-right {
+    flex: 1;
+    background: #0a0d14;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* slide number badge */
+  .slide-num {
+    font-size: 11px; font-weight: 700; letter-spacing: 2px;
+    color: var(--cyan); text-transform: uppercase;
+    margin-bottom: 16px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .slide-num::before {
+    content: '';
+    display: inline-block; width: 20px; height: 2px;
+    background: var(--cyan); border-radius: 2px;
+  }
+
+  .slide-left h2 {
+    font-size: 30px; font-weight: 800; letter-spacing: -1px;
+    margin-bottom: 10px; line-height: 1.1;
+  }
+  .slide-left .tagline {
+    font-size: 13px; color: var(--muted); margin-bottom: 28px; line-height: 1.5;
+  }
+
+  /* feature points */
+  .feature-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
+  .feature-item {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 12px 14px; background: var(--card2); border-radius: 10px;
+    border: 1px solid var(--border);
+    animation: fade-up 0.4s ease both;
+  }
+  .feature-item:nth-child(1) { animation-delay: 0.05s; }
+  .feature-item:nth-child(2) { animation-delay: 0.12s; }
+  .feature-item:nth-child(3) { animation-delay: 0.19s; }
+  .feature-item:nth-child(4) { animation-delay: 0.26s; }
+  .feature-item:nth-child(5) { animation-delay: 0.33s; }
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .fi-icon {
+    width: 30px; height: 30px; min-width: 30px;
+    border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    background: rgba(56,189,248,0.1);
+  }
+  .fi-icon.warn  { background: rgba(245,158,11,0.1); }
+  .fi-icon.green { background: rgba(34,197,94,0.1); }
+  .fi-icon.purple{ background: rgba(129,140,248,0.1); }
+  .fi-icon.red   { background: rgba(239,68,68,0.1); }
+  .fi-body strong { font-size: 13px; font-weight: 600; display: block; margin-bottom: 2px; }
+  .fi-body span   { font-size: 12px; color: var(--muted); line-height: 1.4; }
+
+  /* tech tags */
+  .tech-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; }
+  .tech-tag {
+    font-size: 11px; padding: 4px 10px; border-radius: 6px;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+    color: var(--muted); font-family: 'Geist Mono', monospace;
+  }
+
+  /* screenshot frame */
+  .screen-frame {
+    width: 100%; max-height: 100%;
+    border-radius: 10px;
+    border: 1px solid rgba(56,189,248,0.12);
+    box-shadow: 0 8px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
+    overflow: hidden;
+    position: relative;
+  }
+  .screen-frame img {
+    width: 100%; height: auto; display: block;
+  }
+
+  /* callout annotations */
+  .callout {
+    position: absolute;
+    background: rgba(7,9,14,0.92);
+    border: 1px solid var(--cyan);
+    border-radius: 8px;
+    padding: 7px 11px;
+    font-size: 11px; font-weight: 600;
+    color: var(--cyan);
+    white-space: nowrap;
+    animation: callout-in 0.5s ease both;
+    pointer-events: none;
+    backdrop-filter: blur(8px);
+  }
+  .callout::before {
+    content: '●';
+    margin-right: 5px; font-size: 8px;
+  }
+  @keyframes callout-in {
+    from { opacity: 0; transform: scale(0.85); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+  .callout-red   { border-color: var(--danger); color: var(--danger); }
+  .callout-green { border-color: var(--success); color: var(--success); }
+  .callout-warn  { border-color: var(--warn); color: var(--warn); }
+
+  /* ── Architecture Slide ── */
+  .slide-arch {
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 48px;
+    background: radial-gradient(ellipse 60% 50% at 50% 50%, rgba(56,189,248,0.05) 0%, transparent 70%);
+  }
+  .arch-title { font-size: 32px; font-weight: 800; letter-spacing: -1px; margin-bottom: 8px; text-align: center; }
+  .arch-sub { color: var(--muted); font-size: 14px; margin-bottom: 40px; text-align: center; }
+
+  .arch-diagram {
+    display: flex; align-items: center; gap: 0;
+    background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+    padding: 32px 40px; margin-bottom: 32px;
+  }
+  .arch-box {
+    text-align: center; padding: 16px 20px;
+    background: var(--card2); border: 1px solid var(--border); border-radius: 12px;
+    min-width: 120px;
+  }
+  .arch-box .ab-icon { font-size: 24px; margin-bottom: 6px; }
+  .arch-box .ab-name { font-size: 12px; font-weight: 700; color: var(--cyan); }
+  .arch-box .ab-tech { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .arch-arrow {
+    font-size: 22px; color: var(--cyan); padding: 0 10px;
+    opacity: 0.6; flex-shrink: 0;
+  }
+
+  .roadmap-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+    max-width: 900px; width: 100%;
+  }
+  .roadmap-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 18px 20px;
+  }
+  .roadmap-card .rc-phase {
+    font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--cyan); margin-bottom: 8px;
+  }
+  .roadmap-card .rc-title { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+  .roadmap-card ul { padding-left: 14px; }
+  .roadmap-card li { font-size: 12px; color: var(--muted); margin-bottom: 3px; line-height: 1.4; }
+
+  /* ── Navigation ── */
+  #nav {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 16px;
+    background: rgba(15,17,23,0.9); border: 1px solid var(--border);
+    border-radius: 40px; padding: 10px 20px;
+    backdrop-filter: blur(20px);
+    z-index: 100;
+    box-shadow: 0 4px 30px rgba(0,0,0,0.4);
+  }
+  .nav-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--muted); font-size: 18px; padding: 6px 10px;
+    border-radius: 8px; transition: color 0.2s, background 0.2s;
+    display: flex; align-items: center;
+  }
+  .nav-btn:hover { color: var(--text); background: rgba(255,255,255,0.06); }
+  .nav-btn:disabled { opacity: 0.3; cursor: default; }
+  #slide-counter {
+    font-size: 13px; color: var(--muted); min-width: 60px; text-align: center;
+    font-family: 'Geist Mono', monospace;
+  }
+  .dot-row { display: flex; gap: 6px; align-items: center; }
+  .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--muted); cursor: pointer; transition: all 0.2s;
+  }
+  .dot.active { background: var(--cyan); width: 18px; border-radius: 3px; }
+
+  /* slide key hint */
+  #key-hint {
+    position: fixed; bottom: 84px; left: 50%; transform: translateX(-50%);
+    font-size: 11px; color: var(--muted); opacity: 1; transition: opacity 1s;
+  }
+  #key-hint.hidden { opacity: 0; pointer-events: none; }
+
+  /* glow effects on slide-right */
+  .glow-top { position: absolute; top: -100px; right: -100px; width: 400px; height: 400px; border-radius: 50%; background: radial-gradient(circle, rgba(56,189,248,0.06) 0%, transparent 65%); pointer-events: none; }
+  .glow-bot { position: absolute; bottom: -100px; left: -100px; width: 300px; height: 300px; border-radius: 50%; background: radial-gradient(circle, rgba(129,140,248,0.05) 0%, transparent 65%); pointer-events: none; }
+</style>
+</head>
+<body>
+
+<div id="progress-bar"></div>
+<div id="slides-wrapper"></div>
+
+<div id="nav">
+  <button class="nav-btn" id="btn-prev" onclick="goSlide(-1)" title="Previous (←)">&#8592;</button>
+  <div class="dot-row" id="dot-row"></div>
+  <span id="slide-counter">1 / 12</span>
+  <button class="nav-btn" id="btn-next" onclick="goSlide(1)" title="Next (→)">&#8594;</button>
+</div>
+<div id="key-hint">Press ← → arrow keys or click dots to navigate</div>
+
+<script>
+// ── Slide Data ──────────────────────────────────────────────────────────────
+const slides = [
+
+  // 0 — TITLE
+  { type: 'title' },
+
+  // 1 — LOGIN
+  {
+    type: 'split',
+    num: '01 / Login',
+    h2: 'Login Screen',
+    tagline: 'Secure entry point into the GASGUARD monitoring system. In development mode, authentication uses email-only. Production will gate access via Keycloak JWT with per-RU tenant isolation.',
+    features: [
+      { icon: '🔐', cls: '', title: 'Email Authentication', desc: 'Enter registered email (e.g. admin@gld.com) — no password in dev mode.' },
+      { icon: '🏢', cls: 'purple', title: 'Role-Based Access', desc: 'Roles: RU_Operator, RU_Supervisor, RU_Admin, Global_Admin — each with different data scope.' },
+      { icon: '🌐', cls: 'green', title: 'GLD Branding', desc: 'GASGUARD v2.1 — industrial gas leak detection for Pertamina RU facilities.' },
+      { icon: '🔒', cls: 'red', title: 'Production Security', desc: 'Planned: Keycloak JWT + tenant guard per Refinery Unit (RU2–RU7).' },
+    ],
+    tech: ['Next.js 15', 'GraphQL', 'NestJS 10', 'SQLite'],
+    img: 'screenshots/01-login.png',
+    callouts: [
+      { text: 'Email-only login (dev mode)', style: 'top:28%; left:50%; transform:translate(-50%,-50%)', delay: 0.3 },
+      { text: 'ACCESS CONTROL PANEL', style: 'top:62%; left:50%; transform:translate(-50%,-50%)', delay: 0.5, cls: 'callout-green' },
+    ],
+  },
+
+  // 2 — OVERVIEW
+  {
+    type: 'split',
+    num: '02 / Overview',
+    h2: 'Overview Dashboard',
+    tagline: 'Real-time command center. KPI cards show fleet health at a glance. The gas trend chart below reveals detection events over time — no ppm values, only AI-derived risk level indicators per sensor.',
+    features: [
+      { icon: '📊', cls: '', title: 'KPI Cards', desc: 'Total devices, online count, avg health score, avg battery %, active alert count — updated every refresh cycle.' },
+      { icon: '📈', cls: 'green', title: 'Gas Detection Trend', desc: 'Multi-line chart per sensor. Y-axis is a dual indicator: <b>solid line</b> = risk level (0=LOW · 1=MIDDLE · 2=HIGH), <b>dotted line</b> = AI confidence (0.0–1.0). No gas detected → line stays flat at baseline.' },
+      { icon: '🏭', cls: 'purple', title: 'RU Health Bars', desc: 'Per-Refinery-Unit health progress bars — instantly spot which unit needs attention.' },
+      { icon: '⚡', cls: 'warn', title: 'Auto-Refresh', desc: 'Polls GraphQL every 10 seconds (configurable in Settings). Real-time WebSocket push planned for production.' },
+    ],
+    tech: ['Recharts', 'GraphQL polling', 'React state'],
+    img: 'screenshots/02-overview.png',
+    callouts: [
+      { text: 'KPI Summary Cards', style: 'top:20%; left:20%', delay: 0.3 },
+      { text: 'Gas Trend Chart', style: 'bottom:30%; right:10%', delay: 0.5, cls: 'callout-green' },
+    ],
+  },
+
+  // 3 — DEVICES
+  {
+    type: 'split',
+    num: '03 / Devices',
+    h2: 'Device Management',
+    tagline: 'Complete fleet table showing all registered sensor nodes, cluster heads, and gateways. Filter by Refinery Unit, search by name/MAC, and inline-rename devices.',
+    features: [
+      { icon: '📋', cls: '', title: 'Fleet Table', desc: 'Sortable columns: Device ID, MAC address, Type, Status, Health, Battery, Last Reading.' },
+      { icon: '🔍', cls: 'purple', title: 'Search & Filter', desc: 'Filter by RU (ALL / RU2–RU7), search by name or MAC address in real-time.' },
+      { icon: '✏️', cls: 'green', title: 'Inline Rename', desc: 'Click device name to rename — persisted to database immediately via GraphQL mutation.' },
+      { icon: '🔋', cls: 'warn', title: 'Battery & Health', desc: 'Health score (0–100) + battery % shown per device. Color-coded for quick triage.' },
+    ],
+    tech: ['GraphQL', 'Prisma', 'SQLite', 'Lucide Icons'],
+    img: 'screenshots/03-devices.png',
+    callouts: [
+      { text: 'RU Filter + Search', style: 'top:14%; right:10%', delay: 0.3 },
+      { text: 'Health & Battery Columns', style: 'top:55%; right:10%', delay: 0.5, cls: 'callout-warn' },
+    ],
+  },
+
+  // 4 — UNIT LAYOUT
+  {
+    type: 'split',
+    num: '04 / Unit Layout',
+    h2: 'Network Topology',
+    tagline: 'Visual representation of the LoRa mesh hierarchy — Gateway at the top, Cluster Heads in the middle layer, and Sensor Nodes at the leaf level. Shows the physical communication tree.',
+    features: [
+      { icon: '🌐', cls: '', title: 'Three-Tier Architecture', desc: 'Gateway (8 units) → Cluster Head (24 units) → GLD Sensor Nodes (28 units) per fleet.' },
+      { icon: '📡', cls: 'purple', title: 'Dual-Radio Protocol', desc: 'Radio A: 920 MHz SF7 STAR topology (GLD→CH). Radio B: 921 MHz SF9 MESH (CH→Gateway).' },
+      { icon: '🏭', cls: 'green', title: 'RU Scope Selector', desc: 'Select individual RU (RU2–RU7) or ALL to see the complete 65-device network.' },
+      { icon: '📊', cls: 'warn', title: 'Per-Node Status', desc: 'Color-coded node status: green=online, yellow=warning, red=offline/alarm.' },
+    ],
+    tech: ['SVG rendering', 'React state', 'GraphQL'],
+    img: 'screenshots/04-unit-layout.png',
+    callouts: [
+      { text: 'Gateway (top layer)', style: 'top:20%; left:20%', delay: 0.3 },
+      { text: 'Cluster Heads (mid layer)', style: 'top:45%; left:20%', delay: 0.5, cls: 'callout-warn' },
+      { text: 'Sensor Nodes (leaf)', style: 'top:70%; left:20%', delay: 0.7, cls: 'callout-green' },
+    ],
+  },
+
+  // 5 — MAP VIEW
+  {
+    type: 'split',
+    num: '05 / Map View',
+    h2: 'Geospatial Map',
+    tagline: 'Interactive Mapbox GL JS map showing exact device positions within the refinery. Supports supercluster grouping, 3D building extrusions, and drag-to-reposition device markers.',
+    features: [
+      { icon: '🗺️', cls: '', title: 'Mapbox GL JS', desc: 'Satellite/dark-v11 basemap with optional 3D building extrusions and terrain.' },
+      { icon: '📍', cls: 'green', title: 'Device Markers', desc: 'Health-colored icons: green (healthy) → yellow (warning) → red (critical/offline).' },
+      { icon: '🔵', cls: 'purple', title: 'Supercluster', desc: 'Markers auto-cluster at lower zoom levels — expands on zoom-in for dense deployments.' },
+      { icon: '↔️', cls: 'warn', title: 'Drag-to-Reposition', desc: 'Drag any marker to update device coordinates — saved to DB via GraphQL mutation.' },
+    ],
+    tech: ['Mapbox GL JS', 'react-map-gl', 'supercluster', 'GraphQL'],
+    img: 'screenshots/05-map.png',
+    callouts: [
+      { text: 'Device cluster marker', style: 'top:35%; left:30%', delay: 0.3 },
+      { text: 'Satellite basemap', style: 'bottom:25%; right:10%', delay: 0.5, cls: 'callout-green' },
+    ],
+  },
+
+  // 6 — ALERTS
+  {
+    type: 'split',
+    num: '06 / Alerts',
+    h2: 'Alert Console',
+    tagline: 'Live alarm feed driven by AI classification results. Each alert carries device ID, gas class, confidence score, risk level, and timestamp. Operators can acknowledge or resolve alerts.',
+    features: [
+      { icon: '🤖', cls: 'red', title: 'AI-Driven Alarms', desc: 'Alarm triggers when predicted_class ≠ 0 AND confidence ≥ 80%. 9 gas classes (0=normal, 1–8=gas types).' },
+      { icon: '🚨', cls: 'red', title: 'Risk Levels', desc: 'HIGH: conf≥0.80 + class≠0. MIDDLE: conf 0.70–0.80. LOW: all else. No PPM threshold.' },
+      { icon: '✅', cls: 'green', title: 'Acknowledge / Resolve', desc: 'Status transitions: ACTIVE → ACKNOWLEDGED → RESOLVED. Logged in EventLog.' },
+      { icon: '🔔', cls: 'warn', title: 'Bell Counter', desc: 'Red badge in sidebar shows total unresolved alert count across all RUs.' },
+    ],
+    tech: ['AI classification', 'GraphQL', 'EventLog', 'Lucide'],
+    img: 'screenshots/06-alerts.png',
+    callouts: [
+      { text: 'Risk level badge (HIGH/MID/LOW)', style: 'top:30%; right:10%', delay: 0.3, cls: 'callout-red' },
+      { text: 'Acknowledge button', style: 'bottom:35%; right:10%', delay: 0.5, cls: 'callout-green' },
+    ],
+  },
+
+  // 7 — EVENTS
+  {
+    type: 'split',
+    num: '07 / Events',
+    h2: 'Event Log',
+    tagline: 'Immutable audit trail of all system events — threshold breaches, user logins, device registrations, and configuration changes. Supports HTML export for compliance reporting.',
+    features: [
+      { icon: '📜', cls: '', title: 'Audit Trail', desc: 'Every GasReading that crosses a threshold auto-logs a THRESHOLD_BREACH event. 15-min dedup per device.' },
+      { icon: '🎚️', cls: 'warn', title: 'Severity Levels', desc: 'INFO, WARNING, CRITICAL — color-coded rows. HIGH risk → CRITICAL event. MIDDLE → WARNING.' },
+      { icon: '📤', cls: 'green', title: 'HTML Export', desc: 'Download the full event log as a styled HTML report for compliance documentation.' },
+      { icon: '🔎', cls: 'purple', title: 'Filter & Search', desc: 'Filter by severity, date range, or device ID. Sorted newest-first by default.' },
+    ],
+    tech: ['Prisma', 'EventLog model', 'SQLite', 'GraphQL'],
+    img: 'screenshots/07-events.png',
+    callouts: [
+      { text: 'Severity: CRITICAL row', style: 'top:28%; right:10%', delay: 0.3, cls: 'callout-red' },
+      { text: 'HTML Export button', style: 'top:14%; right:10%', delay: 0.5, cls: 'callout-green' },
+    ],
+  },
+
+  // 8 — ANALYTICS
+  {
+    type: 'split',
+    num: '08 / Analytics',
+    h2: 'Analytics Dashboard',
+    tagline: 'Four analytical panels for supervisors and engineers. The centrepiece is the Gas Level Heatmap — the only tool that reveals <em>when</em> and <em>where</em> leaks concentrate across the day.',
+    features: [
+      { icon: '📈', cls: '', title: 'Gas Detection Trend (Area)', desc: 'Average AI-detection intensity over time (24H or 7D). Reference lines at warning and critical thresholds. Flat = no detection; spike = active gas event.' },
+      { icon: '📊', cls: 'purple', title: 'Threshold Breaches + RU Comparison', desc: 'Bar chart of breach counts per hour/day. Horizontal bars compare average detection level and breach frequency across RU2–RU7 side by side.' },
+      { icon: '🌡️', cls: 'warn', title: 'Gas Level Heatmap — What it Shows', desc: '<b>Axes:</b> X = hour of day (00–23) · Y = Refinery Unit (RU2–RU7). <b>Cell color</b> = count of gas-class detections (class≠0) recorded in that RU during that hour, averaged over the 7-day window. Darker = fewer detections; brighter cyan = more.' },
+      { icon: '🔍', cls: 'red', title: 'Heatmap — Why it Matters', desc: 'Reveals <b>time-of-day leak patterns</b>: post-startup stress (06:00–08:00), mid-shift pressure peaks, or nighttime equipment cool-down. A bright column across multiple RUs suggests a systemic risk window. Use it to <b>schedule targeted inspections</b> at historically high-detection hours.' },
+      { icon: '🏥', cls: 'green', title: 'Fleet Health & Battery Trends', desc: 'Average node health score and battery % over time. Downward trend predicts upcoming maintenance — replace batteries before a sensor goes offline mid-shift.' },
+    ],
+    tech: ['Recharts', 'AreaChart', 'BarChart', 'hour × RU heatmap', 'AI class detection count'],
+    img: 'screenshots/08-analytics.png',
+    callouts: [
+      { text: '24H / 7D toggle', style: 'top:14%; right:10%', delay: 0.25 },
+      { text: 'RU comparison bars', style: 'top:48%; right:10%', delay: 0.4, cls: 'callout-green' },
+      { text: 'Heatmap: hour × RU detection count', style: 'bottom:18%; right:10%', delay: 0.6, cls: 'callout-warn' },
+    ],
+  },
+
+  // 9 — SETTINGS SYSTEM
+  {
+    type: 'split',
+    num: '09 / Settings',
+    h2: 'System Configuration',
+    tagline: 'Admin panel for tuning system-wide parameters: alert thresholds, data refresh rate, and backend API URL. Changes persist to SQLite via GraphQL mutation and take effect immediately.',
+    features: [
+      { icon: '⚠️', cls: 'warn', title: 'Warning Threshold', desc: 'Default: 50 ppm. Readings above this trigger WARNING events in EventLog.' },
+      { icon: '🚨', cls: 'red', title: 'Critical Threshold', desc: 'Default: 80 ppm. Readings above this trigger CRITICAL events and push alerts to Alerts tab.' },
+      { icon: '⏱️', cls: '', title: 'Refresh Interval', desc: 'How often the frontend polls the backend (default: 10 seconds). Range: 5–60s.' },
+      { icon: '🌐', cls: 'purple', title: 'API Base URL', desc: 'Override the backend GraphQL endpoint — useful for multi-environment deployments.' },
+    ],
+    tech: ['SystemSettings model', 'Prisma singleton', 'GraphQL mutation'],
+    img: 'screenshots/09-settings-system.png',
+    callouts: [
+      { text: 'Critical threshold: 80 ppm', style: 'top:38%; right:10%', delay: 0.3, cls: 'callout-red' },
+      { text: 'Refresh rate control', style: 'top:55%; right:10%', delay: 0.5 },
+    ],
+  },
+
+  // 10 — SETTINGS USERS
+  {
+    type: 'split',
+    num: '10 / Settings',
+    h2: 'User Management',
+    tagline: 'Administrator control panel for managing system users. Create, assign roles, and remove users. Each user is scoped to one or more Refinery Units.',
+    features: [
+      { icon: '👥', cls: '', title: 'User Table', desc: 'Lists all registered users: name, email, role, assigned RU scope, creation date.' },
+      { icon: '➕', cls: 'green', title: 'Create User', desc: 'Add new user with email and role. System generates UUID and stores in SQLite.' },
+      { icon: '🎭', cls: 'purple', title: 'Role Assignment', desc: 'Roles: RU_Operator (view) → Supervisor (edit) → RU_Admin (manage) → Global_Admin.' },
+      { icon: '🗑️', cls: 'red', title: 'Delete User', desc: 'Permanently removes user from the system. Audit action is logged to EventLog.' },
+    ],
+    tech: ['User model', 'Prisma', 'GraphQL', 'NestJS'],
+    img: 'screenshots/10-settings-users.png',
+    callouts: [
+      { text: 'User list with roles', style: 'top:30%; right:10%', delay: 0.3 },
+      { text: 'Add new user button', style: 'top:15%; right:10%', delay: 0.5, cls: 'callout-green' },
+    ],
+  },
+
+  // 11 — ARCHITECTURE
+  { type: 'arch' },
+];
+
+// ── Render Slides ────────────────────────────────────────────────────────────
+const wrapper = document.getElementById('slides-wrapper');
+
+slides.forEach((s, i) => {
+  const el = document.createElement('div');
+  el.className = 'slide';
+  el.id = `slide-${i}`;
+
+  if (s.type === 'title') {
+    el.classList.add('slide-title');
+    el.innerHTML = `
+      <div class="logo-ring">
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M24 8 L28 20 L40 24 L28 28 L24 40 L20 28 L8 24 L20 20 Z" fill="#38bdf8" opacity="0.8"/>
+          <circle cx="24" cy="24" r="4" fill="#38bdf8"/>
+        </svg>
+      </div>
+      <h1>GASGUARD v2.1</h1>
+      <p class="sub">Gas Leak Detection &amp; Monitoring System</p>
+      <div class="badges">
+        <span class="badge">NestJS 10</span>
+        <span class="badge purple">Next.js 15</span>
+        <span class="badge">GraphQL + Prisma</span>
+        <span class="badge purple">LoRa Mesh</span>
+        <span class="badge green">AI Classification</span>
+        <span class="badge">Mapbox GL</span>
+      </div>
+      <div class="stat-row">
+        <div class="stat-box"><div class="num">65</div><div class="lbl">Total Devices</div></div>
+        <div class="stat-box"><div class="num">6</div><div class="lbl">Refinery Units</div></div>
+        <div class="stat-box"><div class="num">9</div><div class="lbl">AI Gas Classes</div></div>
+        <div class="stat-box"><div class="num">24/7</div><div class="lbl">Monitoring</div></div>
+      </div>`;
+  }
+
+  else if (s.type === 'split') {
+    el.classList.add('slide-split');
+    const featureHTML = s.features.map(f => `
+      <div class="feature-item">
+        <div class="fi-icon ${f.cls}">${f.icon}</div>
+        <div class="fi-body">
+          <strong>${f.title}</strong>
+          <span>${f.desc}</span>
+        </div>
+      </div>`).join('');
+    const techHTML = s.tech.map(t => `<span class="tech-tag">${t}</span>`).join('');
+    const calloutHTML = (s.callouts || []).map((c, ci) => {
+      const delay = c.delay || (0.3 + ci * 0.15);
+      return `<div class="callout ${c.cls || ''}" style="${c.style}; animation-delay: ${delay}s">${c.text}</div>`;
+    }).join('');
+    el.innerHTML = `
+      <div class="slide-left">
+        <div class="slide-num">${s.num}</div>
+        <h2>${s.h2}</h2>
+        <p class="tagline">${s.tagline}</p>
+        <div class="feature-list">${featureHTML}</div>
+        <div class="tech-row">${techHTML}</div>
+      </div>
+      <div class="slide-right">
+        <div class="glow-top"></div>
+        <div class="glow-bot"></div>
+        <div style="position:relative; width:100%; max-width:900px;">
+          <div class="screen-frame">
+            <img src="${s.img}" alt="${s.h2}" loading="lazy">
+          </div>
+          ${calloutHTML}
+        </div>
+      </div>`;
+  }
+
+  else if (s.type === 'arch') {
+    el.classList.add('slide-arch');
+    el.innerHTML = `
+      <div class="arch-title">System Architecture &amp; Roadmap</div>
+      <p class="arch-sub">How GASGUARD connects physical sensors to the monitoring dashboard</p>
+      <div class="arch-diagram">
+        <div class="arch-box"><div class="ab-icon">📡</div><div class="ab-name">GLD Node</div><div class="ab-tech">ESP32-S3 + SX1262<br>9-class AI • 7-byte payload</div></div>
+        <div class="arch-arrow">──LoRa A──›</div>
+        <div class="arch-box"><div class="ab-icon">🔗</div><div class="ab-name">Cluster Head</div><div class="ab-tech">Dual radio CH<br>920+921 MHz</div></div>
+        <div class="arch-arrow">──LoRa B──›</div>
+        <div class="arch-box"><div class="ab-icon">🌐</div><div class="ab-name">Gateway</div><div class="ab-tech">8 units, 1 per RU<br>MQTT uplink</div></div>
+        <div class="arch-arrow">──MQTT──›</div>
+        <div class="arch-box"><div class="ab-icon">⚙️</div><div class="ab-name">NestJS Backend</div><div class="ab-tech">AppFrame parser<br>SQLite + GraphQL</div></div>
+        <div class="arch-arrow">──WS/HTTP──›</div>
+        <div class="arch-box"><div class="ab-icon">🖥️</div><div class="ab-name">GASGUARD UI</div><div class="ab-tech">Next.js 15<br>Mapbox • Recharts</div></div>
+      </div>
+      <div class="roadmap-grid">
+        <div class="roadmap-card">
+          <div class="rc-phase">Phase 1 — In Progress</div>
+          <div class="rc-title">Core App</div>
+          <ul>
+            <li>NestJS + GraphQL + Prisma</li>
+            <li>Next.js dashboard (10 screens)</li>
+            <li>SQLite device & reading storage</li>
+            <li>AI risk classification (LOW/MID/HIGH)</li>
+          </ul>
+        </div>
+        <div class="roadmap-card">
+          <div class="rc-phase">Phase 2 — Next</div>
+          <div class="rc-title">Hardware Integration</div>
+          <ul>
+            <li>MQTT module + AppFrame parser</li>
+            <li>CH_HELLO / CLUSTER_BULK_DATA handlers</li>
+            <li>Node-RED MySQL poller</li>
+            <li>Server pull scheduler (10s cron)</li>
+          </ul>
+        </div>
+        <div class="roadmap-card">
+          <div class="rc-phase">Phase 3 — Production</div>
+          <div class="rc-title">Enterprise Ready</div>
+          <ul>
+            <li>Keycloak JWT authentication</li>
+            <li>TimescaleDB / PostgreSQL</li>
+            <li>WebSocket real-time alerts</li>
+            <li>PDF incident reports + CSV export</li>
+          </ul>
+        </div>
+      </div>`;
+  }
+
+  wrapper.appendChild(el);
+});
+
+// ── Navigation ───────────────────────────────────────────────────────────────
+let current = 0;
+const total = slides.length;
+const dotRow = document.getElementById('dot-row');
+const counter = document.getElementById('slide-counter');
+const progressBar = document.getElementById('progress-bar');
+const btnPrev = document.getElementById('btn-prev');
+const btnNext = document.getElementById('btn-next');
+const keyHint = document.getElementById('key-hint');
+
+// Build dots
+for (let i = 0; i < total; i++) {
+  const d = document.createElement('div');
+  d.className = 'dot' + (i === 0 ? ' active' : '');
+  d.onclick = () => goTo(i);
+  dotRow.appendChild(d);
+}
+
+function goTo(idx) {
+  if (idx < 0 || idx >= total) return;
+  const prev = document.getElementById(`slide-${current}`);
+  prev.classList.remove('active');
+  prev.classList.add('exit-left');
+  setTimeout(() => prev.classList.remove('exit-left'), 400);
+
+  current = idx;
+  const next = document.getElementById(`slide-${current}`);
+  next.classList.add('active');
+
+  // Update UI
+  const dots = dotRow.querySelectorAll('.dot');
+  dots.forEach((d, i) => d.classList.toggle('active', i === current));
+  counter.textContent = `${current + 1} / ${total}`;
+  progressBar.style.width = `${((current + 1) / total) * 100}%`;
+  btnPrev.disabled = current === 0;
+  btnNext.disabled = current === total - 1;
+}
+
+function goSlide(dir) { goTo(current + dir); }
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') { e.preventDefault(); goSlide(1); }
+  if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')  { e.preventDefault(); goSlide(-1); }
+});
+
+// Hide key hint after 5s
+setTimeout(() => keyHint.classList.add('hidden'), 5000);
+
+// Init first slide
+goTo(0);
+</script>
+</body>
+</html>
