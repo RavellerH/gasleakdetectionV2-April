@@ -1,6 +1,6 @@
 # 🔥 Gas Leak Detection System — v0.15
 
-> **AI-powered multi-refinery gas leak monitoring platform** for Pertamina refineries (RU2–RU7).  
+> **AI-powered multi-refinery gas leak monitoring platform** for oil & gas refineries (RU2–RU7).
 > Real-time sensor dashboard · Interactive map · Network topology · Event log · Analytics
 
 ![Node.js](https://img.shields.io/badge/Node.js-LTS-339933?logo=node.js&logoColor=white)
@@ -12,7 +12,7 @@
 
 ## Overview
 
-A full-stack IoT monitoring platform that aggregates gas sensor data from edge firmware nodes across 6 Pertamina refinery units. The system uses an on-device AI model to classify gas leak events in real time — replacing raw PPM readings with actionable `confidence`, `aiClass`, and `riskLevel` metrics surfaced directly in the dashboard.
+A full-stack IoT monitoring platform that aggregates gas sensor data from edge firmware nodes across 6 oil & gas refinery units. The system uses an on-device AI model to classify gas leak events in real time — replacing raw PPM readings with actionable `confidence`, `aiClass`, and `riskLevel` metrics surfaced directly in the dashboard.
 
 **Key capabilities:**
 - 🗺️ **Interactive map** — live sensor positions plotted per refinery unit (Mapbox GL JS)
