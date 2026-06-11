@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GASGUARD v2.1 — Presentation Deck</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --navy:#0f172a;--navy2:#1e293b;--navy3:#334155;
+  --blue:#0284c7;--blue2:#0369a1;--blue3:#0ea5e9;--blue-light:#e0f2fe;--blue-bg:#f0f9ff;
+  --slate:#64748b;--slate2:#94a3b8;--border:#e2e8f0;
+  --green:#16a34a;--amber:#d97706;--red:#dc2626;
+  --text:#1e293b;--text2:#334155;--text3:#64748b;
+  --bg:#f8fafc;--card:#ffffff;
+}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'DM Sans',system-ui,sans-serif;background:#cbd5e1;}
+
+/* ── Slideshow Shell ── */
+#deck{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+.slide-wrap{position:relative;width:min(100vw,177.78vh);height:min(56.25vw,100vh);background:#fff;box-shadow:0 25px 80px rgba(0,0,0,0.3);}
+
+/* ── Progress bar ── */
+#progress{position:absolute;top:0;left:0;height:4px;background:var(--blue);transition:width .35s ease;z-index:100;border-radius:0 2px 2px 0;}
+
+/* ── Navigation ── */
+#nav{position:absolute;bottom:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:10px 20px;background:rgba(248,250,252,0.95);border-top:1px solid var(--border);z-index:100;}
+.nav-btn{border:1px solid var(--border);background:#fff;color:var(--navy2);border-radius:8px;padding:6px 16px;font-size:13px;font-family:'DM Sans',sans-serif;font-weight:600;cursor:pointer;transition:all .15s;}
+.nav-btn:hover{background:var(--blue);color:#fff;border-color:var(--blue);}
+.nav-btn:disabled{opacity:0.35;cursor:not-allowed;}
+#slide-counter{font-size:13px;color:var(--slate);font-weight:500;letter-spacing:.5px;}
+.dot-nav{display:flex;gap:5px;align-items:center;}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--border);cursor:pointer;transition:all .15s;}
+.dot.active{background:var(--blue);width:18px;border-radius:3px;}
+
+/* ── Slide Base ── */
+.slide{position:absolute;inset:0;bottom:44px;display:none;flex-direction:column;padding:44px 64px 28px;}
+.slide.active{display:flex;}
+
+/* ── Type scale (relative to viewport) ── */
+.t-hero{font-size:clamp(24px,4.2vw,56px);font-weight:800;line-height:1.05;color:var(--navy);}
+.t-h1{font-size:clamp(18px,2.8vw,38px);font-weight:700;line-height:1.15;color:var(--navy);}
+.t-h2{font-size:clamp(14px,1.8vw,24px);font-weight:700;color:var(--navy2);}
+.t-h3{font-size:clamp(12px,1.3vw,18px);font-weight:600;color:var(--navy2);}
+.t-body{font-size:clamp(11px,1.1vw,15px);color:var(--text2);line-height:1.65;}
+.t-sm{font-size:clamp(9px,0.9vw,12px);color:var(--text3);line-height:1.5;}
+.t-mono{font-family:'Courier New',monospace;font-size:clamp(9px,0.85vw,12px);color:var(--text3);}
+
+/* ── Utility ── */
+.row{display:flex;gap:20px;align-items:stretch;}
+.col{display:flex;flex-direction:column;gap:12px;}
+.grow{flex:1;}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+
+/* Components */
+.tag{display:inline-block;background:var(--blue);color:#fff;padding:3px 11px;border-radius:20px;font-size:clamp(8px,0.75vw,10px);font-weight:700;text-transform:uppercase;letter-spacing:1.2px;}
+.tag-outline{display:inline-block;border:1.5px solid var(--blue);color:var(--blue);padding:2px 10px;border-radius:20px;font-size:clamp(8px,0.75vw,10px);font-weight:700;text-transform:uppercase;letter-spacing:1px;}
+.tag-amber{background:#d97706;color:#fff;}
+.tag-red{background:#dc2626;color:#fff;}
+.tag-green{background:#16a34a;color:#fff;}
+.accent-bar{width:48px;height:4px;background:var(--blue);border-radius:2px;margin:10px 0 16px;}
+
+.card{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:18px 20px;}
+.card-blue{background:var(--blue-bg);border-color:#bae6fd;}
+.card-navy{background:var(--navy);color:#fff;border-radius:12px;padding:18px 20px;}
+.card-left{border-left:4px solid var(--blue);background:var(--bg);padding:14px 18px;border-radius:0 10px 10px 0;}
+.card-left.amber{border-left-color:var(--amber);}
+.card-left.green{border-left-color:var(--green);}
+.card-left.red{border-left-color:var(--red);}
+
+.stat-big{text-align:center;padding:16px 12px;}
+.stat-big .num{font-size:clamp(22px,3.2vw,42px);font-weight:800;color:var(--blue);line-height:1;}
+.stat-big .lbl{font-size:clamp(8px,0.75vw,11px);color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-top:5px;font-weight:600;}
+
+.pill{display:inline-flex;align-items:center;gap:5px;background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:clamp(9px,0.85vw,12px);color:var(--text2);font-weight:500;}
+.dot-ind{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.dot-blue{background:var(--blue);}
+.dot-green{background:var(--green);}
+.dot-amber{background:var(--amber);}
+.dot-red{background:var(--red);}
+
+.chip{display:inline-block;background:var(--blue-light);color:var(--blue2);border-radius:6px;padding:2px 9px;font-size:clamp(9px,0.8vw,11px);font-weight:600;font-family:'Courier New',monospace;}
+
+.divider{height:1px;background:var(--border);margin:10px 0;}
+
+ul.check{list-style:none;}
+ul.check li{display:flex;gap:9px;align-items:flex-start;margin-bottom:8px;font-size:clamp(11px,1.05vw,14px);color:var(--text2);line-height:1.5;}
+ul.check li::before{content:"✓";color:var(--blue);font-weight:700;flex-shrink:0;margin-top:1px;}
+
+ul.dash{list-style:none;}
+ul.dash li{display:flex;gap:9px;align-items:flex-start;margin-bottom:7px;font-size:clamp(10px,0.95vw,13px);color:var(--text2);line-height:1.5;}
+ul.dash li::before{content:"—";color:var(--slate2);font-weight:400;flex-shrink:0;}
+
+/* ── Slide-specific overrides ── */
+
+/* TITLE SLIDE */
+#s1{background:linear-gradient(145deg,#0f172a 0%,#0c2541 50%,#0f172a 100%);color:#fff;padding:52px 72px;}
+#s1 .t-hero{color:#fff;}
+#s1 .sub{color:#94a3b8;font-size:clamp(12px,1.4vw,19px);font-weight:400;margin-top:10px;}
+#s1 .kicker{color:var(--blue3);font-size:clamp(9px,0.9vw,13px);font-weight:700;text-transform:uppercase;letter-spacing:2px;margin-bottom:16px;}
+#s1 .logo-box{width:clamp(40px,5vw,64px);height:clamp(40px,5vw,64px);border-radius:14px;background:var(--blue);display:flex;align-items:center;justify-content:center;margin-bottom:24px;}
+
+/* SECTION DIVIDERS */
+.sec-slide{background:linear-gradient(135deg,#0f2645 0%,#0c3157 100%);color:#fff;}
+.sec-slide .t-h1{color:#fff;}
+.sec-slide .sub{color:#94a3b8;font-size:clamp(11px,1.1vw,15px);margin-top:8px;}
+.sec-slide .sec-num{font-size:clamp(48px,7vw,96px);font-weight:800;color:rgba(255,255,255,0.06);position:absolute;right:64px;bottom:56px;line-height:1;}
+
+/* Architecture diagram */
+.arch-box{border:2px solid var(--blue);border-radius:10px;padding:10px 14px;text-align:center;background:var(--blue-bg);}
+.arch-arrow{display:flex;align-items:center;justify-content:center;color:var(--slate2);font-size:18px;margin:4px 0;}
+
+/* Heatmap preview */
+.heat-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:3px;}
+.heat-cell{height:16px;border-radius:2px;}
+
+/* Timeline */
+.timeline{display:flex;flex-direction:column;gap:0;}
+.tl-item{display:flex;gap:14px;align-items:flex-start;padding-bottom:16px;}
+.tl-dot{width:28px;height:28px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;font-size:11px;font-weight:700;margin-top:1px;}
+.tl-line{width:2px;background:var(--border);margin:0 13px;flex-shrink:0;}
+
+/* Network topology */
+.node{display:flex;flex-direction:column;align-items:center;gap:4px;}
+.node-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;}
+.node-gw{background:#0f2645;color:#38bdf8;}
+.node-ch{background:#1e3a5f;color:#7dd3fc;}
+.node-sns{background:#e0f2fe;color:#0284c7;border:1.5px solid #bae6fd;}
+
+/* ── Print / PDF ── */
+@media print{
+  html,body{overflow:visible;background:#fff;}
+  #deck{position:static;display:block;}
+  .slide-wrap{width:297mm;height:167.06mm;box-shadow:none;position:static;overflow:hidden;}
+  #progress,#nav{display:none!important;}
+  .slide{position:static;display:none;bottom:0;padding:36px 52px 28px;}
+  .slide.active,.slide.print-show{display:flex!important;}
+  @page{size:A4 landscape;margin:0;}
+}
+</style>
+</head>
+<body>
+
+<div id="deck">
+<div class="slide-wrap">
+  <div id="progress"></div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE 1 — TITLE
+  ══════════════════════════════════════════════ -->
+  <div class="slide active" id="s1">
+    <div style="display:flex;flex-direction:column;justify-content:center;height:100%;">
+      <div class="logo-box">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="14" stroke="#fff" stroke-width="2"/><path d="M16 8v8l5 3" stroke="#7dd3fc" stroke-width="2.5" stroke-linecap="round"/><circle cx="16" cy="16" r="3" fill="#38bdf8"/></svg>
+      </div>
+      <div class="kicker">Industrial Safety Platform · Version 2.1</div>
+      <div class="t-hero">GASGUARD<br>v2.1</div>
+      <div class="sub" style="max-width:540px;margin-top:14px;">Intelligent Real-Time Gas Leak Detection<br>& Monitoring System for Industrial Refineries</div>
+      <div style="margin-top:32px;display:flex;gap:12px;flex-wrap:wrap;">
+        <div class="pill" style="background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.15);color:#94a3b8;"><span class="dot-ind dot-green"></span> 28 Sensors Live</div>
+        <div class="pill" style="background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.15);color:#94a3b8;"><span class="dot-ind dot-blue"></span> 6 Refinery Units</div>
+        <div class="pill" style="background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.15);color:#94a3b8;"><span class="dot-ind dot-amber"></span> Real-Time Alerts</div>
+      </div>
+      <div style="position:absolute;bottom:56px;right:72px;text-align:right;">
+        <div style="font-size:11px;color:#475569;letter-spacing:.5px;">June 2026 &nbsp;·&nbsp; Confidential</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE 2 — EXECUTIVE SUMMARY
+  ══════════════════════════════════════════════ -->
+  <div class="slide" id="s2">
+    <div class="tag" style="align-self:flex-start;">Executive Summary</div>
+    <div class="accent-bar"></div>
+    <div class="t-h1" style="max-width:580px;">One platform.<br>Complete refinery safety visibility.</div>
+    <div style="flex:1;display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-top:24px;align-content:start;">
+      <div class="card-left">
+        <div class="t-h3" style="margin-bottom:6px;">Real-Time Monitoring</div>
+        <div class="t-body">28 gas sensors across 6 refinery units, reading PPM levels every 20 seconds with automatic threshold alerting at warning (50 ppm) and critical (80 ppm) levels.</div>
+      </div>
+      <div class="card-left amber">
+        <div class="t-h3" style="margin-bottom:6px;">Operator Accountability</div>
+        <div class="t-body">Every event — gas breach, device fault, login, acknowledgement — is logged. Operators must provide documented notes when acknowledging alerts, creating a complete audit trail.</div>
+      </div>
+      <div class="card-left green">
+        <div class="t-h3" style="margin-bottom:6px;">Analytics & Compliance</div>
+        <div class="t-body">7-day gas trend analytics, heatmaps by hour and site, top-risk sensor rankings, and one-click export of audit-ready CSV and PDF reports for compliance and RCA.</div>
+      </div>
+    </div>
+    <div style="margin-top:18px;display:flex;gap:14px;">
+      <div class="card" style="flex:1;display:flex;align-items:center;gap:14px;padding:14px 20px;">
+        <div class="stat-big" style="padding:0;"><div class="num" style="font-size:28px;">57</div><div class="lbl">Total Devices</div></div>
+        <div style="width:1px;height:40px;background:var(--border);"></div>
+        <div class="stat-big" style="padding:0;"><div class="num" style="font-size:28px;">6</div><div class="lbl">Refinery Units</div></div>
+        <div style="width:1px;height:40px;background:var(--border);"></div>
+        <div class="stat-big" style="padding:0;"><div class="num" style="font-size:28px;">4,704</div><div class="lbl">Readings / 7 Days</div></div>
+        <div style="width:1px;height:40px;background:var(--border);"></div>
+        <div class="stat-big" style="padding:0;"><div class="num" style="font-size:28px;">20s</div><div class="lbl">Refresh Interval</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE 3 — THE PROBLEM
+  ══════════════════════════════════════════════ -->
+  <div class="slide" id="s3">
+    <div class="tag tag-red" style="align-self:flex-start;">The Challenge</div>
+    <div class="accent-bar" style="background:#dc2626;"></div>
+    <div class="t-h1" style="max-width:560px;">Gas leaks in refineries are<br>invisible until it's too late.</div>
+    <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:24px;align-content:start;">
+      <div class="col">
+        <div class="card" style="border-left:4px solid #dc2626;border-radius:0 10px 10px 0;padding:14px 18px;">
+          <div class="t-h3" style="color:#dc2626;margin-bottom:5px;">⚠ Safety Risk</div>
+          <div class="t-body">Undetected hydrocarbon gas accumulation leads to explosions, fires, and toxic exposure — the leading cause of industrial fatalities in refinery environments.</div>
+        </div>
+        <div class="card" style="border-left:4px solid var(--amber);border-radius:0 10px 10px 0;padding:14px 18px;">
+          <div class="t-h3" style="color:var(--amber);margin-bottom:5px;">⏱ Slow Response</div>
+          <div class="t-body">Manual inspection rounds cannot provide continuous coverage. Hours may pass between rounds — a leak detected at hour 3 may have already reached critical concentration.</div>
+        </div>
+        <div class="card" style="border-left:4px solid var(--slate);border-radius:0 10px 10px 0;padding:14px 18px;">
+          <div class="t-h3" style="margin-bottom:5px;">📋 Compliance Burden</div>
+          <div class="t-body">Regulatory bodies require documented evidence of monitoring, incident response, and corrective actions. Manual paper trails are incomplete and hard to audit.</div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card" style="border-left:4px solid var(--blue);border-radius:0 10px 10px 0;padding:14px 18px;">
+          <div class="t-h3" style="margin-bottom:5px;">🗺 No Cross-Site Visibility</div>
+          <div class="t-body">With multiple refinery units spread across a site, there is no unified view. Supervisors lack the ability to compare conditions across units or identify cross-site patterns.</div>
+        </div>
+        <div class="card" style="border-left:4px solid #7c3aed;border-radius:0 10px 10px 0;padding:14px 18px;">
+          <div class="t-h3" style="margin-bottom:5px;">🔋 Device Blind Spots</div>
+          <div class="t-body">Battery failures and network disconnections in remote sensors go unnoticed, creating monitoring gaps exactly where and when coverage is most critical.</div>
+        </div>
+        <div class="card-blue" style="padding:14px 18px;">
+          <div class="t-h3" style="margin-bottom:5px;">GASGUARD addresses all of these →</div>
+          <div class="t-body">Continuous monitoring · Instant alerts · Device health tracking · Multi-site visibility · Automated audit trail</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE 4 — SECTION: SYSTEM
+  ══════════════════════════════════════════════ -->
+  <div class="slide sec-slide" id="s4">
+    <div style="display:flex;flex-direction:column;justify-content:center;height:100%;">
+      <div class="tag" style="background:rgba(255,255,255,0.12);color:#93c5fd;border:1px solid rgba(255,255,255,0.15);align-self:flex-start;">Section 01</div>
+      <div style="margin-top:20px;" class="t-h1">System Design<br>& Architecture</div>
+      <div class="sub" style="margin-top:12px;max-width:460px;">How GASGUARD is built — the hardware topology, data flow, and the technology stack that powers it.</div>
+    </div>
+    <div class="sec-num">01</div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE 5 — SYSTEM ARCHITECTURE
+  ══════════════════════════════════════════════ -->
+  <div class="slide" id="s5">
+    <div class="tag" style="align-self:flex-start;">Architecture</div>
+    <div class="accent-bar"></div>
+    <div class="t-h1">Three-tier architecture</div>
+    <div style="flex:1;display:grid;grid-template-columns:1fr 2px 1fr 2px 1fr;gap:0;margin-top:22px;align-items:start;">
+      <!-- Layer 1 -->
+      <div class="col" style="gap:10px;">
+        <div class="tag tag-outline" style="align-self:flex-start;">Layer 1 — Field</div>
+        <div class="t-h2" style="margin-top:4px;">Sensor Network</div>
+        <div class="t-body" style="margin-top:4px;">Wireless IoT mesh of gas sensors, cluster heads, and gateway nodes deployed across refinery units.</div>
+        <div class="divider"></div>
+        <div class="card" style="padding:12px 14px;">
+          <ul class="dash" style="margin:0;">
+            <li>28 MQ-series gas sensors</li>
+            <li>22 cluster head relays</li>
+            <li>7 gateway nodes (mesh root)</li>
+            <li>Star + mesh hybrid topology</li>
+          </ul>
+        </div>
+      </div>
+      <div style="background:var(--border);height:100%;"></div>
+      <!-- Layer 2 -->
+      <div class="col" style="gap:10px;padding:0 20px;">
+        <div class="tag tag-outline" style="align-self:flex-start;">Layer 2 — Backend</div>
+        <div class="t-h2" style="margin-top:4px;">API & Data Layer</div>
+        <div class="t-body" style="margin-top:4px;">NestJS server exposes a GraphQL API. Prisma ORM manages all device data, readings, events, and user records.</div>
+        <div class="divider"></div>
+        <div class="card" style="padding:12px 14px;">
+          <ul class="dash" style="margin:0;">
+            <li><span class="chip">NestJS</span> API framework</li>
+            <li><span class="chip">GraphQL</span> code-first schema</li>
+            <li><span class="chip">Prisma</span> ORM</li>
+            <li><span class="chip">SQLite</span> → upgradeable</li>
+          </ul>
+        </div>
+      </div>
+      <div style="background:var(--border);height:100%;"></div>
+      <!-- Layer 3 -->
+      <div class="col" style="gap:10px;padding-left:20px;">
+        <div class="tag tag-outline" style="align-self:flex-start;">Layer 3 — Frontend</div>
+        <div class="t-h2" style="margin-top:4px;">Operator Dashboard</div>
+        <div class="t-body" style="margin-top:4px;">Next.js 15 React application. Real-time polling, interactive 3D map, analytics charts, and compliance reports.</div>
+        <div class="divider"></div>
+        <div class="card" style="padding:12px 14px;">
+          <ul class="dash" style="margin:0;">
+            <li><span class="chip">Next.js 15</span> + React</li>
+            <li><span class="chip">Mapbox GL</span> 3D mapping</li>
+            <li><span class="chip">Recharts</span> analytics</li>
+            <li><span class="chip">graphql-request</span> client</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE 6 — NETWORK TOPOLOGY
+  ══════════════════════════════════════════════ -->
+  <div class="slide" id="s6">
+    <div class="tag" style="align-self:flex-start;">Network Design</div>
+    <div class="accent-bar"></div>
+    <div class="t-h1">Star + Mesh hybrid topology</div>
+    <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:20px;">
+      <div class="col" style="gap:14px;justify-content:flex-start;">
+        <div class="card" style="padding:16px 18px;">
+          <div class="t-h3" style="color:var(--blue);margin-bottom:10px;">🛜 Gateway (Mesh Root)</div>
+          <div class="t-body">7 units — one or two per refinery unit. Forms the backbone mesh network. Forwards all aggregated data to the backend server via the primary uplink.</div>
+          <div style="margin-top:8px;"><span class="tag" style="font-size:9px;">RSSI: −30 dBm avg</span> <span class="tag tag-green" style="font-size:9px;margin-left:4px;">Grade A</span></div>
+        </div>
+        <div class="card" style="padding:16px 18px;">
+          <div class="t-h3" style="margin-bottom:10px;">📡 Cluster Head (Relay)</div>
+          <div class="t-body">22 units distributed per RU. Aggregates readings from nearby sensors over star topology and relays upstream to the gateway over mesh.</div>
+          <div style="margin-top:8px;"><span class="tag tag-outline" style="font-size:9px;">Dual RSSI: mesh + star</span></div>
+        </div>
+        <div class="card" style="padding:16px 18px;">
+          <div class="t-h3" style="margin-bottom:10px;">🔵 Sensor Node</div>
+          <div class="t-body">28 MQ-series gas sensors. Reports ppm readings to its parent cluster head every 20 seconds. Battery-powered with health monitoring.</div>
+          <div style="margin-top:8px;"><span class="tag tag-outline" style="font-size:9px;">Battery: 60–90% SOC</span></div>
+        </div>
+      </div>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:10px;">
+        <div class="t-h3" style="margin-bottom:6px;">RU Device Distribution</div>
+        <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:8px;align-items:center;">
+          <div class="t-sm" style="font-weight:700;color:var(--navy);">RU</div>
+          <div class="t-sm" style="font-weight:700;text-align:center;">GW</div>
+          <div class="t-sm" style="font-weight:700;text-align:center;">CH</div>
+          <div class="t-sm" style="font-weight:700;text-align:center;">SNS</div>
+          <div class="divider" style="grid-column:1/-1;margin:2px 0;"></div>
+          <div class="t-sm" style="font-weight:700;color:var(--blue);">RU2</div><div class="t-sm" style="text-align:center;">1</div><div class="t-sm" style="text-align:center;">3</div><div class="t-sm" style="text-align:center;">10</div>
+          <div class="t-sm" style="font-weight:700;color:#34d399;">RU3</div><div class="t-sm" style="text-align:center;">1</div><div class="t-sm" style="text-align:center;">3</div><div class="t-sm" style="text-align:center;">4</div>
+          <div class="t-sm" style="font-weight:700;color:#f59e0b;">RU4</div><div class="t-sm" style="text-align:center;">1</div><div class="t-sm" style="text-align:center;">2</div><div class="t-sm" style="text-align:center;">3</div>
+          <div class="t-sm" style="font-weight:700;color:#a78bfa;">RU5</div><div class="t-sm" style="text-align:center;">1</div><div class="t-sm" style="text-align:center;">1</div><div class="t-sm" style="text-align:center;">2</div>
+          <div class="t-sm" style="font-weight:700;color:#fb7185;">RU6</div><div class="t-sm" style="text-align:center;">2</div><div class="t-sm" style="text-align:center;">2</div><div class="t-sm" style="text-align:center;">4</div>
+          <div class="t-sm" style="font-weight:700;color:#22d3ee;">RU7</div><div class="t-sm" style="text-align:center;">1</div><div class="t-sm" style="text-align:center;">11</div><div class="t-sm" style="text-align:center;">5</div>
+          <div class="divider" style="grid-column:1/-1;margin:2px 0;"></div>
+          <div class="t-sm" style="font-weight:700;">Total</div><div class="t-sm" style="text-align:center;font-weight:700;color:var(--blue);">7</div><div class="t-sm" style="text-align:center;font-weight:700;color:var(--blue);">22</div><div class="t-sm" style="text-align:center;font-weight:700;color:var(--blue);">28</div>
+        </div>
+        <div class="card-blue" style="margin-top:auto;padding:12px 14px;">
+          <div class="t-sm" style="color:var(--blue2);"><strong>Self-healing mesh:</strong> if a gateway loses uplink, cluster heads reroute through adjacent gateways. Sensor data continues to flow.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE 7 — SECTION: FEATURES
+  ══════════════════════════════════════════════ -->
+  <div class="slide sec-slide" id="s7">
+    <div style="display:flex;flex-direction:column;justify-content:center;height:100%;">
+      <div class="tag" style="background:rgba(255,255,255,0.12);color:#93c5fd;border:1px solid rgba(255,255,255,0.15);align-self:flex-start;">Section 02</div>
+      <div style="margin-top:20px;" class="t-h1">Core Features</div>
+      <div class="sub" style="margin-top:12px;max-width:520px;">A walkthrough of every major capability — from the real-time dashboard to compliance export.</div>
+      <div style="margin-top:24px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;max-width:580px;">
+        <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 14px;font-size:11px;color:#93c5fd;">Overview Dashboard</div>
+        <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 14px;font-size:11px;color:#93c5fd;">Interactive 3D Map</div>
+        <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 14px;font-size:11px;color:#93c5fd;">Device Management</div>
+        <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 14px;font-size:11px;color:#93c5fd;">Alert System</div>
+        <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 14px;font-size:11px;color:#93c5fd;">Event Log & Audit</div>
+        <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 14px;font-size:11px;color:#93c5fd;">Analytics</div>
+      </div>
+    </div>
+    <div class="sec-num">02</div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE 8 — DASHBOARD OVERVIEW
+  ══════════════════════════════════════════════ -->
+  <div class="slide" id="s8">
+    <div class="tag" style="align-self:flex-start;">Feature — Dashboard</div>
+    <div class="accent-bar"></div>
+    <div class="t-h1">Unified operator dashboard</div>
+    <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:20px;">
+      <div class="col" style="gap:12px;">
+        <div class="t-body">A dark-themed, real-time operations dashboard providing a complete picture of the refinery gas environment at a glance.</div>
+        <div class="card" style="padding:14px 16px;">
+          <div class="t-h3" style="margin-bottom:8px;">KPI Cards — live computed</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <div style="background:var(--blue-bg);border:1px solid #bae6fd;border-radius:8px;padding:8px 10px;text-align:center;">
+              <div style="font-size:20px;font-weight:700;color:var(--blue);">57</div><div class="t-sm">Total Devices</div>
+            </div>
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:8px 10px;text-align:center;">
+              <div style="font-size:20px;font-weight:700;color:#16a34a;">100%</div><div class="t-sm">Online Rate</div>
+            </div>
+            <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 10px;text-align:center;">
+              <div style="font-size:20px;font-weight:700;color:#d97706;">78%</div><div class="t-sm">Avg Battery</div>
+            </div>
+            <div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:8px;padding:8px 10px;text-align:center;">
+              <div style="font-size:20px;font-weight:700;color:#dc2626;">6</div><div class="t-sm">Active Alerts</div>
+            </div>
+          </div>
+        </div>
+        <div class="card" style="padding:12px 16px;">
+          <div class="t-h3" style="margin-bottom:6px;">RU Filter</div>
+          <div class="t-body">Selecting a Refinery Unit scopes all KPI cards, gas trend charts, device list, and analytics to that unit. Sidebar alert badge always shows global count.</div>
+        </div>
+      </div>
+      <div class="col" style="gap:10px;">
+        <div class="card" style="padding:12px 16px;">
+          <div class="t-h3" style="margin-bottom:8px;">Navigation Tabs</div>
+          <div style="display:flex;flex-direction:column;gap:5px;">
+            <div class="pill"><span class="dot-ind dot-blue"></span> Overview — KPIs, gas trend, RU health</div>
+            <div class="pill"><span class="dot-ind dot-blue"></span> Devices — full fleet table</div>
+            <div class="pill"><span class="dot-ind dot-blue"></span> Unit Layout — topology diagram</div>
+            <div class="pill"><span class="dot-ind dot-blue"></span> Map View — 3D Mapbox satellite</div>
+            <div class="pill"><span class="dot-ind dot-blue"></span> Alerts — live alert panel</div>
+            <div class="pill"><span class="dot-ind dot-blue"></span> Events — audit log</div>
+            <div class="pill"><span class="dot-ind dot-blue"></span> Analytics — trend & heatmap</div>
+            <div class="pill"><span class="dot-ind dot-blue"></span> Settings — thresholds & config</div>
+          </div>
+        </div>
+        <div class="card-blue" style="padding:12px 16px;">
+          <div class="t-sm"><strong style="color:var(--blue);">Auto-refresh every 20 seconds.</strong> All data is live-fetched. The overview trend chart shows one line per sensor, filterable by RU, with warning and critical reference lines.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE 9 — REAL-TIME GAS MONITORING
+  ══════════════════════════════════════════════ -->
+  <div class="slide" id="s9">
+    <div class="tag" style="align-self:flex-start;">Feature — Monitoring</div>
+    <div class="accent-bar"></div>
+    <div class="t-h1">Real-time gas concentration monitoring</div>
+    <div style="flex:1;display:grid;grid-template-columns:1.2fr 1fr;gap:22px;margin-top:18px;">
+      <div class="col">
+        <div class="t-body">Every sensor submits PPM readings continuously. The overview chart displays one line per sensor over a rolling 24-hour window — making concentration trends immediately visible.</div>
+        <!-- Simulated line chart -->
+        <div style="background:#0f172a;border-radius:12px;padding:16px;margin-top:4px;">
+          <div class="t-sm" style="color:#94a3b8;margin-bottom:10px;font-weight:600;">24h Gas Trend — All Sensors (ppm)</div>
+          <svg viewBox="0 0 400 120" style="width:100%;height:auto;">
+            <line x1="0" y1="90" x2="400" y2="90" stroke="#1e293b" stroke-width="1"/>
+            <line x1="0" y1="60" x2="400" y2="60" stroke="#f59e0b" stroke-width="1" stroke-dasharray="4,3"/>
+            <line x1="0" y1="30" x2="400" y2="30" stroke="#ef4444" stroke-width="1" stroke-dasharray="4,3"/>
+            <!-- Normal sensor -->
+            <polyline points="0,80 50,78 100,75 150,77 200,72 250,74 300,76 350,79 400,77" stroke="#38bdf8" stroke-width="1.5" fill="none" opacity="0.9"/>
+            <!-- Elevated sensor -->
+            <polyline points="0,70 50,65 100,68 150,63 200,58 250,61 300,64 350,66 400,62" stroke="#34d399" stroke-width="1.5" fill="none" opacity="0.9"/>
+            <!-- Spiking sensor -->
+            <polyline points="0,75 50,72 100,68 150,55 200,38 250,65 300,48 350,70 400,72" stroke="#f59e0b" stroke-width="1.5" fill="none" opacity="0.9"/>
+            <!-- Critical spike -->
+            <polyline points="0,82 50,80 100,76 150,70 200,28 250,72 300,78 350,80 400,81" stroke="#ef4444" stroke-width="1.5" fill="none" opacity="0.9"/>
+            <text x="402" y="63" fill="#f59e0b" font-size="7">50</text>
+            <text x="402" y="33" fill="#ef4444" font-size="7">80</text>
+          </svg>
+        </div>
+      </div>
+      <div class="col" style="gap:12px;">
+        <div class="card" style="padding:14px 16px;">
+          <div class="t-h3" style="margin-bottom:10px;">Alert Thresholds</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:#fffbeb;border-radius:8px;border:1px solid #fde68a;">
+              <div style="width:10px;height:10px;border-radius:50%;background:#d97706;flex-shrink:0;"></div>
+              <div><div class="t-sm" style="font-weight:700;color:#d97706;">WARNING — 50 ppm</div><div class="t-sm">Alert logged. Operator notified.</div></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:#fff1f2;border-radius:8px;border:1px solid #fecdd3;">
+              <div style="width:10px;height:10px;border-radius:50%;background:#dc2626;flex-shrink:0;"></div>
+              <div><div class="t-sm" style="font-weight:700;color:#dc2626;">CRITICAL — 80 ppm</div><div class="t-sm">Immediate action required.</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="card" style="padding:14px 16px;">
+          <div class="t-h3" style="margin-bottom:8px;">Sensor Profiles</div>
+          <ul class="dash" style="margin:0;">
+            <li><strong>Normal (55%):</strong> 8–36 ppm baseline</li>
+            <li><strong>Elevated (25%):</strong> 38–60 ppm during working hours</li>
+            <li><strong>Spiking (20%):</strong> 62–92 ppm at peak hours (09:00, 14:00, 20:00)</li>
+          </ul>
+        </div>
+        <div class="card-blue" style="padding:12px 16px;">
+          <div class="t-sm"><strong style="color:var(--blue);">15-minute deduplication:</strong> repeated breach events from the same sensor are suppressed to prevent alert flooding.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE 10 — INTERACTIVE 3D MAP
+  ══════════════════════════════════════════════ -->
+  <div class="slide" id="s10">
+    <div class="tag" style="align-self:flex-start;">Feature — Map</div>
+    <div class="accent-bar"></div>
+    <div class="t-h1">Interactive 3D satellite map</div>
+    <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:18px;">
+      <!-- Map preview (dark themed box) -->
+      <div style="background:#0d1a2a;border-radius:14px;overflow:hidden;position:relative;display:flex;align-items:center;justify-content:center;min-height:180px;">
+        <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 40% 60%,rgba(14,36,60,0.9) 0%,rgba(5,15,30,0.95) 100%);"></div>
+        <!-- Simulated device pins -->
+        <svg viewBox="0 0 320 180" style="width:100%;height:auto;position:relative;z-index:1;">
+          <!-- "Terrain" shapes -->
+          <ellipse cx="160" cy="90" rx="130" ry="70" fill="rgba(20,60,30,0.3)"/>
+          <ellipse cx="100" cy="110" rx="50" ry="25" fill="rgba(20,60,30,0.4)"/>
+          <!-- Sensor pins -->
+          <circle cx="80" cy="100" r="6" fill="#22c55e" opacity="0.9"/>
+          <circle cx="120" cy="80" r="6" fill="#22c55e" opacity="0.9"/>
+          <circle cx="160" cy="110" r="6" fill="#f59e0b" opacity="0.9"/>
+          <circle cx="200" cy="70" r="6" fill="#22c55e" opacity="0.9"/>
+          <circle cx="240" cy="100" r="6" fill="#ef4444" opacity="0.9"/>
+          <circle cx="140" cy="140" r="6" fill="#22c55e" opacity="0.9"/>
+          <circle cx="180" cy="50" r="8" fill="#3b82f6" opacity="0.9"/>
+          <!-- Labels -->
+          <text x="76" y="115" fill="white" font-size="7" text-anchor="middle" opacity="0.8">SNS</text>
+          <text x="116" y="95" fill="white" font-size="7" text-anchor="middle" opacity="0.8">SNS</text>
+          <text x="177" y="45" fill="white" font-size="7" text-anchor="middle" opacity="0.8">GW</text>
+          <text x="236" y="115" fill="white" font-size="7" text-anchor="middle" opacity="0.8">SNS</text>
+        </svg>
+        <div style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.5);border-radius:6px;padding:4px 10px;font-size:10px;color:#94a3b8;">3D / 2D toggle</div>
+      </div>
+      <div class="col" style="gap:12px;">
+        <div class="card" style="padding:14px 16px;">
+          <div class="t-h3" style="margin-bottom:8px;">Map Capabilities</div>
+          <ul class="check" style="margin:0;">
+            <li>Mapbox GL satellite terrain in 3D perspective view</li>
+            <li>2D / 3D toggle for operational preference</li>
+            <li>Color-coded pins: green (OK), amber (warning), red (critical)</li>
+            <li>Click any pin to see device name, RU, PPM, health score</li>
+            <li>Drag-to-reposition device location (persisted)</li>
+          </ul>
+        </div>
+        <div class="card" style="padding:14px 16px;">
+          <div class="t-h3" style="margin-bottom:8px;">Pin Color Meaning</div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <div class="pill"><span class="dot-ind dot-green"></span> Green — Normal (PPM below warning)</div>
+            <div class="pill"><span class="dot-ind dot-amber"></span> Amber — Warning (≥50 ppm)</div>
+            <div class="pill"><span class="dot-ind dot-red"></span> Red — Critical (≥80 ppm)</div>
+            <div class="pill"><span class="dot-ind" style="background:#3b82f6;"></span> Blue — Gateway node</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE 11 — DEVICE MANAGEMENT
+  ══════════════════════════════════════════════ -->
+  <div class="slide" id="s11">
+    <div class="tag" style="align-self:flex-start;">Feature — Devices</div>
+    <div class="accent-bar"></div>
+    <div class="t-h1">Device fleet management</div>
+    <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:18px;">
+      <div class="col">
+        <div class="t-body">A complete table view of all 57 devices — sensors, cluster heads, and gateways — with real-time health scores, battery metrics, and network quality grades.</div>
+        <!-- Fake device table -->
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-top:8px;">
+          <div style="display:grid;grid-template-columns:1fr 50px 60px 40px;gap:0;padding:8px 12px;border-bottom:1px solid var(--border);">
+            <div class="t-sm" style="font-weight:700;color:var(--slate);">DEVICE</div>
+            <div class="t-sm" style="font-weight:700;color:var(--slate);">HEALTH</div>
+            <div class="t-sm" style="font-weight:700;color:var(--slate);">BATTERY</div>
+            <div class="t-sm" style="font-weight:700;color:var(--slate);">NET</div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 50px 60px 40px;gap:0;padding:7px 12px;border-bottom:1px solid var(--border);">
+            <div class="t-sm" style="font-weight:600;">RU2 Sensor 1<br><span style="color:var(--slate2);font-size:9px;">RU2-SNS-01</span></div>
+            <div class="t-sm" style="color:#16a34a;font-weight:700;">87</div>
+            <div class="t-sm">76% · 3.7V</div>
+            <div class="t-sm" style="color:var(--blue);font-weight:700;">B</div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 50px 60px 40px;gap:0;padding:7px 12px;border-bottom:1px solid var(--border);background:#fffbeb;">
+            <div class="t-sm" style="font-weight:600;">RU7 Sensor 3<br><span style="color:var(--slate2);font-size:9px;">RU7-SNS-03</span></div>
+            <div class="t-sm" style="color:#d97706;font-weight:700;">54</div>
+            <div class="t-sm">61% · 3.5V</div>
+            <div class="t-sm" style="color:#d97706;font-weight:700;">C</div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 50px 60px 40px;gap:0;padding:7px 12px;">
+            <div class="t-sm" style="font-weight:600;">RU2 Gateway 1<br><span style="color:var(--slate2);font-size:9px;">RU2-GW-01</span></div>
+            <div class="t-sm" style="color:#16a34a;font-weight:700;">99</div>
+            <div class="t-sm">100% · 12V</div>
+            <div class="t-sm" style="color:#16a34a;font-weight:700;">A</div>
+          </div>
+        </div>
+      </div>
+      <div class="col" style="gap:11px;">
+        <div class="card" style="padding:14px 16px;">
+          <div class="t-h3" style="margin-bottom:8px;">Per-Device Metrics</div>
+          <ul class="dash" style="margin:0;">
+            <li><strong>Health Score (0–100):</strong> composite of battery, signal, and recency</li>
+            <li><strong>Battery:</strong> voltage, state of charge (SOC %), estimated remaining hours</li>
+            <li><strong>Network:</strong> RSSI, mesh/star RSSI, hops to gateway, quality grade A–D</li>
+            <li><strong>Latest PPM:</strong> most recent gas reading per sensor</li>
+            <li><strong>Parent device:</strong> which cluster head or gateway it reports to</li>
+          </ul>
+        </div>
+        <div class="card" style="padding:14px 16px;">
+          <div class="t-h3" style="margin-bottom:8px;">Operations</div>
+          <ul class="check" style="margin:0;">
+            <li>Search and filter by name, RU, or device type</li>
+            <li>Inline rename device (persisted to database)</li>
+            <li>Drag device pin to update location on map</li>
+            <li>Filter by type: Gateway / Cluster Head / Sensor</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE 12 — ALERT SYSTEM
+  ══════════════════════════════════════════════ -->
+  <div class="slide" id="s12">
+    <div class="tag" style="align-self:flex-start;">Feature — Alerts</div>
+    <div class="accent-bar"></div>
+    <div class="t-h1">Intelligent alert system</div>
+    <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:18px;">
+      <div class="col">
+        <div class="t-body">Alerts are automatically generated when sensors breach thresholds or devices change status. A 15-minute deduplication window prevents flood alerts from the same sensor.</div>
+        <div class="card" style="margin-top:10px;padding:14px 16px;">
+          <div class="t-h3" style="margin-bottom:10px;">Alert Types</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;gap:10px;align-items:center;padding:8px 12px;background:#fff1f2;border-radius:8px;">
+              <span class="tag tag-red" style="font-size:9px;flex-shrink:0;">CRITICAL</span>
+              <div class="t-sm"><strong>THRESHOLD_BREACH</strong> ≥80 ppm — immediate escalation</div>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;padding:8px 12px;background:#fffbeb;border-radius:8px;">
+              <span class="tag tag-amber" style="font-size:9px;flex-shrink:0;">WARNING</span>
+              <div class="t-sm"><strong>THRESHOLD_BREACH</strong> ≥50 ppm — operator attention needed</div>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;padding:8px 12px;background:#fffbeb;border-radius:8px;">
+              <span class="tag tag-amber" style="font-size:9px;flex-shrink:0;">WARNING</span>
+              <div class="t-sm"><strong>DEVICE_OFFLINE</strong> — sensor lost connection</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col" style="gap:11px;">
+        <div class="card" style="padding:14px 16px;">
+          <div class="t-h3" style="margin-bottom:8px;">Alert Panel Features</div>
+          <ul class="check" style="margin:0;">
+            <li>Filterable by severity, type, and status (active/resolved)</li>
+            <li>Search by message, device name, or RU</li>
+            <li>Displays affected device, RU, exact timestamp</li>
+            <li>One-click jump to device on map</li>
+            <li>Badge in sidebar always shows global unacknowledged count</li>
+          </ul>
+        </div>
+        <div class="card-blue" style="padding:14px 16px;">
+          <div class="t-h3" style="margin-bottom:6px;color:var(--blue2);">Smart Deduplication</div>
+          <div class="t-body" style="color:var(--blue2);">When a sensor is continuously breaching threshold, only one event is logged per 15-minute window — keeping the alert queue actionable, not overwhelming.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE 13 — EVENT LOG
+  ══════════════════════════════════════════════ -->
+  <div class="slide" id="s13">
+    <div class="tag" style="align-self:flex-start;">Feature — Event Log</div>
+    <div class="accent-bar"></div>
+    <div class="t-h1">Complete event log & operator acknowledgement</div>
+    <div style="flex:1;display:grid;grid-template-columns:1.1fr 1fr;gap:22px;margin-top:16px;">
+      <div class="col">
+        <div class="t-body">Every system event is recorded with full context — who, what, when, where. Operators must provide a documented reason when acknowledging alerts.</div>
+        <!-- Event log mock table -->
+        <div style="background:#0f172a;border-radius:10px;padding:14px;margin-top:8px;font-size:10px;font-family:'Courier New',monospace;color:#94a3b8;overflow:hidden;">
+          <div style="display:grid;grid-template-columns:100px 90px 40px 1fr;gap:4px;color:#475569;font-size:8px;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">
+            <span>TIMESTAMP</span><span>TYPE</span><span>SEV</span><span>MESSAGE</span>
+          </div>
+          <div style="display:grid;grid-template-columns:100px 90px 40px 1fr;gap:4px;border-top:1px solid #1e293b;padding-top:6px;margin-bottom:4px;">
+            <span style="color:#64748b;">2026-06-06<br>22:13:04</span>
+            <span style="color:#f59e0b;font-size:8px;">THRESHOLD_BREACH</span>
+            <span style="color:#ef4444;font-size:8px;">CRIT</span>
+            <span style="color:#cbd5e1;font-size:9px;">RU7 Sensor 3 — 91.2 ppm exceeds CRITICAL threshold</span>
+          </div>
+          <div style="display:grid;grid-template-columns:100px 90px 40px 1fr;gap:4px;border-top:1px solid #1e293b;padding:6px 0 4px;">
+            <span style="color:#64748b;">2026-06-06<br>19:55:12</span>
+            <span style="color:#94a3b8;font-size:8px;">ACK</span>
+            <span style="color:#38bdf8;font-size:8px;">INFO</span>
+            <span style="color:#cbd5e1;font-size:9px;">Acknowledged by admin@gld.com — valve adjusted</span>
+          </div>
+          <div style="display:grid;grid-template-columns:100px 90px 40px 1fr;gap:4px;border-top:1px solid #1e293b;padding-top:6px;">
+            <span style="color:#64748b;">2026-06-06<br>06:02:34</span>
+            <span style="color:#a78bfa;font-size:8px;">LOGIN</span>
+            <span style="color:#38bdf8;font-size:8px;">INFO</span>
+            <span style="color:#cbd5e1;font-size:9px;">Operator admin@gld.com signed in</span>
+          </div>
+        </div>
+      </div>
+      <div class="col" style="gap:11px;">
+        <div class="card" style="padding:14px 16px;">
+          <div class="t-h3" style="margin-bottom:8px;">All Logged Event Types</div>
+          <div style="display:flex;flex-wrap:wrap;gap:5px;">
+            <span class="tag tag-red" style="font-size:9px;">THRESHOLD_BREACH</span>
+            <span class="tag tag-amber" style="font-size:9px;">DEVICE_OFFLINE</span>
+            <span class="tag" style="font-size:9px;">DEVICE_ONLINE</span>
+            <span class="tag" style="font-size:9px;background:#7c3aed;">LOGIN</span>
+            <span class="tag" style="font-size:9px;background:#475569;">LOGOUT</span>
+            <span class="tag tag-green" style="font-size:9px;">ACK</span>
+          </div>
+        </div>
+        <div class="card" style="padding:14px 16px;">
+          <div class="t-h3" style="margin-bottom:8px;">Acknowledgement Workflow</div>
+          <ul class="check" style="margin:0;">
+            <li>Only unacknowledged events can be acked</li>
+            <li>Mandatory operator note (required field)</li>
+            <li>ACK event auto-created in the log for trail</li>
+            <li>Record shows: who acked, when, and their note</li>
+          </ul>
+        </div>
+        <div class="card-blue" style="padding:12px 14px;">
+          <div class="t-sm" style="color:var(--blue2);">Full-text search across messages, RU, and operator email. Filter by event type, severity, and acknowledgement status.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE 14 — COMPLIANCE EXPORT
+  ══════════════════════════════════════════════ -->
+  <div class="slide" id="s14">
+    <div class="tag" style="align-self:flex-start;">Feature — Reporting</div>
+    <div class="accent-bar"></div>
+    <div class="t-h1">Audit & compliance export</div>
+    <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:18px;">
+      <div class="col">
+        <div class="t-body">One-click export of the full event log in industry-standard formats — designed to satisfy audit requirements, regulatory inspections, and root cause analysis (RCA) workflows.</div>
+        <div class="g2" style="margin-top:12px;gap:14px;">
+          <div style="background:var(--bg);border:2px solid var(--border);border-radius:12px;padding:16px;text-align:center;">
+            <div style="font-size:28px;">📊</div>
+            <div class="t-h3" style="margin-top:6px;">CSV Export</div>
+            <div class="t-sm" style="margin-top:4px;">Machine-readable. All columns: timestamp, type, severity, RU, message, ack status, operator note.</div>
+          </div>
+          <div style="background:var(--blue-bg);border:2px solid #bae6fd;border-radius:12px;padding:16px;text-align:center;">
+            <div style="font-size:28px;">📄</div>
+            <div class="t-h3" style="margin-top:6px;color:var(--blue2);">PDF Report</div>
+            <div class="t-sm" style="margin-top:4px;color:var(--text3);">Human-readable audit report with summary stats, site filter, and formatted event table.</div>
+          </div>
+        </div>
+      </div>
+      <div class="col" style="gap:11px;">
+        <div class="card" style="padding:14px 16px;">
+          <div class="t-h3" style="margin-bottom:8px;">Report Contents</div>
+          <ul class="check" style="margin:0;">
+            <li>Export scope: all events or filtered view</li>
+            <li>Header: operator email, site (RU), generation timestamp</li>
+            <li>Summary stats: total events, unacknowledged count, event type breakdown</li>
+            <li>Full event table with all fields</li>
+            <li>PDF footer: "RESTRICTED — AUDIT USE ONLY"</li>
+          </ul>
+        </div>
+        <div class="card" style="padding:14px 16px;">
+          <div class="t-h3" style="margin-bottom:6px;">Use Cases</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">
+            <span class="pill">HSE Audit</span>
+            <span class="pill">Incident RCA</span>
+            <span class="pill">Regulatory Inspection</span>
+            <span class="pill">Shift Handover</span>
+            <span class="pill">Insurance Claims</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE 15 — ANALYTICS
+  ══════════════════════════════════════════════ -->
+  <div class="slide" id="s15">
+    <div class="tag" style="align-self:flex-start;">Feature — Analytics</div>
+    <div class="accent-bar"></div>
+    <div class="t-h1">Gas analytics dashboard</div>
+    <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:16px;">
+      <div class="col">
+        <div class="t-body">Rich historical analytics built from real sensor data. The 24H / 7D toggle switches all charts simultaneously. Responds to the active RU filter.</div>
+        <!-- Heatmap visual -->
+        <div style="margin-top:10px;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:14px;">
+          <div class="t-sm" style="font-weight:700;margin-bottom:8px;">Hour-of-Day × Refinery Unit Heatmap</div>
+          <div style="display:grid;gap:3px;">
+            <div style="display:grid;grid-template-columns:32px repeat(12,1fr);gap:2px;">
+              <div></div>
+              <div class="t-sm" style="text-align:center;font-size:8px;">00</div><div class="t-sm" style="text-align:center;font-size:8px;">02</div><div class="t-sm" style="text-align:center;font-size:8px;">04</div><div class="t-sm" style="text-align:center;font-size:8px;">06</div><div class="t-sm" style="text-align:center;font-size:8px;">08</div><div class="t-sm" style="text-align:center;font-size:8px;">10</div><div class="t-sm" style="text-align:center;font-size:8px;">12</div><div class="t-sm" style="text-align:center;font-size:8px;">14</div><div class="t-sm" style="text-align:center;font-size:8px;">16</div><div class="t-sm" style="text-align:center;font-size:8px;">18</div><div class="t-sm" style="text-align:center;font-size:8px;">20</div><div class="t-sm" style="text-align:center;font-size:8px;">22</div>
+            </div>
+            <div style="display:grid;grid-template-columns:32px repeat(12,1fr);gap:2px;align-items:center;">
+              <div class="t-sm" style="font-size:8px;color:#38bdf8;font-weight:700;">RU2</div>
+              <div style="height:14px;border-radius:2px;background:rgba(56,189,248,0.2)"></div><div style="height:14px;border-radius:2px;background:rgba(56,189,248,0.2)"></div><div style="height:14px;border-radius:2px;background:rgba(56,189,248,0.15)"></div><div style="height:14px;border-radius:2px;background:rgba(56,189,248,0.3)"></div><div style="height:14px;border-radius:2px;background:rgba(245,158,11,0.5)"></div><div style="height:14px;border-radius:2px;background:rgba(245,158,11,0.6)"></div><div style="height:14px;border-radius:2px;background:rgba(245,158,11,0.55)"></div><div style="height:14px;border-radius:2px;background:rgba(239,68,68,0.7)"></div><div style="height:14px;border-radius:2px;background:rgba(245,158,11,0.5)"></div><div style="height:14px;border-radius:2px;background:rgba(245,158,11,0.45)"></div><div style="height:14px;border-radius:2px;background:rgba(239,68,68,0.65)"></div><div style="height:14px;border-radius:2px;background:rgba(56,189,248,0.25)"></div>
+            </div>
+            <div style="display:grid;grid-template-columns:32px repeat(12,1fr);gap:2px;align-items:center;">
+              <div class="t-sm" style="font-size:8px;color:#34d399;font-weight:700;">RU3</div>
+              <div style="height:14px;border-radius:2px;background:rgba(56,189,248,0.15)"></div><div style="height:14px;border-radius:2px;background:rgba(56,189,248,0.1)"></div><div style="height:14px;border-radius:2px;background:rgba(56,189,248,0.12)"></div><div style="height:14px;border-radius:2px;background:rgba(56,189,248,0.25)"></div><div style="height:14px;border-radius:2px;background:rgba(56,189,248,0.3)"></div><div style="height:14px;border-radius:2px;background:rgba(56,189,248,0.35)"></div><div style="height:14px;border-radius:2px;background:rgba(56,189,248,0.3)"></div><div style="height:14px;border-radius:2px;background:rgba(245,158,11,0.4)"></div><div style="height:14px;border-radius:2px;background:rgba(56,189,248,0.35)"></div><div style="height:14px;border-radius:2px;background:rgba(56,189,248,0.3)"></div><div style="height:14px;border-radius:2px;background:rgba(245,158,11,0.4)"></div><div style="height:14px;border-radius:2px;background:rgba(56,189,248,0.2)"></div>
+            </div>
+            <div style="display:grid;grid-template-columns:32px repeat(12,1fr);gap:2px;align-items:center;">
+              <div class="t-sm" style="font-size:8px;color:#22d3ee;font-weight:700;">RU7</div>
+              <div style="height:14px;border-radius:2px;background:rgba(56,189,248,0.3)"></div><div style="height:14px;border-radius:2px;background:rgba(56,189,248,0.28)"></div><div style="height:14px;border-radius:2px;background:rgba(56,189,248,0.3)"></div><div style="height:14px;border-radius:2px;background:rgba(245,158,11,0.4)"></div><div style="height:14px;border-radius:2px;background:rgba(239,68,68,0.6)"></div><div style="height:14px;border-radius:2px;background:rgba(239,68,68,0.65)"></div><div style="height:14px;border-radius:2px;background:rgba(239,68,68,0.6)"></div><div style="height:14px;border-radius:2px;background:rgba(239,68,68,0.75)"></div><div style="height:14px;border-radius:2px;background:rgba(239,68,68,0.6)"></div><div style="height:14px;border-radius:2px;background:rgba(245,158,11,0.5)"></div><div style="height:14px;border-radius:2px;background:rgba(239,68,68,0.7)"></div><div style="height:14px;border-radius:2px;background:rgba(56,189,248,0.3)"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col" style="gap:10px;">
+        <div class="card" style="padding:14px 16px;">
+          <div class="t-h3" style="margin-bottom:8px;">Analytics Sections</div>
+          <ul class="check" style="margin:0;">
+            <li><strong>Gas Trend:</strong> avg PPM area chart with threshold lines</li>
+            <li><strong>Breach Count:</strong> bar chart of threshold violations per period</li>
+            <li><strong>RU Comparison:</strong> horizontal bars — avg PPM and breach count per refinery unit</li>
+            <li><strong>Heatmap:</strong> hour-of-day × RU — spot peak risk windows</li>
+            <li><strong>Top Risky Sensors:</strong> ranked table by avg PPM</li>
+            <li><strong>Fleet Health:</strong> online/offline counters, battery distribution, network quality grades</li>
+          </ul>
+        </div>
+        <div class="card-blue" style="padding:12px 14px;">
+          <div class="t-sm" style="color:var(--blue2);"><strong>24H / 7D toggle</strong> refetches data from backend — trend charts, breach counts, RU comparison, and top sensors all update. Heatmap always uses 7-day window for pattern detection.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE 16 — MULTI-SITE MANAGEMENT
+  ══════════════════════════════════════════════ -->
+  <div class="slide" id="s16">
+    <div class="tag" style="align-self:flex-start;">Feature — Multi-Site</div>
+    <div class="accent-bar"></div>
+    <div class="t-h1">Multi-site refinery management</div>
+    <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:18px;">
+      <div class="col">
+        <div class="t-body">Six refinery units — RU2 through RU7 — each with their own sensor density and risk profile. Operators can switch between ALL-site view and per-unit drill-down in a single click.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:12px;">
+          <div class="card" style="padding:12px;text-align:center;border-top:3px solid #38bdf8;">
+            <div style="font-weight:700;color:#38bdf8;font-size:14px;">RU2</div>
+            <div class="t-sm">10 sensors</div>
+            <div class="t-sm">Highest density</div>
+          </div>
+          <div class="card" style="padding:12px;text-align:center;border-top:3px solid #34d399;">
+            <div style="font-weight:700;color:#34d399;font-size:14px;">RU3</div>
+            <div class="t-sm">4 sensors</div>
+            <div class="t-sm">Elevated avg</div>
+          </div>
+          <div class="card" style="padding:12px;text-align:center;border-top:3px solid #f59e0b;">
+            <div style="font-weight:700;color:#f59e0b;font-size:14px;">RU4</div>
+            <div class="t-sm">3 sensors</div>
+            <div class="t-sm">Normal range</div>
+          </div>
+          <div class="card" style="padding:12px;text-align:center;border-top:3px solid #a78bfa;">
+            <div style="font-weight:700;color:#a78bfa;font-size:14px;">RU5</div>
+            <div class="t-sm">2 sensors</div>
+            <div class="t-sm">Device events</div>
+          </div>
+          <div class="card" style="padding:12px;text-align:center;border-top:3px solid #fb7185;">
+            <div style="font-weight:700;color:#fb7185;font-size:14px;">RU6</div>
+            <div class="t-sm">4 sensors</div>
+            <div class="t-sm">2 gateways</div>
+          </div>
+          <div class="card" style="padding:12px;text-align:center;border-top:3px solid #22d3ee;">
+            <div style="font-weight:700;color:#22d3ee;font-size:14px;">RU7</div>
+            <div class="t-sm">5 sensors</div>
+            <div class="t-sm">High breaches</div>
+          </div>
+        </div>
+      </div>
+      <div class="col" style="gap:11px;">
+        <div class="card" style="padding:14px 16px;">
+          <div class="t-h3" style="margin-bottom:8px;">Filter Scope — what responds to RU selection</div>
+          <ul class="check" style="margin:0;">
+            <li>KPI cards (devices, online %, battery, alerts)</li>
+            <li>Overview gas trend line chart</li>
+            <li>Refinery Unit Health panel</li>
+            <li>Health by Device Type panel</li>
+            <li>Device table and map pins</li>
+            <li>Event log query</li>
+            <li>Analytics (trend, top sensors, fleet health)</li>
+          </ul>
+        </div>
+        <div class="card-blue" style="padding:12px 14px;">
+          <div class="t-sm" style="color:var(--blue2);"><strong>Global alert badge</strong> in the sidebar always shows the count across ALL sites — ensuring critical alerts are never missed even when viewing a specific unit.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE 17 — SECTION: TECHNICAL
+  ══════════════════════════════════════════════ -->
+  <div class="slide sec-slide" id="s17">
+    <div style="display:flex;flex-direction:column;justify-content:center;height:100%;">
+      <div class="tag" style="background:rgba(255,255,255,0.12);color:#93c5fd;border:1px solid rgba(255,255,255,0.15);align-self:flex-start;">Section 03</div>
+      <div style="margin-top:20px;" class="t-h1">Technical Overview</div>
+      <div class="sub" style="margin-top:12px;max-width:500px;">Data flow, security model, deployment configuration, and the technology stack in detail.</div>
+    </div>
+    <div class="sec-num">03</div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE 18 — DATA FLOW
+  ══════════════════════════════════════════════ -->
+  <div class="slide" id="s18">
+    <div class="tag" style="align-self:flex-start;">Technical — Data Flow</div>
+    <div class="accent-bar"></div>
+    <div class="t-h1">End-to-end data flow</div>
+    <div style="flex:1;display:flex;flex-direction:column;gap:14px;margin-top:20px;">
+      <!-- Flow diagram -->
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);align-items:center;gap:0;">
+        <div class="card" style="padding:12px;text-align:center;">
+          <div style="font-size:22px;">🔵</div>
+          <div class="t-h3" style="font-size:12px;margin-top:4px;">Gas Sensor</div>
+          <div class="t-sm">MQ-series · 20s interval</div>
+        </div>
+        <div style="text-align:center;color:var(--blue);font-size:20px;">→</div>
+        <div class="card" style="padding:12px;text-align:center;">
+          <div style="font-size:22px;">📡</div>
+          <div class="t-h3" style="font-size:12px;margin-top:4px;">Cluster Head</div>
+          <div class="t-sm">Star topology · aggregates</div>
+        </div>
+        <div style="text-align:center;color:var(--blue);font-size:20px;">→</div>
+        <div class="card" style="padding:12px;text-align:center;">
+          <div style="font-size:22px;">🛜</div>
+          <div class="t-h3" style="font-size:12px;margin-top:4px;">Gateway</div>
+          <div class="t-sm">Mesh root · uplink</div>
+        </div>
+        <div style="text-align:center;color:var(--blue);font-size:20px;">→</div>
+        <div class="card card-blue" style="padding:12px;text-align:center;">
+          <div style="font-size:22px;">🖥</div>
+          <div class="t-h3" style="font-size:12px;margin-top:4px;color:var(--blue2);">NestJS API</div>
+          <div class="t-sm" style="color:var(--text3);">GraphQL · port 4000</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:4px;">
+        <div class="card" style="padding:14px 16px;">
+          <div class="t-h3" style="margin-bottom:8px;font-size:13px;">Backend Processing</div>
+          <ul class="dash" style="margin:0;">
+            <li>PPM reading stored in Prisma/SQLite</li>
+            <li>Threshold check → EventLog entry created</li>
+            <li>15-minute deduplication for breach events</li>
+            <li>Device status change → OFFLINE/ONLINE event</li>
+          </ul>
+        </div>
+        <div class="card" style="padding:14px 16px;">
+          <div class="t-h3" style="margin-bottom:8px;font-size:13px;">Frontend Polling</div>
+          <ul class="dash" style="margin:0;">
+            <li>Next.js polls GraphQL every 20 seconds</li>
+            <li>Devices, stats, and sensor timeline fetched</li>
+            <li>State diffed — device status change triggers event log entry</li>
+            <li>Event log and analytics fetched on-demand</li>
+          </ul>
+        </div>
+        <div class="card" style="padding:14px 16px;">
+          <div class="t-h3" style="margin-bottom:8px;font-size:13px;">GraphQL Schema</div>
+          <ul class="dash" style="margin:0;">
+            <li>Code-first with <span class="chip">@nestjs/graphql</span></li>
+            <li>Queries: devices, stats, eventLogs, analytics, sensorTimeline</li>
+            <li>Mutations: login, createEventLog, acknowledgeEvent, updateSettings</li>
+            <li>Type-safe end-to-end with <span class="chip">graphql-request</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE 19 — TECH STACK
+  ══════════════════════════════════════════════ -->
+  <div class="slide" id="s19">
+    <div class="tag" style="align-self:flex-start;">Technical — Stack</div>
+    <div class="accent-bar"></div>
+    <div class="t-h1">Technology stack</div>
+    <div style="flex:1;display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-top:22px;">
+      <div class="col" style="gap:10px;">
+        <div class="tag tag-outline" style="align-self:flex-start;">Frontend</div>
+        <div class="card" style="flex:1;padding:16px;">
+          <ul class="dash" style="margin:0;gap:10px;">
+            <li><strong>Next.js 15</strong> — App Router, React 18</li>
+            <li><strong>TypeScript</strong> — strict end-to-end types</li>
+            <li><strong>Recharts</strong> — AreaChart, BarChart, LineChart</li>
+            <li><strong>Mapbox GL</strong> — react-map-gl, 3D satellite</li>
+            <li><strong>graphql-request</strong> — lightweight GQL client</li>
+            <li><strong>Lucide React</strong> — icon system</li>
+            <li><strong>DM Sans + Geist Mono</strong> — typography</li>
+          </ul>
+        </div>
+      </div>
+      <div class="col" style="gap:10px;">
+        <div class="tag tag-outline" style="align-self:flex-start;">Backend</div>
+        <div class="card" style="flex:1;padding:16px;">
+          <ul class="dash" style="margin:0;gap:10px;">
+            <li><strong>NestJS</strong> — modular Node.js framework</li>
+            <li><strong>GraphQL</strong> — code-first with decorators</li>
+            <li><strong>Prisma ORM</strong> — type-safe DB client</li>
+            <li><strong>SQLite</strong> — zero-config, upgradeable</li>
+            <li><strong>class-validator</strong> — input validation</li>
+            <li><strong>TypeScript</strong> — strict mode</li>
+          </ul>
+        </div>
+      </div>
+      <div class="col" style="gap:10px;">
+        <div class="tag tag-outline" style="align-self:flex-start;">Infrastructure</div>
+        <div class="card" style="flex:1;padding:16px;">
+          <ul class="dash" style="margin:0;gap:10px;">
+            <li><strong>Monorepo</strong> — apps/backend + apps/frontend</li>
+            <li><strong>npm workspaces</strong> — shared dependencies</li>
+            <li><strong>npm-run-all</strong> — parallel dev start</li>
+            <li><strong>Prisma CLI</strong> — schema migrations</li>
+            <li><strong>Seed script</strong> — 28 sensors × 7 days of demo data</li>
+            <li><strong>Port 3000</strong> (UI) · <strong>Port 4000</strong> (API)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE 20 — SECURITY & ACCESS
+  ══════════════════════════════════════════════ -->
+  <div class="slide" id="s20">
+    <div class="tag" style="align-self:flex-start;">Technical — Security</div>
+    <div class="accent-bar"></div>
+    <div class="t-h1">Security & access control</div>
+    <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:18px;">
+      <div class="col" style="gap:12px;">
+        <div class="card" style="padding:16px;">
+          <div class="t-h3" style="margin-bottom:10px;">Role-Based Access</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="padding:10px 14px;background:var(--blue-bg);border:1px solid #bae6fd;border-radius:8px;">
+              <div class="t-sm" style="font-weight:700;color:var(--blue2);">ADMIN</div>
+              <div class="t-sm" style="margin-top:3px;">Full access to all RUs. Can manage users, configure thresholds, view all events across all sites.</div>
+            </div>
+            <div style="padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;">
+              <div class="t-sm" style="font-weight:700;">OPERATOR</div>
+              <div class="t-sm" style="margin-top:3px;">Scoped to their assigned RU. Can view devices, acknowledge events, and export reports for their unit only.</div>
+            </div>
+          </div>
+        </div>
+        <div class="card" style="padding:16px;">
+          <div class="t-h3" style="margin-bottom:8px;">Rate Limiting</div>
+          <ul class="dash" style="margin:0;">
+            <li>Max 5 login attempts per account</li>
+            <li>15-minute lockout window</li>
+            <li>In-memory rate limit map per email</li>
+          </ul>
+        </div>
+      </div>
+      <div class="col" style="gap:12px;">
+        <div class="card" style="padding:16px;">
+          <div class="t-h3" style="margin-bottom:8px;">Audit Trail</div>
+          <ul class="check" style="margin:0;">
+            <li>Every login/logout recorded with timestamp and operator email</li>
+            <li>All alert acknowledgements stored with mandatory operator note</li>
+            <li>Device state changes automatically logged</li>
+            <li>Complete chain from first detection → acknowledgement → resolution</li>
+          </ul>
+        </div>
+        <div class="card" style="padding:16px;">
+          <div class="t-h3" style="margin-bottom:8px;">Data Integrity</div>
+          <ul class="check" style="margin:0;">
+            <li>GraphQL input validation via class-validator</li>
+            <li>Prisma type-safe queries — no raw SQL injection risk</li>
+            <li>Acknowledgement notes validated non-empty before save</li>
+          </ul>
+        </div>
+        <div class="card-blue" style="padding:12px 14px;">
+          <div class="t-sm" style="color:var(--blue2);"><strong>Dev mode:</strong> passwordless login for demonstration. Production mode adds bcrypt password hashing.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE 21 — LIVE METRICS
+  ══════════════════════════════════════════════ -->
+  <div class="slide" id="s21">
+    <div class="tag" style="align-self:flex-start;">System Metrics</div>
+    <div class="accent-bar"></div>
+    <div class="t-h1">Live system metrics</div>
+    <div style="flex:1;margin-top:22px;">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:20px;">
+        <div class="card" style="padding:20px;text-align:center;">
+          <div style="font-size:36px;font-weight:800;color:var(--blue);">28</div>
+          <div class="t-sm" style="text-transform:uppercase;letter-spacing:1px;margin-top:4px;">Gas Sensors</div>
+        </div>
+        <div class="card" style="padding:20px;text-align:center;">
+          <div style="font-size:36px;font-weight:800;color:#34d399;">57</div>
+          <div class="t-sm" style="text-transform:uppercase;letter-spacing:1px;margin-top:4px;">Total Devices</div>
+        </div>
+        <div class="card" style="padding:20px;text-align:center;">
+          <div style="font-size:36px;font-weight:800;color:#a78bfa;">6</div>
+          <div class="t-sm" style="text-transform:uppercase;letter-spacing:1px;margin-top:4px;">Refinery Units</div>
+        </div>
+        <div class="card" style="padding:20px;text-align:center;">
+          <div style="font-size:36px;font-weight:800;color:var(--blue);">4,704</div>
+          <div class="t-sm" style="text-transform:uppercase;letter-spacing:1px;margin-top:4px;">Readings / 7 Days</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:18px;">
+        <div class="card" style="padding:18px;text-align:center;">
+          <div style="font-size:28px;font-weight:800;color:#f59e0b;">20s</div>
+          <div class="t-sm" style="text-transform:uppercase;letter-spacing:1px;margin-top:4px;">Refresh Interval</div>
+        </div>
+        <div class="card" style="padding:18px;text-align:center;">
+          <div style="font-size:28px;font-weight:800;color:#ef4444;">15min</div>
+          <div class="t-sm" style="text-transform:uppercase;letter-spacing:1px;margin-top:4px;">Alert Dedup Window</div>
+        </div>
+        <div class="card" style="padding:18px;text-align:center;">
+          <div style="font-size:28px;font-weight:800;color:#34d399;">6</div>
+          <div class="t-sm" style="text-transform:uppercase;letter-spacing:1px;margin-top:4px;">Event Types Logged</div>
+        </div>
+        <div class="card" style="padding:18px;text-align:center;">
+          <div style="font-size:28px;font-weight:800;color:var(--blue);">2</div>
+          <div class="t-sm" style="text-transform:uppercase;letter-spacing:1px;margin-top:4px;">Export Formats</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE 22 — ROADMAP
+  ══════════════════════════════════════════════ -->
+  <div class="slide" id="s22">
+    <div class="tag" style="align-self:flex-start;">Roadmap</div>
+    <div class="accent-bar"></div>
+    <div class="t-h1">Next steps & roadmap</div>
+    <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:18px;">
+      <div class="col" style="gap:12px;">
+        <div class="card" style="padding:14px 16px;border-left:4px solid var(--blue);">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <span class="tag" style="font-size:9px;">Phase 2</span>
+            <span class="t-sm" style="font-weight:600;">Hardware Integration</span>
+          </div>
+          <ul class="dash" style="margin:0;">
+            <li>Real device SDK integration (MQTT / LoRaWAN)</li>
+            <li>OTA firmware update distribution</li>
+            <li>Calibration record management</li>
+          </ul>
+        </div>
+        <div class="card" style="padding:14px 16px;border-left:4px solid #a78bfa;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <span class="tag" style="font-size:9px;background:#7c3aed;">Phase 3</span>
+            <span class="t-sm" style="font-weight:600;">Mobile & Notifications</span>
+          </div>
+          <ul class="dash" style="margin:0;">
+            <li>React Native mobile app for field operators</li>
+            <li>Push notifications for critical alerts</li>
+            <li>Offline-capable sensor readings cache</li>
+          </ul>
+        </div>
+      </div>
+      <div class="col" style="gap:12px;">
+        <div class="card" style="padding:14px 16px;border-left:4px solid #f59e0b;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <span class="tag tag-amber" style="font-size:9px;">Phase 4</span>
+            <span class="t-sm" style="font-weight:600;">AI & Predictive Safety</span>
+          </div>
+          <ul class="dash" style="margin:0;">
+            <li>ML anomaly detection — catch pre-threshold patterns</li>
+            <li>Predictive maintenance from battery decay curves</li>
+            <li>Cross-site correlation analysis</li>
+          </ul>
+        </div>
+        <div class="card" style="padding:14px 16px;border-left:4px solid #34d399;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <span class="tag tag-green" style="font-size:9px;">Phase 5</span>
+            <span class="t-sm" style="font-weight:600;">Cloud & Compliance</span>
+          </div>
+          <ul class="dash" style="margin:0;">
+            <li>PostgreSQL migration, cloud deployment (AWS / GCP)</li>
+            <li>HSE / ATEX compliance framework integration</li>
+            <li>Multi-tenant SaaS with billing and org management</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE 23 — THANK YOU
+  ══════════════════════════════════════════════ -->
+  <div class="slide" id="s23" style="background:linear-gradient(145deg,#0f172a 0%,#0c2541 50%,#0f172a 100%);color:#fff;">
+    <div style="display:flex;flex-direction:column;justify-content:center;align-items:center;height:100%;text-align:center;gap:20px;">
+      <div class="logo-box" style="width:72px;height:72px;">
+        <svg width="40" height="40" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="14" stroke="#fff" stroke-width="2"/><path d="M16 8v8l5 3" stroke="#7dd3fc" stroke-width="2.5" stroke-linecap="round"/><circle cx="16" cy="16" r="3" fill="#38bdf8"/></svg>
+      </div>
+      <div class="t-hero" style="color:#fff;">Thank You</div>
+      <div style="color:#94a3b8;font-size:clamp(13px,1.4vw,18px);max-width:500px;line-height:1.7;">GASGUARD v2.1 — Intelligent Gas Leak Detection & Monitoring System for Industrial Refineries</div>
+      <div style="display:flex;gap:24px;margin-top:10px;flex-wrap:wrap;justify-content:center;">
+        <div style="text-align:center;">
+          <div style="font-size:12px;color:#475569;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Contact</div>
+          <div style="color:#94a3b8;font-size:14px;">ravellerhaven@gmail.com</div>
+        </div>
+        <div style="width:1px;height:40px;background:rgba(255,255,255,0.1);"></div>
+        <div style="text-align:center;">
+          <div style="font-size:12px;color:#475569;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Dashboard</div>
+          <div style="color:#38bdf8;font-size:14px;">localhost:3000</div>
+        </div>
+        <div style="width:1px;height:40px;background:rgba(255,255,255,0.1);"></div>
+        <div style="text-align:center;">
+          <div style="font-size:12px;color:#475569;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">API</div>
+          <div style="color:#38bdf8;font-size:14px;">localhost:4000/graphql</div>
+        </div>
+      </div>
+      <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
+        <span class="pill" style="background:rgba(255,255,255,0.06);border-color:rgba(255,255,255,0.12);color:#94a3b8;"><span class="dot-ind dot-green"></span> NestJS + GraphQL</span>
+        <span class="pill" style="background:rgba(255,255,255,0.06);border-color:rgba(255,255,255,0.12);color:#94a3b8;"><span class="dot-ind dot-blue"></span> Next.js 15</span>
+        <span class="pill" style="background:rgba(255,255,255,0.06);border-color:rgba(255,255,255,0.12);color:#94a3b8;"><span class="dot-ind dot-amber"></span> Mapbox 3D</span>
+        <span class="pill" style="background:rgba(255,255,255,0.06);border-color:rgba(255,255,255,0.12);color:#94a3b8;"><span class="dot-ind" style="background:#a78bfa;"></span> Prisma + SQLite</span>
+      </div>
+      <div style="position:absolute;bottom:56px;font-size:11px;color:#334155;">June 2026 &nbsp;·&nbsp; Confidential &nbsp;·&nbsp; GASGUARD v2.1</div>
+    </div>
+  </div>
+
+  <!-- ══ Navigation ══ -->
+  <div id="nav">
+    <button class="nav-btn" id="prev" onclick="go(-1)" disabled>← Prev</button>
+    <div class="dot-nav" id="dots"></div>
+    <span id="slide-counter">1 / 23</span>
+    <button class="nav-btn" id="next" onclick="go(1)">Next →</button>
+  </div>
+</div><!-- .slide-wrap -->
+</div><!-- #deck -->
+
+<script>
+const slides = document.querySelectorAll('.slide');
+const total = slides.length;
+let cur = 0;
+
+const progress = document.getElementById('progress');
+const counter = document.getElementById('slide-counter');
+const prevBtn = document.getElementById('prev');
+const nextBtn = document.getElementById('next');
+const dotsEl = document.getElementById('dots');
+
+// Build dots
+slides.forEach((_, i) => {
+  const d = document.createElement('div');
+  d.className = 'dot' + (i === 0 ? ' active' : '');
+  d.onclick = () => goTo(i);
+  dotsEl.appendChild(d);
+});
+
+function goTo(n) {
+  slides[cur].classList.remove('active');
+  dotsEl.children[cur].classList.remove('active');
+  cur = Math.max(0, Math.min(n, total - 1));
+  slides[cur].classList.add('active');
+  dotsEl.children[cur].classList.add('active');
+  progress.style.width = ((cur + 1) / total * 100) + '%';
+  counter.textContent = (cur + 1) + ' / ' + total;
+  prevBtn.disabled = cur === 0;
+  nextBtn.disabled = cur === total - 1;
+  // Show at most 15 dots centered on current
+  Array.from(dotsEl.children).forEach((d, i) => {
+    d.style.display = (total <= 15 || Math.abs(i - cur) <= 7) ? '' : 'none';
+  });
+}
+
+function go(dir) { goTo(cur + dir); }
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') { e.preventDefault(); go(1); }
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); go(-1); }
+  if (e.key === 'Home') goTo(0);
+  if (e.key === 'End') goTo(total - 1);
+});
+
+goTo(0);
+</script>
+</body>
+</html>
