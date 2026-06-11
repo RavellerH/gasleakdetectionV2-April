@@ -38,7 +38,7 @@ export interface Device {
   battery: BatteryMetrics;
   network: NetworkMetrics;
   healthScore: number;
-  latestPpm?: number;
+  latestConfidence?: number;
   status: string;
 }
 
@@ -55,7 +55,7 @@ const DEVICES_QUERY = /* GraphQL */ `
       battery { voltage soc cycles estimatedHours }
       network { rssi rssiMesh rssiStar peersCount hopsToGateway qualityScore parentMac }
       healthScore
-      latestPpm
+      latestConfidence
       status
     }
   }
@@ -92,7 +92,7 @@ export interface RuStats {
 
 export interface TimelineEntry {
   time: string;
-  ppm: number;
+  confidence: number;
   alerts: number;
 }
 
@@ -149,7 +149,7 @@ const DASHBOARD_STATS_QUERY = /* GraphQL */ `
       }
       timelineData {
         time
-        ppm
+        confidence
         alerts
       }
       recentAlerts {
@@ -513,7 +513,7 @@ export async function acknowledgeEvent(
 
 export interface SensorDataPoint {
   hour: string;
-  ppm: number;
+  confidence: number;
 }
 
 export interface SensorTimeline {
@@ -527,7 +527,7 @@ const SENSOR_TIMELINE_QUERY = /* GraphQL */ `
   query SensorTimeline($ruId: String!) {
     sensorTimeline(ruId: $ruId) {
       deviceId deviceName ruId
-      data { hour ppm }
+      data { hour confidence }
     }
   }
 `;

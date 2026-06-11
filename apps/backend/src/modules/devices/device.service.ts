@@ -62,8 +62,8 @@ export class DeviceService {
         const label = `${String(bEnd.getHours()).padStart(2, '0')}:00`;
         trendData.push({
           label,
-          avgPpm: bucket.length > 0 ? Math.round(bucket.reduce((s, r) => s + r.ppm, 0) / bucket.length * 10) / 10 : 0,
-          breachCount: bucket.filter(r => r.ppm >= warning).length,
+          avgPpm: bucket.length > 0 ? Math.round(bucket.reduce((s, r) => s + r.confidence, 0) / bucket.length * 1000) / 1000 : 0,
+          breachCount: bucket.filter(r => r.riskLevel !== 'LOW').length,
         });
       }
     } else {
@@ -77,8 +77,8 @@ export class DeviceService {
         });
         trendData.push({
           label: dayNames[bEnd.getDay()],
-          avgPpm: bucket.length > 0 ? Math.round(bucket.reduce((s, r) => s + r.ppm, 0) / bucket.length * 10) / 10 : 0,
-          breachCount: bucket.filter(r => r.ppm >= warning).length,
+          avgPpm: bucket.length > 0 ? Math.round(bucket.reduce((s, r) => s + r.confidence, 0) / bucket.length * 1000) / 1000 : 0,
+          breachCount: bucket.filter(r => r.riskLevel !== 'LOW').length,
         });
       }
     }
@@ -92,8 +92,8 @@ export class DeviceService {
       const ruIds7d = new Set(ruDevs.map(d => d.id));
       const ruR = allReadings7d.filter(r => ruIds7d.has(r.deviceId));
       const ruRScoped = ruR.filter(r => new Date(r.timestamp).getTime() >= cutoff.getTime());
-      const avgPpm = ruRScoped.length > 0 ? ruRScoped.reduce((s, r) => s + r.ppm, 0) / ruRScoped.length : 0;
-      const maxPpm = ruRScoped.length > 0 ? Math.max(...ruRScoped.map(r => r.ppm)) : 0;
+      const avgPpm = ruRScoped.length > 0 ? ruRScoped.reduce((s, r) => s + r.confidence, 0) / ruRScoped.length : 0;
+      const maxPpm = ruRScoped.length > 0 ? Math.max(...ruRScoped.map(r => r.confidence)) : 0;
 
       const socValues = ruDevs.map(d => {
         try { return (JSON.parse(d.batteryStats as string) as any).soc ?? 0; } catch { return 0; }
@@ -108,7 +108,7 @@ export class DeviceService {
         ruId: ru,
         avgPpm: Math.round(avgPpm * 10) / 10,
         maxPpm: Math.round(maxPpm * 10) / 10,
-        breachCount: ruRScoped.filter(r => r.ppm >= warning).length,
+        breachCount: ruRScoped.filter(r => r.riskLevel !== 'LOW').length,
         totalDevices: ruDevs.length,
         onlineDevices: recentDeviceIds.size,
         avgHealth,
@@ -126,9 +126,7 @@ export class DeviceService {
         heatmap.push({
           hour: h,
           ruId: ru,
-          avgPpm: hourReadings.length > 0
-            ? Math.round(hourReadings.reduce((s, r) => s + r.ppm, 0) / hourReadings.length * 10) / 10
-            : 0,
+          avgPpm: hourReadings.filter(r => r.riskLevel !== 'LOW').length,
         });
       }
     }
@@ -137,15 +135,15 @@ export class DeviceService {
     const sensorDevices = scopedDevices.filter(d => d.deviceType === 'SENSOR');
     const topSensors: TopSensorEntry[] = sensorDevices.map(sensor => {
       const sr = scopedReadings.filter(r => r.deviceId === sensor.id);
-      const avgPpm = sr.length > 0 ? sr.reduce((s, r) => s + r.ppm, 0) / sr.length : 0;
-      const maxPpm = sr.length > 0 ? Math.max(...sr.map(r => r.ppm)) : 0;
+      const avgPpm = sr.length > 0 ? sr.reduce((s, r) => s + r.confidence, 0) / sr.length : 0;
+      const maxPpm = sr.length > 0 ? Math.max(...sr.map(r => r.confidence)) : 0;
       return {
         deviceId: sensor.id,
         deviceName: sensor.name,
         ruId: sensor.ruId,
-        avgPpm: Math.round(avgPpm * 10) / 10,
-        maxPpm: Math.round(maxPpm * 10) / 10,
-        breachCount: sr.filter(r => r.ppm >= warning).length,
+        avgPpm: Math.round(avgPpm * 1000) / 1000,
+        maxPpm: Math.round(maxPpm * 1000) / 1000,
+        breachCount: sr.filter(r => r.riskLevel !== 'LOW').length,
       };
     }).sort((a, b) => b.avgPpm - a.avgPpm).slice(0, 15);
 
@@ -317,11 +315,11 @@ export class DeviceService {
       s.readings.forEach(r => {
         const hour = new Date(r.timestamp).getHours().toString().padStart(2, '0') + ':00';
         if (!hourlyMap.has(hour)) hourlyMap.set(hour, []);
-        hourlyMap.get(hour)!.push(r.ppm);
+        hourlyMap.get(hour)!.push(r.confidence);
       });
       const data = Array.from(hourlyMap.entries())
         .sort(([a], [b]) => a.localeCompare(b))
-        .map(([hour, ppms]) => ({ hour, ppm: ppms.reduce((s, p) => s + p, 0) / ppms.length }));
+        .map(([hour, vals]) => ({ hour, confidence: vals.reduce((s, p) => s + p, 0) / vals.length }));
       return { deviceId: s.id, deviceName: s.name, ruId: s.ruId, data };
     });
   }
@@ -359,7 +357,7 @@ export class DeviceService {
     const ruData: RuStats[] = ruIds.map(ru => {
       const devices = allDevices.filter(d => d.ruId === ru);
       const devIds = new Set(devices.map(d => d.id));
-      const alertsCount = allReadings.filter(r => devIds.has(r.deviceId) && r.ppm >= settings.warningThreshold).length;
+      const alertsCount = allReadings.filter(r => devIds.has(r.deviceId) && r.riskLevel !== 'LOW').length;
       
       return {
         ru: ru,
@@ -374,24 +372,24 @@ export class DeviceService {
     });
 
     const recentAlerts: Alert[] = allReadings
-      .filter(r => r.ppm >= settings.warningThreshold)
+      .filter(r => r.riskLevel !== 'LOW')
       .slice(0, 15)
       .map((r, i) => {
         const device = allDevices.find(d => d.id === r.deviceId);
-        const isCritical = r.ppm >= settings.criticalThreshold;
+        const isHigh = r.riskLevel === 'HIGH';
         const statusMap = ['ACTIVE', 'ACKNOWLEDGED', 'RESOLVED'];
         const status = statusMap[i % 3];
         const timestamp = new Date(r.timestamp);
         return {
           id: r.id,
-          severity: isCritical ? 'CRITICAL' : 'WARNING',
-          message: `Gas concentration ${r.ppm.toFixed(1)} ppm exceeds threshold`,
+          severity: isHigh ? 'CRITICAL' : 'WARNING',
+          message: `Gas detected — ${r.riskLevel} risk (class ${r.aiClass}, confidence ${r.confidence.toFixed(2)})`,
           ru: device?.ruId || 'N/A',
           time: timestamp.toISOString().replace('T', ' ').substring(0, 19),
           device: device?.macAddress || 'Unknown',
           status,
           type: 'Gas',
-          scenario: isCritical ? 'Confirmed Gas Leak' : 'Gas Sensor Alert',
+          scenario: isHigh ? 'Confirmed Gas Leak' : 'Gas Sensor Alert',
           resolvedAt: status === 'RESOLVED' ? new Date(timestamp.getTime() + 20 * 60000).toISOString() : undefined,
           notes: status === 'RESOLVED' ? 'Issue resolved.' : undefined
         };
@@ -439,8 +437,8 @@ export class DeviceService {
       const readingsInHour = allReadings.filter(r => new Date(r.timestamp).getHours() === i);
       return {
         time: hourStr,
-        ppm: readingsInHour.length > 0 ? Math.round(readingsInHour.reduce((s, r) => s + r.ppm, 0) / readingsInHour.length) : 0,
-        alerts: readingsInHour.filter(r => r.ppm >= settings.warningThreshold).length
+        confidence: readingsInHour.length > 0 ? Math.round(readingsInHour.reduce((s, r) => s + r.confidence, 0) / readingsInHour.length * 1000) / 1000 : 0,
+        alerts: readingsInHour.filter(r => r.riskLevel !== 'LOW').length
       };
     });
 
@@ -459,8 +457,6 @@ export class DeviceService {
 
   // --- DEVICE OPERATIONS ---
 
-  private readonly MAX_PPM = 10000;
-  private readonly MIN_PPM = 0;
   private readonly RU_SITES = ['RU2', 'RU3', 'RU4', 'RU5', 'RU6', 'RU7'];
 
   async getRuSites(): Promise<{ id: string }[]> {
@@ -469,34 +465,37 @@ export class DeviceService {
     return [...new Set([...this.RU_SITES, ...ruIds])].map(id => ({ id }));
   }
 
-  async addReading(macAddress: string, ppm: number): Promise<GasReading> {
-    if (typeof ppm !== 'number' || ppm < this.MIN_PPM || ppm > this.MAX_PPM || !Number.isFinite(ppm)) {
-      throw new HttpException(`Invalid PPM value: must be between ${this.MIN_PPM} and ${this.MAX_PPM}`, HttpStatus.BAD_REQUEST);
+  async addReading(macAddress: string, confidence: number, aiClass = 0): Promise<GasReading> {
+    if (typeof confidence !== 'number' || confidence < 0 || confidence > 1 || !Number.isFinite(confidence)) {
+      throw new HttpException('Invalid confidence value: must be between 0.0 and 1.0', HttpStatus.BAD_REQUEST);
     }
     const device = await this.prisma.device.findUnique({ where: { macAddress } });
     if (!device) throw new HttpException(`Device with MAC ${macAddress} not found`, HttpStatus.NOT_FOUND);
-    const r = await this.prisma.gasReading.create({ data: { deviceId: device.id, ppm, isDummy: device.isDummy } });
-    // Auto-log threshold breach (deduplicated per device per 15 min)
     const settings = await this.getSettings();
-    if (ppm >= settings.warningThreshold) {
+    const riskLevel = (aiClass !== 0 && confidence >= settings.criticalThreshold) ? 'HIGH'
+      : (aiClass !== 0 && confidence >= settings.warningThreshold) ? 'MIDDLE'
+      : 'LOW';
+    const r = await this.prisma.gasReading.create({
+      data: { deviceId: device.id, confidence, aiClass, riskLevel, isDummy: device.isDummy }
+    });
+    if (riskLevel !== 'LOW') {
       const recent = await this.prisma.eventLog.findFirst({
         where: { deviceId: device.id, type: 'THRESHOLD_BREACH', timestamp: { gte: new Date(Date.now() - 15 * 60 * 1000) } }
       });
       if (!recent) {
-        const isCritical = ppm >= settings.criticalThreshold;
         await this.prisma.eventLog.create({
           data: {
             type: 'THRESHOLD_BREACH',
-            severity: isCritical ? 'CRITICAL' : 'WARNING',
+            severity: riskLevel === 'HIGH' ? 'CRITICAL' : 'WARNING',
             deviceId: device.id,
             ruId: device.ruId,
-            message: `${device.name} — ${ppm.toFixed(1)} ppm ${isCritical ? 'exceeds CRITICAL' : 'exceeds WARNING'} threshold`,
-            details: JSON.stringify({ ppm, macAddress, deviceName: device.name }),
+            message: `${device.name} — ${riskLevel} risk detected (class ${aiClass}, confidence ${confidence.toFixed(2)})`,
+            details: JSON.stringify({ confidence, aiClass, riskLevel, macAddress, deviceName: device.name }),
           }
         });
       }
     }
-    return { id: r.id, deviceId: r.deviceId, ppm: r.ppm, timestamp: r.timestamp };
+    return { id: r.id, deviceId: r.deviceId, confidence: r.confidence, aiClass: r.aiClass, riskLevel: r.riskLevel, timestamp: r.timestamp };
   }
 
   async create(input: CreateDeviceInput): Promise<Device> {
@@ -561,7 +560,7 @@ export class DeviceService {
           parentMac: netStats.parentMac
         } as NetworkMetrics,
         healthScore: d.healthScore,
-        latestPpm: d.readings?.[0]?.ppm || 0,
+        latestConfidence: d.readings?.[0]?.confidence ?? 0,
         status: d.status
       };
     } catch (e) {

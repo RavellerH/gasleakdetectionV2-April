@@ -1,4 +1,4 @@
-import { Args, Mutation, Query, Resolver, Float } from '@nestjs/graphql';
+import { Args, Int, Mutation, Query, Resolver, Float } from '@nestjs/graphql';
 import { CoordinatesInput, CreateDeviceInput, Device, GasReading, DashboardStats, SystemSettings, UpdateSettingsInput, User, CreateUserInput, LoginResult, RuSite, SensorTimeline } from './device.model';
 import { DeviceService } from './device.service';
 
@@ -28,9 +28,10 @@ export class DeviceResolver {
   @Mutation(() => GasReading)
   async addReading(
     @Args('macAddress', { type: () => String }) macAddress: string,
-    @Args('ppm', { type: () => Float }) ppm: number
+    @Args('confidence', { type: () => Float }) confidence: number,
+    @Args('aiClass', { type: () => Int, nullable: true, defaultValue: 0 }) aiClass: number
   ): Promise<GasReading> {
-    return this.deviceService.addReading(macAddress, ppm);
+    return this.deviceService.addReading(macAddress, confidence, aiClass);
   }
 
   @Query(() => [Device])

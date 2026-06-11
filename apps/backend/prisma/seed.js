@@ -112,47 +112,51 @@ async function main() {
 
   // ─── GAS READINGS: 24h hourly per sensor ───────────────────────────────────
   const now = Date.now();
-  const settings = await prisma.systemSettings.findFirst() || { warningThreshold: 50, criticalThreshold: 80 };
-
+  // Profiles: normal=no gas, elevated=MIDDLE risk, spiking=HIGH risk
   for (const sensor of allSensors) {
-    // Assign each sensor a "personality": normal, elevated, or spiking
     const rand = Math.random();
     let profile;
-    if (rand < 0.55)      profile = 'normal';    // 55% normal (5–35 ppm)
-    else if (rand < 0.80) profile = 'elevated';  // 25% elevated (35–60 ppm)
-    else                  profile = 'spiking';   // 20% spiking (50–90 ppm, varies by hour)
+    if (rand < 0.55)      profile = 'normal';    // 55% — class 0, conf < 0.70
+    else if (rand < 0.80) profile = 'elevated';  // 25% — class ≠ 0, conf 0.70–0.79
+    else                  profile = 'spiking';   // 20% — class ≠ 0, conf 0.80–1.00
 
     for (let h = 167; h >= 0; h--) {
       const ts = new Date(now - h * 60 * 60 * 1000);
-      let basePpm;
+      const hour = ts.getHours();
+      let confidence, aiClass;
 
       if (profile === 'normal') {
-        basePpm = 8 + Math.random() * 28; // 8–36
+        // No gas — class 0, confidence low (noise floor 0.0–0.55)
+        aiClass = 0;
+        confidence = Math.random() * 0.55;
       } else if (profile === 'elevated') {
-        // Slightly higher during "working hours" (06:00–18:00)
-        const hour = ts.getHours();
-        basePpm = (hour >= 6 && hour <= 18)
-          ? 38 + Math.random() * 22  // 38–60
-          : 20 + Math.random() * 18; // 20–38
+        // MIDDLE risk during working hours, normal otherwise
+        if (hour >= 6 && hour <= 18) {
+          aiClass = Math.ceil(Math.random() * 4); // gas class 1–4
+          confidence = 0.70 + Math.random() * 0.09; // 0.70–0.79
+        } else {
+          aiClass = 0;
+          confidence = Math.random() * 0.50;
+        }
       } else {
-        // Spiking: moderate base with occasional peaks at certain hours
-        const hour = ts.getHours();
+        // HIGH risk at peak hours (startup / mid-shift / cool-down), MIDDLE other hours
         const isPeak = hour === 9 || hour === 14 || hour === 20;
-        basePpm = isPeak
-          ? 62 + Math.random() * 30  // 62–92 (breach warning/critical)
-          : 18 + Math.random() * 28; // 18–46
+        if (isPeak) {
+          aiClass = Math.ceil(Math.random() * 8); // gas class 1–8
+          confidence = 0.80 + Math.random() * 0.19; // 0.80–0.99
+        } else {
+          aiClass = Math.ceil(Math.random() * 3); // gas class 1–3
+          confidence = 0.60 + Math.random() * 0.15; // 0.60–0.75
+        }
       }
 
-      // Add small noise
-      const ppm = Math.max(0, basePpm + (Math.random() - 0.5) * 5);
+      confidence = Math.min(1, Math.max(0, Math.round(confidence * 10000) / 10000));
+      const riskLevel = (aiClass !== 0 && confidence >= 0.80) ? 'HIGH'
+        : (aiClass !== 0 && confidence >= 0.70) ? 'MIDDLE'
+        : 'LOW';
 
       await prisma.gasReading.create({
-        data: {
-          deviceId: sensor.id,
-          ppm: Math.round(ppm * 10) / 10,
-          isDummy: true,
-          timestamp: ts
-        }
+        data: { deviceId: sensor.id, confidence, aiClass, riskLevel, isDummy: true, timestamp: ts }
       });
     }
   }
@@ -194,36 +198,36 @@ async function main() {
     {
       type: 'THRESHOLD_BREACH', severity: 'WARNING',
       deviceId: ru2Sensors[0]?.id, ruId: 'RU2',
-      message: `${ru2Sensors[0]?.name || 'RU2 Sensor 1'} — 58.4 ppm exceeds WARNING threshold`,
-      details: JSON.stringify({ ppm: 58.4, macAddress: `RU2-SNS-01` }),
+      message: `${ru2Sensors[0]?.name || 'RU2 Sensor 1'} — MIDDLE risk detected (class 2, confidence 0.74)`,
+      details: JSON.stringify({ confidence: 0.74, aiClass: 2, riskLevel: 'MIDDLE', macAddress: 'RU2-SNS-01' }),
       timestamp: hoursAgo(20)
     },
     {
       type: 'THRESHOLD_BREACH', severity: 'CRITICAL',
       deviceId: ru2Sensors[1]?.id, ruId: 'RU2',
-      message: `${ru2Sensors[1]?.name || 'RU2 Sensor 2'} — 85.5 ppm exceeds CRITICAL threshold`,
-      details: JSON.stringify({ ppm: 85.5, macAddress: `RU2-SNS-02` }),
+      message: `${ru2Sensors[1]?.name || 'RU2 Sensor 2'} — HIGH risk detected (class 5, confidence 0.87)`,
+      details: JSON.stringify({ confidence: 0.87, aiClass: 5, riskLevel: 'HIGH', macAddress: 'RU2-SNS-02' }),
       timestamp: hoursAgo(14)
     },
     {
       type: 'THRESHOLD_BREACH', severity: 'WARNING',
       deviceId: ru2Sensors[2]?.id, ruId: 'RU2',
-      message: `${ru2Sensors[2]?.name || 'RU2 Sensor 3'} — 63.1 ppm exceeds WARNING threshold`,
-      details: JSON.stringify({ ppm: 63.1, macAddress: `RU2-SNS-03` }),
+      message: `${ru2Sensors[2]?.name || 'RU2 Sensor 3'} — MIDDLE risk detected (class 1, confidence 0.72)`,
+      details: JSON.stringify({ confidence: 0.72, aiClass: 1, riskLevel: 'MIDDLE', macAddress: 'RU2-SNS-03' }),
       timestamp: hoursAgo(9)
     },
     {
       type: 'THRESHOLD_BREACH', severity: 'WARNING',
       deviceId: ru7Sensors[1]?.id, ruId: 'RU7',
-      message: `${ru7Sensors[1]?.name || 'RU7 Sensor 2'} — 71.8 ppm exceeds WARNING threshold`,
-      details: JSON.stringify({ ppm: 71.8, macAddress: `RU7-SNS-02` }),
+      message: `${ru7Sensors[1]?.name || 'RU7 Sensor 2'} — MIDDLE risk detected (class 3, confidence 0.76)`,
+      details: JSON.stringify({ confidence: 0.76, aiClass: 3, riskLevel: 'MIDDLE', macAddress: 'RU7-SNS-02' }),
       timestamp: hoursAgo(5)
     },
     {
       type: 'THRESHOLD_BREACH', severity: 'CRITICAL',
       deviceId: ru7Sensors[2]?.id, ruId: 'RU7',
-      message: `${ru7Sensors[2]?.name || 'RU7 Sensor 3'} — 91.2 ppm exceeds CRITICAL threshold`,
-      details: JSON.stringify({ ppm: 91.2, macAddress: `RU7-SNS-03` }),
+      message: `${ru7Sensors[2]?.name || 'RU7 Sensor 3'} — HIGH risk detected (class 7, confidence 0.93)`,
+      details: JSON.stringify({ confidence: 0.93, aiClass: 7, riskLevel: 'HIGH', macAddress: 'RU7-SNS-03' }),
       timestamp: hoursAgo(2)
     },
 
@@ -231,8 +235,8 @@ async function main() {
     {
       type: 'THRESHOLD_BREACH', severity: 'WARNING',
       deviceId: ru2Sensors[0]?.id, ruId: 'RU2',
-      message: `${ru2Sensors[0]?.name || 'RU2 Sensor 1'} — 54.0 ppm exceeds WARNING threshold`,
-      details: JSON.stringify({ ppm: 54.0, macAddress: `RU2-SNS-01` }),
+      message: `${ru2Sensors[0]?.name || 'RU2 Sensor 1'} — MIDDLE risk detected (class 2, confidence 0.71)`,
+      details: JSON.stringify({ confidence: 0.71, aiClass: 2, riskLevel: 'MIDDLE', macAddress: 'RU2-SNS-01' }),
       timestamp: hoursAgo(44),
       acknowledged: true,
       acknowledgedBy: 'admin@gld.com',
@@ -254,7 +258,7 @@ async function main() {
     {
       type: 'ACK', severity: 'INFO',
       ruId: 'RU2', operatorId: admin.id, operatorEmail: 'admin@gld.com',
-      message: 'Event acknowledged by admin@gld.com: "RU2 Sensor 1 — 54.0 ppm exceeds WARNING threshold"',
+      message: 'Event acknowledged by admin@gld.com: "RU2 Sensor 1 — MIDDLE risk detected (class 2, confidence 0.71)"',
       details: JSON.stringify({ ackNote: 'Scheduled maintenance in adjacent pipeline caused temporary pressure fluctuation. Normalised after valve adjustment.' }),
       timestamp: hoursAgo(43)
     },

@@ -384,7 +384,7 @@ export class TimelineEntry {
   time!: string;
 
   @Field(() => Float)
-  ppm!: number;
+  confidence!: number;
 
   @Field(() => Int)
   alerts!: number;
@@ -488,7 +488,7 @@ export class SensorDataPoint {
   hour!: string;
 
   @Field(() => Float)
-  ppm!: number;
+  confidence!: number;
 }
 
 @ObjectType()
@@ -515,7 +515,13 @@ export class GasReading {
   deviceId!: string;
 
   @Field(() => Float)
-  ppm!: number;
+  confidence!: number;
+
+  @Field(() => Int)
+  aiClass!: number;
+
+  @Field()
+  riskLevel!: string;
 
   @Field(() => Date)
   timestamp!: Date;
@@ -554,7 +560,7 @@ export class Device {
   healthScore!: number;
 
   @Field(() => Float, { nullable: true })
-  latestPpm?: number;
+  latestConfidence?: number;
 
   @Field()
   status!: string;

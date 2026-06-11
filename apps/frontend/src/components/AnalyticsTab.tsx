@@ -46,21 +46,29 @@ function SectionCard({ title, sub, children }: { title: string; sub?: string; ch
   );
 }
 
-function ppmColor(ppm: number, warning: number, critical: number): string {
-  if (ppm === 0) return 'rgba(56,189,248,0.06)';
-  if (ppm >= critical) return 'rgba(239,68,68,0.75)';
-  if (ppm >= warning) return 'rgba(245,158,11,0.65)';
-  const r = ppm / warning;
+function detectionColor(count: number, maxCount: number): string {
+  if (count === 0) return 'rgba(56,189,248,0.06)';
+  const r = Math.min(count / Math.max(maxCount, 1), 1);
+  if (r >= 0.75) return 'rgba(239,68,68,0.80)';
+  if (r >= 0.40) return 'rgba(245,158,11,0.70)';
+  return `rgba(56,189,248,${0.15 + r * 0.55})`;
+}
+
+function confidenceColor(conf: number, warning: number, critical: number): string {
+  if (conf === 0) return 'rgba(56,189,248,0.06)';
+  if (conf >= critical) return 'rgba(239,68,68,0.75)';
+  if (conf >= warning) return 'rgba(245,158,11,0.65)';
+  const r = conf / warning;
   return `rgba(56,189,248,${0.1 + r * 0.45})`;
 }
 
-function ppmTextColor(ppm: number, warning: number, critical: number): string {
-  if (ppm >= critical) return '#ef4444';
-  if (ppm >= warning) return '#f59e0b';
+function confidenceTextColor(conf: number, warning: number, critical: number): string {
+  if (conf >= critical) return '#ef4444';
+  if (conf >= warning) return '#f59e0b';
   return 'var(--t4)';
 }
 
-export function AnalyticsTab({ activeRU, warningThreshold = 50, criticalThreshold = 80 }: Props) {
+export function AnalyticsTab({ activeRU, warningThreshold = 0.70, criticalThreshold = 0.80 }: Props) {
   const [data, setData] = useState<AnalyticsStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [hours, setHours] = useState<24 | 168>(24);
@@ -81,12 +89,14 @@ export function AnalyticsTab({ activeRU, warningThreshold = 50, criticalThreshol
 
   const ruIds = data ? Array.from(new Set(data.ruComparison.map(r => r.ruId))).sort() : [];
 
-  // Heatmap: group by ruId → array of 24 cells
+  // Heatmap: detection count per RU × hour-of-day
   const heatmapByRu: Record<string, number[]> = {};
+  let heatmapMax = 1;
   if (data) {
     for (const cell of data.heatmap) {
       if (!heatmapByRu[cell.ruId]) heatmapByRu[cell.ruId] = Array(24).fill(0);
-      heatmapByRu[cell.ruId][cell.hour] = cell.avgPpm;
+      heatmapByRu[cell.ruId][cell.hour] = cell.avgPpm; // avgPpm now holds detection count
+      if (cell.avgPpm > heatmapMax) heatmapMax = cell.avgPpm;
     }
   }
 
@@ -123,7 +133,7 @@ export function AnalyticsTab({ activeRU, warningThreshold = 50, criticalThreshol
 
       {/* Row 1: Trend charts */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        <SectionCard title="Gas Concentration Trend" sub={`Average PPM across sensors · ${hours === 24 ? 'hourly' : 'daily'}`}>
+        <SectionCard title="Gas Detection Trend" sub={`Avg AI confidence across sensors · ${hours === 24 ? 'hourly' : 'daily'}`}>
           <ResponsiveContainer width="100%" height={180}>
             <AreaChart data={data?.trendData || []}>
               <defs>
@@ -134,24 +144,24 @@ export function AnalyticsTab({ activeRU, warningThreshold = 50, criticalThreshol
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
               <XAxis dataKey="label" tick={{ fill: 'var(--t4)', fontSize: 10, fontFamily: "'Geist Mono', monospace" }} axisLine={false} tickLine={false} interval={hours === 24 ? 3 : 0} />
-              <YAxis tick={{ fill: 'var(--t4)', fontSize: 10, fontFamily: "'Geist Mono', monospace" }} axisLine={false} tickLine={false} />
+              <YAxis domain={[0, 1]} tick={{ fill: 'var(--t4)', fontSize: 10, fontFamily: "'Geist Mono', monospace" }} axisLine={false} tickLine={false} tickFormatter={v => v.toFixed(1)} />
               <Tooltip content={<ChartTooltip />} />
               <ReferenceLine y={warningThreshold} stroke="#f59e0b" strokeDasharray="4 3" strokeWidth={1} />
               <ReferenceLine y={criticalThreshold} stroke="#ef4444" strokeDasharray="4 3" strokeWidth={1} />
-              <Area type="monotone" dataKey="avgPpm" stroke="#38bdf8" strokeWidth={2} fill="url(#aGrad)" name="Avg PPM" dot={false} />
+              <Area type="monotone" dataKey="avgPpm" stroke="#38bdf8" strokeWidth={2} fill="url(#aGrad)" name="Avg Confidence" dot={false} />
             </AreaChart>
           </ResponsiveContainer>
           <div style={{ display: 'flex', gap: 14, marginTop: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: '#f59e0b', fontFamily: "'Geist Mono', monospace" }}>
-              <div style={{ width: 16, height: 1, borderTop: '1px dashed #f59e0b' }} /> Warning {warningThreshold} ppm
+              <div style={{ width: 16, height: 1, borderTop: '1px dashed #f59e0b' }} /> MIDDLE ≥{warningThreshold}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: '#ef4444', fontFamily: "'Geist Mono', monospace" }}>
-              <div style={{ width: 16, height: 1, borderTop: '1px dashed #ef4444' }} /> Critical {criticalThreshold} ppm
+              <div style={{ width: 16, height: 1, borderTop: '1px dashed #ef4444' }} /> HIGH ≥{criticalThreshold}
             </div>
           </div>
         </SectionCard>
 
-        <SectionCard title="Threshold Breaches" sub={`Count of readings exceeding warning threshold · ${hours === 24 ? 'hourly' : 'daily'}`}>
+        <SectionCard title="Gas Detection Events" sub={`Count of MIDDLE/HIGH risk readings · ${hours === 24 ? 'hourly' : 'daily'}`}>
           <ResponsiveContainer width="100%" height={180}>
             <BarChart data={data?.trendData || []}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
@@ -173,7 +183,7 @@ export function AnalyticsTab({ activeRU, warningThreshold = 50, criticalThreshol
 
       {/* Row 2: RU Comparison */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        <SectionCard title="Avg Gas Level per RU" sub={`Mean PPM per refinery unit · ${hours === 24 ? '24h' : '7d'}`}>
+        <SectionCard title="Avg Confidence per RU" sub={`Mean AI confidence per refinery unit · ${hours === 24 ? '24h' : '7d'}`}>
           <ResponsiveContainer width="100%" height={170}>
             <BarChart data={data?.ruComparison || []} layout="vertical" margin={{ left: 8, right: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" horizontal={false} />
@@ -181,7 +191,7 @@ export function AnalyticsTab({ activeRU, warningThreshold = 50, criticalThreshol
               <YAxis type="category" dataKey="ruId" tick={{ fill: 'var(--t2)', fontSize: 11, fontFamily: "'Geist Mono', monospace", fontWeight: 700 }} axisLine={false} tickLine={false} width={34} />
               <Tooltip content={<ChartTooltip />} />
               <ReferenceLine x={warningThreshold} stroke="#f59e0b" strokeDasharray="3 3" strokeWidth={1} />
-              <Bar dataKey="avgPpm" radius={[0, 4, 4, 0]} name="Avg PPM" maxBarSize={18}>
+              <Bar dataKey="avgPpm" radius={[0, 4, 4, 0]} name="Avg Confidence" maxBarSize={18}>
                 {(data?.ruComparison || []).map((r) => (
                   <Cell key={r.ruId} fill={
                     r.avgPpm >= criticalThreshold ? '#ef4444' :
@@ -212,7 +222,7 @@ export function AnalyticsTab({ activeRU, warningThreshold = 50, criticalThreshol
       </div>
 
       {/* Row 3: Heatmap */}
-      <SectionCard title="Gas Level Heatmap" sub="Average PPM by hour of day × refinery unit (7-day window)">
+      <SectionCard title="Gas Detection Heatmap" sub="Detection count by hour of day × refinery unit (7-day window)">
         <div style={{ overflowX: 'auto' }}>
           {/* Hour labels */}
           <div style={{ display: 'grid', gridTemplateColumns: '40px repeat(24, 1fr)', gap: 2, marginBottom: 4 }}>
@@ -233,12 +243,12 @@ export function AnalyticsTab({ activeRU, warningThreshold = 50, criticalThreshol
                 <div style={{ fontSize: 10, fontWeight: 700, color: RU_COLORS[ru] || '#38bdf8', fontFamily: "'Geist Mono', monospace", display: 'flex', alignItems: 'center', paddingRight: 4 }}>
                   {ru}
                 </div>
-                {cells.map((ppm, h) => (
+                {cells.map((count, h) => (
                   <div key={h}
-                    title={`${ru} @ ${String(h).padStart(2, '0')}:00 — ${ppm.toFixed(1)} ppm`}
+                    title={`${ru} @ ${String(h).padStart(2, '0')}:00 — ${count} detection${count !== 1 ? 's' : ''}`}
                     style={{
                       height: 22, borderRadius: 3,
-                      background: ppmColor(ppm, warningThreshold, criticalThreshold),
+                      background: detectionColor(count, heatmapMax),
                       border: '1px solid rgba(255,255,255,0.04)',
                       cursor: 'default',
                     }}
@@ -252,15 +262,14 @@ export function AnalyticsTab({ activeRU, warningThreshold = 50, criticalThreshol
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, fontSize: 10, color: 'var(--t4)', fontFamily: "'Geist Mono', monospace" }}>
             <span>Low</span>
             <div style={{ display: 'flex', gap: 2 }}>
-              {[0, 0.2, 0.4, 0.6, 0.8, 1.0].map((r, i) => {
-                const ppm = i === 5 ? criticalThreshold + 1 : r * criticalThreshold;
-                return <div key={i} style={{ width: 18, height: 10, borderRadius: 2, background: ppmColor(ppm, warningThreshold, criticalThreshold) }} />;
-              })}
+              {[0, 0.2, 0.4, 0.6, 0.8, 1.0].map((r, i) => (
+                <div key={i} style={{ width: 18, height: 10, borderRadius: 2, background: detectionColor(r * heatmapMax, heatmapMax) }} />
+              ))}
             </div>
             <span>High</span>
             <div style={{ marginLeft: 8, display: 'flex', gap: 10 }}>
-              <span style={{ color: '#f59e0b' }}>▪ Warning ≥{warningThreshold} ppm</span>
-              <span style={{ color: '#ef4444' }}>▪ Critical ≥{criticalThreshold} ppm</span>
+              <span style={{ color: '#f59e0b' }}>▪ MIDDLE ≥{warningThreshold}</span>
+              <span style={{ color: '#ef4444' }}>▪ HIGH ≥{criticalThreshold}</span>
             </div>
           </div>
         </div>
@@ -270,7 +279,7 @@ export function AnalyticsTab({ activeRU, warningThreshold = 50, criticalThreshol
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
 
         {/* Top risky sensors */}
-        <SectionCard title="Top Risky Sensors" sub={`Ranked by avg PPM · ${hours === 24 ? 'last 24h' : 'last 7d'}`}>
+        <SectionCard title="Top Risky Sensors" sub={`Ranked by avg confidence · ${hours === 24 ? 'last 24h' : 'last 7d'}`}>
           {(!data || data.topSensors.length === 0) ? (
             <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--t4)', fontSize: 12, fontFamily: "'Geist Mono', monospace" }}>
               No sensor data for this period
@@ -279,7 +288,7 @@ export function AnalyticsTab({ activeRU, warningThreshold = 50, criticalThreshol
             <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
               {/* Header */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px 70px 50px', gap: 6, padding: '0 0 8px', borderBottom: '1px solid var(--divider)' }}>
-                {['Sensor', 'Avg PPM', 'Max PPM', 'Breaches'].map(h => (
+                {['Sensor', 'Avg Conf', 'Max Conf', 'Breaches'].map(h => (
                   <div key={h} style={{ fontSize: 9, color: 'var(--t4)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, fontFamily: "'Geist Mono', monospace" }}>{h}</div>
                 ))}
               </div>
@@ -289,11 +298,11 @@ export function AnalyticsTab({ activeRU, warningThreshold = 50, criticalThreshol
                     <div style={{ fontSize: 12, color: 'var(--t1)', fontWeight: i < 3 ? 700 : 400 }}>{s.deviceName}</div>
                     <div style={{ fontSize: 10, color: RU_COLORS[s.ruId] || '#38bdf8', fontFamily: "'Geist Mono', monospace" }}>{s.ruId}</div>
                   </div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: ppmTextColor(s.avgPpm, warningThreshold, criticalThreshold), fontFamily: "'Geist Mono', monospace" }}>
-                    {s.avgPpm.toFixed(1)}
+                  <div style={{ fontSize: 12, fontWeight: 700, color: confidenceTextColor(s.avgPpm, warningThreshold, criticalThreshold), fontFamily: "'Geist Mono', monospace" }}>
+                    {s.avgPpm.toFixed(2)}
                   </div>
-                  <div style={{ fontSize: 11, color: ppmTextColor(s.maxPpm, warningThreshold, criticalThreshold), fontFamily: "'Geist Mono', monospace" }}>
-                    {s.maxPpm.toFixed(1)}
+                  <div style={{ fontSize: 11, color: confidenceTextColor(s.maxPpm, warningThreshold, criticalThreshold), fontFamily: "'Geist Mono', monospace" }}>
+                    {s.maxPpm.toFixed(2)}
                   </div>
                   <div>
                     {s.breachCount > 0 ? (

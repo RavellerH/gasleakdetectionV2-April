@@ -89,7 +89,7 @@ export function UnitLayoutMap({ devices, onNodeClick }: UnitLayoutMapProps) {
                       const x = Math.cos(angle) * radius;
                       const y = Math.sin(angle) * radius;
                       
-                      const isAlert = s.latestPpm && s.latestPpm > 50;
+                      const isAlert = (s.latestConfidence ?? 0) >= 0.70;
                       
                       return (
                         <div 
@@ -135,7 +135,7 @@ export function UnitLayoutMap({ devices, onNodeClick }: UnitLayoutMapProps) {
                                <div className="border border-white/10 p-2 rounded-lg shadow-2xl min-w-[100px] text-center backdrop-blur-xl" style={{ background: 'var(--page-bg)' }}>
                                   <div className="text-[11px] font-bold text-[var(--t1)] mb-1 uppercase">{s.name.split('-').pop()}</div>
                                   <div className={`text-base font-mono font-bold ${isAlert ? 'text-rose-400' : 'text-emerald-400'}`}>
-                                    {s.latestPpm?.toFixed(1)} <span className="text-[10px] opacity-40">PPM</span>
+                                    {(s.latestConfidence ?? 0).toFixed(2)} <span className="text-[10px] opacity-40">conf</span>
                                   </div>
                                </div>
                             </div>

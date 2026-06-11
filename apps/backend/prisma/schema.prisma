@@ -46,7 +46,9 @@ model Device {
 model GasReading {
   id            String   @id @default(cuid())
   deviceId      String
-  ppm           Float
+  confidence    Float                    // AI confidence score 0.0–1.0
+  aiClass       Int      @default(0)    // 0=normal, 1–8=gas type
+  riskLevel     String   @default("LOW") // "LOW" | "MIDDLE" | "HIGH"
   isDummy       Boolean  @default(false)
   timestamp     DateTime @default(now())
   device        Device   @relation(fields: [deviceId], references: [id])
@@ -56,8 +58,8 @@ model GasReading {
 
 model SystemSettings {
   id                Int     @id @default(1)
-  warningThreshold  Float   @default(50.0)
-  criticalThreshold Float   @default(80.0)
+  warningThreshold  Float   @default(0.70)  // MIDDLE risk: confidence >= this
+  criticalThreshold Float   @default(0.80)  // HIGH risk:   confidence >= this
   refreshInterval   Int     @default(10)
   updatedAt         DateTime @updatedAt
 }

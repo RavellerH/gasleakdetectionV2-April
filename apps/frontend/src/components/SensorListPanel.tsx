@@ -71,7 +71,7 @@ export function SensorListPanel({ devices }: SensorListPanelProps) {
 }
 
 function SensorCard({ sensor }: { sensor: Device }) {
-  const isAlert = sensor.latestPpm && sensor.latestPpm > 50;
+  const isAlert = (sensor.latestConfidence ?? 0) >= 0.70;
   
   return (
     <div 
@@ -102,8 +102,8 @@ function SensorCard({ sensor }: { sensor: Device }) {
           <span>{!isAlert ? 'Safe' : 'Leak Detected'}</span>
         </div>
         <div className="text-right">
-           <div className="text-[10px] text-[var(--t4)] font-mono leading-none mb-1">PPM</div>
-           <div className="text-base font-bold font-mono text-[var(--t2)]">{sensor.latestPpm?.toFixed(1) || '0.0'}</div>
+           <div className="text-[10px] text-[var(--t4)] font-mono leading-none mb-1">CONF</div>
+           <div className="text-base font-bold font-mono text-[var(--t2)]">{(sensor.latestConfidence ?? 0).toFixed(2)}</div>
         </div>
       </div>
 

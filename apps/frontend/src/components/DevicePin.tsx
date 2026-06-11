@@ -5,7 +5,7 @@ import { Wifi, Network, Radio } from 'lucide-react';
 interface DevicePinProps {
   type?: string;
   healthScore: number;
-  ppm?: number;
+  confidence?: number;
   warningThreshold?: number;
   criticalThreshold?: number;
   size?: number;
@@ -28,14 +28,14 @@ function HealthBar({ pct, w }: { pct: number; w: number }) {
 export function DevicePin({
   type = 'SENSOR',
   healthScore,
-  ppm = 0,
-  warningThreshold = 50,
-  criticalThreshold = 80,
+  confidence = 0,
+  warningThreshold = 0.70,
+  criticalThreshold = 0.80,
   size = 20,
 }: DevicePinProps) {
   const t = type.toUpperCase();
-  const isCritical = ppm >= criticalThreshold;
-  const isWarning  = !isCritical && ppm >= warningThreshold;
+  const isCritical = confidence >= criticalThreshold;
+  const isWarning  = !isCritical && confidence >= warningThreshold;
   const isAlert    = isCritical || isWarning;
   const alertColor = isCritical ? '#ef4444' : '#f59e0b';
 

@@ -80,8 +80,8 @@ export function DeviceMap({
   ruId,
   selectedDevice,
   onDeviceSelect,
-  warningThreshold  = 50,
-  criticalThreshold = 80,
+  warningThreshold  = 0.70,
+  criticalThreshold = 0.80,
   onDeviceUpdate,
 }: DeviceMapProps) {
   const mapRef         = useRef<MapRef>(null);
@@ -108,10 +108,10 @@ export function DeviceMap({
       ruId:         d.ruId,
       parentMac:    d.parentMac,
       healthScore:  d.healthScore,
-      latestPpm:    d.latestPpm ?? 0,
-      status:       d.status,
-      hasCritical:  (d.latestPpm ?? 0) >= criticalThreshold,
-      hasWarning:   (d.latestPpm ?? 0) >= warningThreshold,
+      latestConfidence: d.latestConfidence ?? 0,
+      status:           d.status,
+      hasCritical:      (d.latestConfidence ?? 0) >= criticalThreshold,
+      hasWarning:       (d.latestConfidence ?? 0) >= warningThreshold,
     },
     geometry: { type: 'Point' as const, coordinates: [d.location.lng, d.location.lat] },
   })), [devices, criticalThreshold, warningThreshold]);
@@ -355,7 +355,7 @@ export function DeviceMap({
                 <DevicePin
                   type={device.type}
                   healthScore={device.healthScore}
-                  ppm={device.latestPpm}
+                  confidence={device.latestConfidence}
                   warningThreshold={warningThreshold}
                   criticalThreshold={criticalThreshold}
                 />
@@ -393,19 +393,26 @@ export function DeviceMap({
 
               <div style={{ fontSize:15, fontWeight:600, color:'var(--t1)', marginBottom:12 }}>{selectedDevice.name}</div>
 
-              {selectedDevice.type === 'SENSOR' && (
-                <div style={{ marginBottom:12, padding:10, borderRadius:9, background:(selectedDevice.latestPpm||0)>warningThreshold?'rgba(239,68,68,0.1)':'rgba(56,189,248,0.05)', border:`1px solid ${(selectedDevice.latestPpm||0)>warningThreshold?'rgba(239,68,68,0.2)':'rgba(56,189,248,0.1)'}` }}>
-                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
-                    <span style={{ fontSize:9, color:'var(--t4)', textTransform:'uppercase', letterSpacing:.5 }}>Gas CH4</span>
-                    <span style={{ fontSize:9, fontWeight:700, color:(selectedDevice.latestPpm||0)>warningThreshold?'#ef4444':'#38bdf8', textTransform:'uppercase' }}>
-                      {(selectedDevice.latestPpm||0)>warningThreshold?'⚠ LEAK DETECTED':'● SAFE'}
-                    </span>
+              {selectedDevice.type === 'SENSOR' && (() => {
+                const conf = selectedDevice.latestConfidence ?? 0;
+                const isHigh = conf >= criticalThreshold;
+                const isMid  = !isHigh && conf >= warningThreshold;
+                const riskLabel = isHigh ? '⚠ HIGH RISK' : isMid ? '⚠ MIDDLE RISK' : '● SAFE';
+                const riskColor = isHigh ? '#ef4444' : isMid ? '#f59e0b' : '#38bdf8';
+                const bgColor   = isHigh ? 'rgba(239,68,68,0.1)' : isMid ? 'rgba(245,158,11,0.1)' : 'rgba(56,189,248,0.05)';
+                const bdColor   = isHigh ? 'rgba(239,68,68,0.2)'  : isMid ? 'rgba(245,158,11,0.2)'  : 'rgba(56,189,248,0.1)';
+                return (
+                  <div style={{ marginBottom:12, padding:10, borderRadius:9, background:bgColor, border:`1px solid ${bdColor}` }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
+                      <span style={{ fontSize:9, color:'var(--t4)', textTransform:'uppercase', letterSpacing:.5 }}>AI Confidence</span>
+                      <span style={{ fontSize:9, fontWeight:700, color:riskColor, textTransform:'uppercase' }}>{riskLabel}</span>
+                    </div>
+                    <div style={{ fontSize:20, fontWeight:800, color:riskColor, fontFamily:"'Geist Mono', monospace" }}>
+                      {conf.toFixed(2)} <span style={{ fontSize:10, opacity:.6 }}>conf</span>
+                    </div>
                   </div>
-                  <div style={{ fontSize:20, fontWeight:800, color:(selectedDevice.latestPpm||0)>warningThreshold?'#ef4444':'#38bdf8', fontFamily:"'Geist Mono', monospace" }}>
-                    {selectedDevice.latestPpm?.toFixed(1)||'0.0'} <span style={{ fontSize:10, opacity:.6 }}>PPM</span>
-                  </div>
-                </div>
-              )}
+                );
+              })()}
 
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, paddingTop:10, borderTop:'1px solid rgba(255,255,255,0.06)' }}>
                 {[

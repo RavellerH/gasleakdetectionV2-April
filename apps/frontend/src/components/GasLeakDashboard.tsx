@@ -363,7 +363,7 @@ export default function GasLeakDashboard() {
       const point: Record<string, number | string | null> = { hour };
       sensorTimeline.forEach(s => {
         const r = s.data.find(d => d.hour === hour);
-        point[s.deviceId] = r ? Math.round(r.ppm) : null;
+        point[s.deviceId] = r ? Math.round(r.confidence * 1000) / 1000 : null;
       });
       return point;
     });
@@ -687,7 +687,7 @@ export default function GasLeakDashboard() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                       <span style={{ width: 20, height: 2, borderTop: '2px dashed #f59e0b', display: 'inline-block' }} />
-                      <span style={{ fontSize: 10, color: 'var(--t4)', fontFamily: "'Geist Mono', monospace" }}>Warning {sysSettings?.warningThreshold || 50} PPM</span>
+                      <span style={{ fontSize: 10, color: 'var(--t4)', fontFamily: "'Geist Mono', monospace" }}>MIDDLE ≥{sysSettings?.warningThreshold ?? 0.70}</span>
                     </div>
                     <PulseDot color="#38bdf8" />
                     <span style={{ fontSize: 11, color: 'var(--t3)', fontFamily: "'Geist Mono', monospace" }}>Live</span>
@@ -879,7 +879,7 @@ export default function GasLeakDashboard() {
                     <tbody>
                       {filteredDevices.map((d, i) => {
                         const Icon = typeIcon(d.type);
-                        const isAlert = d.latestPpm && d.latestPpm > (sysSettings?.warningThreshold || 50);
+                        const isAlert = (d.latestConfidence ?? 0) >= (sysSettings?.warningThreshold ?? 0.70);
                         return (
                           <tr key={d.id} onClick={() => setSelectedDevice(d)} style={{ background: selectedDevice?.id === d.id ? 'rgba(56,189,248,0.04)' : i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)', cursor: 'pointer', borderBottom: '1px solid var(--divider)' }}
                             onMouseEnter={e => (e.currentTarget as HTMLTableRowElement).style.background = 'rgba(56,189,248,0.03)'}
@@ -1029,16 +1029,17 @@ export default function GasLeakDashboard() {
                     <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--t2)', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}><AlertTriangle size={14} color="var(--yellow)" /> Gas Alert Thresholds</div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                       {[
-                        { label: 'Warning Level', key: 'warningThreshold' as keyof SystemSettings, color: 'var(--yellow)', max: 100 },
-                        { label: 'Critical Level', key: 'criticalThreshold' as keyof SystemSettings, color: 'var(--red)', max: 200 },
-                      ].map(({ label, key, color, max }) => (
+                        { label: 'MIDDLE Risk Threshold', key: 'warningThreshold' as keyof SystemSettings, color: 'var(--yellow)', desc: 'confidence ≥ this → MIDDLE' },
+                        { label: 'HIGH Risk Threshold',   key: 'criticalThreshold' as keyof SystemSettings, color: 'var(--red)',    desc: 'confidence ≥ this → HIGH' },
+                      ].map(({ label, key, color, desc }) => (
                         <div key={key} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--card-border)', borderRadius: 12, padding: '14px 16px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                             <span style={{ fontSize: 13, color: 'var(--t3)' }}>{label}</span>
-                            <span style={{ fontSize: 16, fontWeight: 700, color, fontFamily: "'Geist Mono', monospace" }}>{(sysSettings?.[key] as number) || 0} PPM</span>
+                            <span style={{ fontSize: 16, fontWeight: 700, color, fontFamily: "'Geist Mono', monospace" }}>{((sysSettings?.[key] as number) ?? 0).toFixed(2)}</span>
                           </div>
-                          <input type="range" min="10" max={max} step="1" value={(sysSettings?.[key] as number) || 0}
-                            onChange={e => setSysSettings(s => s ? { ...s, [key]: parseInt(e.target.value) } : null)}
+                          <div style={{ fontSize: 10, color: 'var(--t4)', marginBottom: 10, fontFamily: "'Geist Mono', monospace" }}>{desc}</div>
+                          <input type="range" min="0.50" max="0.99" step="0.01" value={(sysSettings?.[key] as number) ?? 0}
+                            onChange={e => setSysSettings(s => s ? { ...s, [key]: parseFloat(e.target.value) } : null)}
                             style={{ width: '100%', accentColor: color }} />
                         </div>
                       ))}
