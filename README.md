@@ -24,7 +24,7 @@ A full-stack IoT monitoring platform that aggregates gas sensor data from edge f
 
 ---
 
-## Quick Start (Windows)
+## Quick Start
 
 ### Requirements
 - **Node.js LTS** — download from [https://nodejs.org](https://nodejs.org) (click the LTS button, run the installer, keep all defaults)
@@ -32,10 +32,19 @@ A full-stack IoT monitoring platform that aggregates gas sensor data from edge f
 
 ### Run the app
 
+**Windows:**
 1. Download / clone this repository
 2. **Double-click `start.bat`**
 3. Wait for the setup to finish (first run: ~2 minutes)
 4. Open your browser at **http://localhost:3000**
+
+**Mac / Linux:**
+1. Download / clone this repository
+2. Open a terminal in the project folder and run `./start.sh`
+3. Wait for the setup to finish (first run: ~2 minutes)
+4. Open your browser at **http://localhost:3000**
+
+Run the same script again any time to restart — it skips setup after the first run.
 
 ```
 Login:    admin@gld.com
