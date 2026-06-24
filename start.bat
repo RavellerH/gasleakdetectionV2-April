@@ -1,4 +1,5 @@
 @echo off
+setlocal enabledelayedexpansion
 chcp 65001 >nul
 title Gas Leak Detection System v0.15 — Setup
 cd /d "%~dp0"
@@ -43,20 +44,19 @@ if "%SPEC_STATUS%"=="LOW" (
 echo.
 if exist ".git" (
     git rev-parse --is-inside-work-tree >nul 2>&1
-    if %errorlevel% equ 0 (
+    if !errorlevel! equ 0 (
         echo  Checking for updates...
         for /f "tokens=*" %%b in ('git rev-parse --abbrev-ref HEAD 2^>nul') do set GIT_BRANCH=%%b
-        git fetch origin %GIT_BRANCH% >nul 2>&1
-        if %errorlevel% equ 0 (
+        git fetch origin !GIT_BRANCH! >nul 2>&1
+        if !errorlevel! equ 0 (
             for /f %%a in ('git rev-parse HEAD') do set LOCAL_REV=%%a
-            for /f %%a in ('git rev-parse origin/%GIT_BRANCH%') do set REMOTE_REV=%%a
-            set GIT_DIRTY=0
+            for /f %%a in ('git rev-parse origin/!GIT_BRANCH!') do set REMOTE_REV=%%a
             for /f %%n in ('git status --porcelain ^| find /v /c ""') do set GIT_DIRTY_COUNT=%%n
-            if not "%LOCAL_REV%"=="%REMOTE_REV%" (
-                if "%GIT_DIRTY_COUNT%"=="0" (
+            if not "!LOCAL_REV!"=="!REMOTE_REV!" (
+                if "!GIT_DIRTY_COUNT!"=="0" (
                     echo  [UPDATE] A newer version is available. Updating...
-                    git pull --ff-only origin %GIT_BRANCH%
-                    if %errorlevel% equ 0 (
+                    git pull --ff-only origin !GIT_BRANCH!
+                    if !errorlevel! equ 0 (
                         echo.
                         echo  [OK] Updated! Please double-click start.bat again to
                         echo  launch the updated app.
@@ -90,7 +90,7 @@ if %errorlevel% neq 0 (
     echo  Windows will likely show a permission prompt — click "Yes" to allow it.
     echo.
     powershell -NoProfile -ExecutionPolicy Bypass -Command "$ProgressPreference='SilentlyContinue'; try { $idx = Invoke-RestMethod -Uri 'https://nodejs.org/dist/index.json'; $lts = $idx | Where-Object { $_.lts -ne $false } | Select-Object -First 1; $ver = $lts.version; $url = \"https://nodejs.org/dist/$ver/node-$ver-x64.msi\"; $out = \"$env:TEMP\node-installer.msi\"; Invoke-WebRequest -Uri $url -OutFile $out; Start-Process msiexec.exe -ArgumentList '/i', $out, '/qn', '/norestart' -Verb RunAs -Wait; Remove-Item $out -Force -ErrorAction SilentlyContinue } catch { exit 1 }"
-    if %errorlevel% neq 0 (
+    if !errorlevel! neq 0 (
         echo  [ERROR] The automatic install didn't work. Please install it yourself:
         echo    1. Go to https://nodejs.org
         echo    2. Click the green LTS button to download it
@@ -102,9 +102,9 @@ if %errorlevel% neq 0 (
     )
     :: refresh this session's PATH so the new install is visible immediately
     for /f "skip=2 tokens=2,*" %%A in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v Path 2^>nul') do set "SYS_PATH=%%B"
-    set "PATH=%SYS_PATH%;%PATH%"
+    set "PATH=!SYS_PATH!;!PATH!"
     node --version >nul 2>&1
-    if %errorlevel% neq 0 (
+    if !errorlevel! neq 0 (
         echo  [OK] Node.js was installed, but needs this window closed first.
         echo  Please close this window and double-click start.bat again.
         echo.
