@@ -27,8 +27,8 @@ A full-stack IoT monitoring platform that aggregates gas sensor data from edge f
 ## Quick Start
 
 ### Requirements
-- **Node.js LTS** — download from [https://nodejs.org](https://nodejs.org) (click the LTS button, run the installer, keep all defaults)
-- That's it. No database, no Docker, no other installs needed.
+- Nothing to install beforehand — the script below installs Node.js for you if it's missing.
+- No database, no Docker, no other installs needed.
 
 ### Run the app
 
@@ -44,7 +44,7 @@ A full-stack IoT monitoring platform that aggregates gas sensor data from edge f
 3. Wait for the setup to finish (first run: ~2 minutes)
 4. Open your browser at **http://localhost:3000**
 
-Run the same script again any time to restart — it skips setup after the first run.
+Run the same script again any time to restart — it checks for updates first, then skips setup and launches straight away. The script also checks your internet connection, PC specs, and installs Node.js automatically if it isn't already on your machine (you'll see your OS's normal permission prompt — that's expected). See the [Usage Guide](./Documentation/Usage-Guide.md) for details.
 
 ```
 Login:    admin@gld.com
