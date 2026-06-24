@@ -72,53 +72,16 @@ else
     echo " downloaded via git). Re-download the project from GitHub for updates."
 fi
 
-# ── Step 1: Check / auto-install Node.js ───────────────────────
+# ── Step 1: Check Node.js ────────────────────────────────────────
 echo
-install_node() {
-    local version
-    if [ "$OS" = "Darwin" ]; then
-        if command -v brew >/dev/null 2>&1; then
-            echo " Installing Node.js with Homebrew..."
-            brew install node
-            return $?
-        fi
-        echo " Installing Node.js — this needs your Mac password..."
-        version="$(curl -s https://nodejs.org/dist/index.json | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(x["version"] for x in d if x["lts"]))' 2>/dev/null || echo "v22.13.0")"
-        local pkg_url="https://nodejs.org/dist/${version}/node-${version}.pkg"
-        local pkg_path="/tmp/node-installer.pkg"
-        curl -L -o "$pkg_path" "$pkg_url" || return 1
-        sudo installer -pkg "$pkg_path" -target / || return 1
-        rm -f "$pkg_path"
-    else
-        echo " Installing Node.js — this needs your password..."
-        if command -v apt-get >/dev/null 2>&1; then
-            curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt-get install -y nodejs
-        elif command -v dnf >/dev/null 2>&1; then
-            curl -fsSL https://rpm.nodesource.com/setup_22.x | sudo bash - && sudo dnf install -y nodejs
-        elif command -v pacman >/dev/null 2>&1; then
-            sudo pacman -Sy --noconfirm nodejs npm
-        else
-            echo " [ERROR] Couldn't detect a supported package manager."
-            return 1
-        fi
-    fi
-}
-
 if ! command -v node >/dev/null 2>&1; then
-    echo " [INFO] Node.js was not found. Installing it automatically..."
-    if ! install_node; then
-        echo " [ERROR] The automatic install didn't work. Please install it yourself:"
-        echo "   1. Go to https://nodejs.org"
-        echo "   2. Download and install the LTS version"
-        echo "   3. Run this script again when it's done"
-        echo
-        exit 1
-    fi
-    if ! command -v node >/dev/null 2>&1; then
-        echo " [ERROR] Node.js was installed, but isn't on your PATH yet."
-        echo " Please open a new terminal window and run this script again."
-        exit 1
-    fi
+    echo " [ERROR] This app needs a free program called \"Node.js\" to run."
+    echo
+    echo " 1. Go to https://nodejs.org"
+    echo " 2. Download and install the LTS version"
+    echo " 3. Run this script again when it's done"
+    echo
+    exit 1
 fi
 echo " [OK] Node.js $(node --version) detected."
 
