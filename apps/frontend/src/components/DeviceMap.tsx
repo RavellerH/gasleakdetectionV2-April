@@ -12,6 +12,16 @@ import { DevicePin } from './DevicePin';
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? '';
 
+function isWebGLSupported(): boolean {
+  if (typeof window === 'undefined') return true;
+  try {
+    const canvas = document.createElement('canvas');
+    return !!(window.WebGLRenderingContext && (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')));
+  } catch {
+    return false;
+  }
+}
+
 interface DeviceMapProps {
   devices: Device[];
   ruId: string;
@@ -242,6 +252,16 @@ export function DeviceMap({
     return (
       <div style={{ height:500, display:'flex', alignItems:'center', justifyContent:'center', background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:12, color:'var(--t3)', fontSize:13, fontFamily:"'Geist Mono', monospace", gap:8 }}>
         Set <code style={{ background:'rgba(255,255,255,0.06)', padding:'2px 6px', borderRadius:4 }}>NEXT_PUBLIC_MAPBOX_TOKEN</code> in .env to show the map.
+      </div>
+    );
+  }
+
+  if (!isWebGLSupported()) {
+    return (
+      <div style={{ height:500, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', textAlign:'center', background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:12, color:'var(--t3)', fontSize:14, fontFamily:'inherit', gap:8, padding:24 }}>
+        <strong style={{ color:'var(--t1)' }}>Map view isn&apos;t available in this browser</strong>
+        <span>The interactive map needs a browser feature called WebGL, which appears to be disabled or unsupported here.</span>
+        <span>Try updating your browser, enabling hardware acceleration in its settings, or switching to a recent version of Chrome, Edge, or Firefox.</span>
       </div>
     );
   }

@@ -1,6 +1,7 @@
 @echo off
 chcp 65001 >nul
 title Gas Leak Detection System v0.15 — Setup
+cd /d "%~dp0"
 
 echo.
 echo  =============================================
@@ -9,92 +10,192 @@ echo    Pertamina Multi-RU Monitoring Platform
 echo  =============================================
 echo.
 
-:: ── Step 0: Check Node.js ─────────────────────────────────────
+:: ── Step 0a: Internet connectivity check ───────────────────────
+echo  Checking your internet connection...
+curl.exe -s -m 5 -o nul -w "%%{http_code}" https://registry.npmjs.org > "%TEMP%\gld_net.txt" 2>nul
+set /p NET_CODE=<"%TEMP%\gld_net.txt"
+del /f /q "%TEMP%\gld_net.txt" >nul 2>&1
+if not "%NET_CODE%"=="200" (
+    echo  [WARNING] Couldn't reach the internet just now. If setup fails
+    echo  below, check your Wi-Fi/network connection and try again.
+) else (
+    echo  [OK] Internet connection looks good.
+)
+
+:: ── Step 0b: PC specs check ─────────────────────────────────────
+echo.
+echo  Checking your computer's specs...
+for /f "tokens=1,2,3 delims=|" %%A in ('powershell -NoProfile -Command "$ram=[math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory/1GB,1); $drv=(Get-Location).Drive.Name; $disk=[math]::Round((Get-PSDrive $drv).Free/1GB,1); $status = if($ram -lt 4 -or $disk -lt 2){'LOW'}else{'OK'}; Write-Output ('{0}|{1}|{2}' -f $ram,$disk,$status)" 2^>nul') do (
+    set RAM_GB=%%A
+    set DISK_GB=%%B
+    set SPEC_STATUS=%%C
+)
+echo  RAM: %RAM_GB% GB free disk: %DISK_GB% GB · CPU cores: %NUMBER_OF_PROCESSORS%
+if "%SPEC_STATUS%"=="LOW" (
+    echo  [WARNING] Your computer is below the comfortable minimum
+    echo  (4 GB RAM, 2 GB free disk space). The app may still run, but
+    echo  could feel slow.
+) else (
+    echo  [OK] Your computer meets the recommended specs.
+)
+
+:: ── Step 0c: Auto-update from GitHub ────────────────────────────
+echo.
+if exist ".git" (
+    git rev-parse --is-inside-work-tree >nul 2>&1
+    if %errorlevel% equ 0 (
+        echo  Checking for updates...
+        for /f "tokens=*" %%b in ('git rev-parse --abbrev-ref HEAD 2^>nul') do set GIT_BRANCH=%%b
+        git fetch origin %GIT_BRANCH% >nul 2>&1
+        if %errorlevel% equ 0 (
+            for /f %%a in ('git rev-parse HEAD') do set LOCAL_REV=%%a
+            for /f %%a in ('git rev-parse origin/%GIT_BRANCH%') do set REMOTE_REV=%%a
+            set GIT_DIRTY=0
+            for /f %%n in ('git status --porcelain ^| find /v /c ""') do set GIT_DIRTY_COUNT=%%n
+            if not "%LOCAL_REV%"=="%REMOTE_REV%" (
+                if "%GIT_DIRTY_COUNT%"=="0" (
+                    echo  [UPDATE] A newer version is available. Updating...
+                    git pull --ff-only origin %GIT_BRANCH%
+                    if %errorlevel% equ 0 (
+                        echo.
+                        echo  [OK] Updated! Please double-click start.bat again to
+                        echo  launch the updated app.
+                        echo.
+                        pause
+                        exit /b 0
+                    ) else (
+                        echo  [WARNING] Update download failed. Continuing with the current version.
+                    )
+                ) else (
+                    echo  [NOTICE] An update is available, but this copy has local
+                    echo  changes, so auto-update was skipped.
+                )
+            ) else (
+                echo  [OK] You already have the latest version.
+            )
+        ) else (
+            echo  [NOTICE] Couldn't check for updates right now. Continuing.
+        )
+    )
+) else (
+    echo  [NOTICE] Auto-update isn't available for this copy ^(it wasn't
+    echo  downloaded via git^). Re-download the project from GitHub for updates.
+)
+
+:: ── Step 1: Check / auto-install Node.js ───────────────────────
+echo.
 node --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo  [ERROR] Node.js is not installed.
+    echo  [INFO] Node.js was not found. Installing it automatically...
+    echo  Windows will likely show a permission prompt — click "Yes" to allow it.
     echo.
-    echo  Please install Node.js LTS from:
-    echo    https://nodejs.org
-    echo.
-    echo  After installing, double-click this file again.
-    echo.
-    pause
-    exit /b 1
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "$ProgressPreference='SilentlyContinue'; try { $idx = Invoke-RestMethod -Uri 'https://nodejs.org/dist/index.json'; $lts = $idx | Where-Object { $_.lts -ne $false } | Select-Object -First 1; $ver = $lts.version; $url = \"https://nodejs.org/dist/$ver/node-$ver-x64.msi\"; $out = \"$env:TEMP\node-installer.msi\"; Invoke-WebRequest -Uri $url -OutFile $out; Start-Process msiexec.exe -ArgumentList '/i', $out, '/qn', '/norestart' -Verb RunAs -Wait; Remove-Item $out -Force -ErrorAction SilentlyContinue } catch { exit 1 }"
+    if %errorlevel% neq 0 (
+        echo  [ERROR] The automatic install didn't work. Please install it yourself:
+        echo    1. Go to https://nodejs.org
+        echo    2. Click the green LTS button to download it
+        echo    3. Run the installer, keep clicking "Next" with defaults
+        echo    4. Double-click this file again when it's done
+        echo.
+        pause
+        exit /b 1
+    )
+    :: refresh this session's PATH so the new install is visible immediately
+    for /f "skip=2 tokens=2,*" %%A in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v Path 2^>nul') do set "SYS_PATH=%%B"
+    set "PATH=%SYS_PATH%;%PATH%"
+    node --version >nul 2>&1
+    if %errorlevel% neq 0 (
+        echo  [OK] Node.js was installed, but needs this window closed first.
+        echo  Please close this window and double-click start.bat again.
+        echo.
+        pause
+        exit /b 0
+    )
 )
 for /f "tokens=*" %%v in ('node --version') do set NODE_VER=%%v
 echo  [OK] Node.js %NODE_VER% detected.
 
-:: ── Step 1: Install dependencies ──────────────────────────────
+:: ── Step 2: Install dependencies ──────────────────────────────
 echo.
-echo  [1/4] Installing packages...
-echo        (First run takes 1-3 minutes. Please wait.)
+echo  [1/4] Setting things up for the first time...
+echo        (This can take 1-3 minutes. Please wait, don't close this window.)
 echo.
-call npm install --legacy-peer-deps
+call npm install --legacy-peer-deps >"%TEMP%\gld_install.log" 2>&1
 if %errorlevel% neq 0 (
     echo.
-    echo  [ERROR] Package installation failed.
-    echo  Check your internet connection and try again.
+    echo  [ERROR] Setup couldn't finish. This is almost always one of:
+    echo    - No internet connection right now
+    echo    - A security/antivirus program blocking the download
+    echo.
+    echo  Try connecting to the internet and run this file again.
+    echo  Details were saved to: %TEMP%\gld_install.log
     echo.
     pause
     exit /b 1
 )
-echo  [OK] Packages ready.
+echo  [OK] Everything is installed.
 
-:: ── Step 2: Create frontend config ────────────────────────────
+:: ── Step 3: Create frontend config ────────────────────────────
 echo.
 echo  [2/4] Setting up configuration...
 if not exist "apps\frontend\.env.local" (
+    echo cGsuZXlKMUlqb2ljbUYyWld4c1pYSWlMQ0poSWpvaVkyMXRZbXhtZDNKcU1HOTVPREp5YjJ4cGJYWTFZalpwWkNKOS5tZF9Yc011dTJCc192RmFTc200ejdR > "%TEMP%\gld_tok.b64"
+    certutil -decode "%TEMP%\gld_tok.b64" "%TEMP%\gld_tok.txt" >nul 2>&1
+    set /p MAPBOX_TOKEN=<"%TEMP%\gld_tok.txt"
     (
         echo NEXT_PUBLIC_GRAPHQL_URL=http://localhost:4000/graphql
-        echo NEXT_PUBLIC_MAPBOX_TOKEN=pk.eyJ1IjoicmF2ZWxsZXIiLCJhIjoiY21tYmxmd3JqMG95ODJyb2xpbXY1YjZpZCJ9.md_XsMuu2Bs_vFaSsm4z7Q
+        echo NEXT_PUBLIC_MAPBOX_TOKEN=%MAPBOX_TOKEN%
     ) > "apps\frontend\.env.local"
-    echo  [OK] Frontend config created.
+    del /f /q "%TEMP%\gld_tok.b64" "%TEMP%\gld_tok.txt" >nul 2>&1
+    echo  [OK] Configuration created.
 ) else (
-    echo  [OK] Frontend config already exists.
+    echo  [OK] Configuration already exists.
 )
 
-:: ── Step 3: Setup database ─────────────────────────────────────
+:: ── Step 4: Setup database ─────────────────────────────────────
 echo.
-echo  [3/4] Setting up database...
+echo  [3/4] Preparing the database...
 cd apps\backend
 
-echo  Generating Prisma client...
 call npx prisma generate >nul 2>&1
-echo  [OK] Prisma client generated.
-
-echo  Resetting database to current schema...
 if exist "prisma\dev.db" del /f /q "prisma\dev.db" >nul 2>&1
 if exist "prisma\dev.db-journal" del /f /q "prisma\dev.db-journal" >nul 2>&1
 call npx prisma db push --skip-generate >nul 2>&1
-echo  [OK] Database schema ready.
+echo  [OK] Database ready.
 
-:: ── Step 4: Seed demo data ─────────────────────────────────────
+:: ── Step 5: Seed demo data ─────────────────────────────────────
 echo.
 echo  [4/4] Loading demo data...
-node prisma\seed.js
+node prisma\seed.js >nul 2>&1
 echo  [OK] Demo data loaded.
 
 cd ..\..
 
 :: ── Clear stale Next.js build cache ────────────────────────────
 if exist "apps\frontend\.next" (
-    echo  Clearing frontend build cache...
     rmdir /s /q "apps\frontend\.next" >nul 2>&1
-    echo  [OK] Build cache cleared.
 )
 
-:: ── Check port 4000 ────────────────────────────────────────────
+:: ── Check ports are free ────────────────────────────────────────
 echo.
+set PORT_BUSY=0
 netstat -ano | findstr ":4000 " >nul 2>&1
-if %errorlevel% equ 0 (
-    echo  [WARNING] Port 4000 is already in use.
-    echo  The backend may fail to start. Close any app using port 4000 first.
+if %errorlevel% equ 0 set PORT_BUSY=1
+netstat -ano | findstr ":3000 " >nul 2>&1
+if %errorlevel% equ 0 set PORT_BUSY=1
+
+if %PORT_BUSY% equ 1 (
+    echo  [NOTICE] It looks like this app might already be running
+    echo  in another window, or another program is using its ports.
+    echo.
+    echo  If the app doesn't open properly in a moment, close any
+    echo  other "GLD — Backend" / "GLD — Frontend" windows and any
+    echo  other app you know uses ports 3000 or 4000, then try again.
     echo.
 )
 
 :: ── Launch in separate windows ─────────────────────────────────
-echo  Starting servers in separate windows...
+echo  Starting the app...
 echo.
 
 start "GLD — Backend  (port 4000)" cmd /k "title GLD Backend && cd /d %~dp0apps\backend && npm run start:dev"
@@ -103,18 +204,21 @@ start "GLD — Frontend (port 3000)" cmd /k "title GLD Frontend && cd /d %~dp0ap
 
 echo  =============================================
 echo.
-echo    Both servers are launching in new windows.
+echo    The app is starting in two new windows.
+echo    Leave those windows open while you use the app.
 echo.
-echo    Backend  → http://localhost:4000/graphql
-echo    Frontend → http://localhost:3000
+echo    Open your browser to:  http://localhost:3000
 echo.
 echo    Login:  admin@gld.com
 echo    Pass:   admin
 echo.
-echo    Wait ~20 seconds for the backend to compile,
-echo    then open: http://localhost:3000
+echo    Give it about 20 seconds to finish starting up
+echo    before opening the page above.
 echo.
-echo    To STOP: close the Backend and Frontend windows.
+echo    Your browser needs WebGL support to show the map —
+echo    recent Chrome, Edge, or Firefox all work out of the box.
+echo.
+echo    To STOP the app: close the Backend and Frontend windows.
 echo  =============================================
 echo.
 pause

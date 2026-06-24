@@ -35,3 +35,7 @@ node simulate-sensors.js
 
 The frontend will be available at `http://localhost:3000`.
 The backend GraphQL playground will be at `http://localhost:3001/graphql`.
+
+### Mapbox token note
+
+`start.bat` / `start.sh` ship a demo Mapbox token (base64-obfuscated in the script, not plaintext) so first-time setup needs zero configuration. Mapbox public tokens are inherently exposed to anyone using the app's frontend — obfuscation only stops casual repo scraping, it isn't real protection. To actually secure it, add a URL restriction to the token in the Mapbox account dashboard (Settings → Access tokens → restrict to your domain/`localhost`), or swap in your own token via `apps/frontend/.env.local`.
