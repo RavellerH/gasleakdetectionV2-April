@@ -1,4 +1,11 @@
 @echo off
+if "%~1"=="--inner" goto :main
+:: Relaunch inside a "cmd /k" window so it never closes on its own,
+:: even if something below crashes or exits unexpectedly.
+start "Gas Leak Detection System — Setup" cmd /k "%~f0" --inner
+exit /b
+
+:main
 setlocal enabledelayedexpansion
 chcp 65001 >nul
 title Gas Leak Detection System v0.15 — Setup
