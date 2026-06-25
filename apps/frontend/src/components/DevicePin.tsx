@@ -60,7 +60,7 @@ export function DevicePin({
   /* ── CLUSTER HEAD: diamond (rotated square) ──────────────────── */
   if (t === 'CLUSTER') {
     const s = Math.round(size * 1.4);
-    const color = isAlert ? alertColor : '#a78bfa';
+    const color = isAlert ? alertColor : '#3b82f6';
     return (
       <div style={{ position:'relative', width:s, height:s, cursor:'pointer' }}>
         <style>{ANIM}</style>

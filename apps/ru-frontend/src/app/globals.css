@@ -16,7 +16,7 @@
   --t1: #eef2f8;
   --t2: #a8b8d0;
   --t3: #5e78a0;
-  --t4: #334466;
+  --t4: #5a6e8a;
   --accent:  #38bdf8;
   --accent2: #0284c7;
   --accent3: #0c2447;
@@ -30,8 +30,8 @@
   --foreground:  #eef2f8;
   --card:        rgba(255,255,255,0.03);
   --border:      rgba(255,255,255,0.07);
-  --primary:     #38bdf8;
-  --success:     #38bdf8;
+  --primary:     #2563eb;
+  --success:     #2563eb;
   --warning:     #f59e0b;
   --danger:      #ef4444;
 }
@@ -58,8 +58,8 @@
   --foreground:  #0d1520;
   --card:        #ffffff;
   --border:      rgba(0,0,0,0.08);
-  --primary:     #0284c7;
-  --success:     #0284c7;
+  --primary:     #1d4ed8;
+  --success:     #1d4ed8;
 }
 
 @keyframes pulse-ring {

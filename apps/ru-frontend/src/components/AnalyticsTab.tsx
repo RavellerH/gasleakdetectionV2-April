@@ -13,7 +13,7 @@ interface Props { activeRU: string; warningThreshold?: number; criticalThreshold
 
 const RU_COLORS: Record<string, string> = {
   RU2: '#38bdf8', RU3: '#34d399', RU4: '#f59e0b',
-  RU5: '#a78bfa', RU6: '#fb7185', RU7: '#22d3ee',
+  RU5: '#3b82f6', RU6: '#fb7185', RU7: '#22d3ee',
 };
 
 const CHART_TOOLTIP_STYLE = {

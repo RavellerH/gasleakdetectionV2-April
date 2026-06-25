@@ -1,13 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import {
-  AreaChart, Area, BarChart, Bar, LineChart, Line, XAxis, YAxis,
-  CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend, ReferenceLine,
-} from 'recharts';
+import { useState, useEffect, useCallback, useRef } from 'react';
+
 import {
   Activity, AlertTriangle, Bell, ChevronLeft, ChevronRight, ClipboardList,
-  Clock, Flame, HardDrive, LayoutDashboard, Map, Moon,
+  Clock, Flame, HardDrive, LayoutDashboard, Map as MapIcon, Moon,
   RefreshCw, Search, Settings, Shield, Sun, TrendingDown,
   TrendingUp, Users, Wifi, Network, Radio, LogOut, Filter,
   MoreHorizontal, Download, RotateCcw,
@@ -43,14 +40,14 @@ const NAV = [
   { icon: LayoutDashboard, label: 'Overview',    key: 'overview' },
   { icon: HardDrive,       label: 'Devices',     key: 'devices' },
   { icon: Network,         label: 'Unit Layout',  key: 'layout' },
-  { icon: Map,             label: 'Map View',     key: 'map' },
+  { icon: MapIcon,             label: 'Map View',     key: 'map' },
   { icon: AlertTriangle,   label: 'Alerts',       key: 'alerts' },
   { icon: ClipboardList,   label: 'Events',       key: 'events' },
   { icon: TrendingUp,      label: 'Analytics',    key: 'analytics' },
   { icon: Settings,        label: 'Settings',     key: 'settings' },
 ];
 
-const SENSOR_COLORS = ['#38bdf8','#a78bfa','#34d399','#f59e0b','#f472b6','#60a5fa','#fb923c','#4ade80','#e879f9','#22d3ee'];
+const SENSOR_COLORS = ['#38bdf8','#3b82f6','#34d399','#f59e0b','#f472b6','#60a5fa','#fb923c','#4ade80','#e879f9','#22d3ee'];
 
 /* ── tiny helpers ────────────────────────────────────────────── */
 function statusColor(s: string) {
@@ -61,6 +58,13 @@ function batteryColor(b: number | null) {
 }
 function severityColor(s: string) {
   return s === 'CRITICAL' ? '#ef4444' : s === 'WARNING' ? '#f59e0b' : '#38bdf8';
+}
+function heatmapColor(conf: number | null, warning: number, critical: number): string {
+  if (conf === null) return 'rgba(37,99,235,0.04)';
+  if (conf >= critical) return 'rgba(239,68,68,0.75)';
+  if (conf >= warning) return 'rgba(245,158,11,0.65)';
+  const r = Math.min(conf / Math.max(warning, 0.01), 1);
+  return `rgba(37,99,235,${0.08 + r * 0.50})`;
 }
 function typeIcon(t: string) {
   switch (t.toUpperCase()) {
@@ -129,21 +133,6 @@ function PulseDot({ color = '#38bdf8' }: { color?: string }) {
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--t1)', marginBottom: 14 }}>{children}</div>;
-}
-
-/* ── custom tooltip ──────────────────────────────────────────── */
-function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ name: string; value: number; color?: string }>; label?: string }) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div style={{ background: 'rgba(7,13,11,0.96)', border: '1px solid rgba(56,189,248,0.15)', borderRadius: 10, padding: '10px 14px', backdropFilter: 'blur(16px)' }}>
-      <p style={{ color: 'var(--t3)', fontSize: 11, marginBottom: 6, fontFamily: "'Geist Mono', monospace" }}>{label}</p>
-      {payload.map((p, i) => (
-        <p key={i} style={{ color: p.color || '#38bdf8', fontSize: 12, margin: '2px 0', fontFamily: "'Geist Mono', monospace" }}>
-          {p.name}: <span style={{ fontWeight: 700 }}>{p.value}</span>
-        </p>
-      ))}
-    </div>
-  );
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -348,21 +337,6 @@ export default function GasLeakDashboard() {
     });
 
   const minutesSinceUpdate = lastUpdated ? Math.floor((Date.now() - lastUpdated.getTime()) / 60000) : null;
-
-  const sensorChartData = useMemo(() => {
-    if (!sensorTimeline.length) return [];
-    const allHours = new Set<string>();
-    sensorTimeline.forEach(s => s.data.forEach(d => allHours.add(d.hour)));
-    const hours = Array.from(allHours).sort();
-    return hours.map(hour => {
-      const point: Record<string, number | string | null> = { hour };
-      sensorTimeline.forEach(s => {
-        const r = s.data.find(d => d.hour === hour);
-        point[s.deviceId] = r ? Math.round(r.confidence * 1000) / 1000 : null;
-      });
-      return point;
-    });
-  }, [sensorTimeline]);
 
   /* ── LOADING ── */
   if (isCheckingAuth) return (
@@ -676,48 +650,55 @@ export default function GasLeakDashboard() {
                     <span style={{ fontSize: 11, color: 'var(--t3)', fontFamily: "'Geist Mono', monospace" }}>Live</span>
                   </div>
                 </div>
-                <div style={{ height: 240 }}>
-                  {sensorChartData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={sensorChartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
-                        <XAxis dataKey="hour" tick={{ fill: 'var(--t4)', fontSize: 10, fontFamily: "'Geist Mono', monospace" }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
-                        <YAxis tick={{ fill: 'var(--t4)', fontSize: 10, fontFamily: "'Geist Mono', monospace" }} axisLine={false} tickLine={false} />
-                        <Tooltip content={<ChartTooltip />} />
-                        <ReferenceLine y={sysSettings?.warningThreshold || 50} stroke="#f59e0b" strokeDasharray="4 2" strokeOpacity={0.6} />
-                        {sysSettings?.criticalThreshold && (
-                          <ReferenceLine y={sysSettings.criticalThreshold} stroke="#ef4444" strokeDasharray="4 2" strokeOpacity={0.5} />
-                        )}
-                        {sensorTimeline.map((s, idx) => (
-                          <Line
-                            key={s.deviceId}
-                            type="monotone"
-                            dataKey={s.deviceId}
-                            name={s.deviceName}
-                            stroke={SENSOR_COLORS[idx % SENSOR_COLORS.length]}
-                            strokeWidth={1.8}
-                            dot={false}
-                            connectNulls
-                            isAnimationActive={false}
-                          />
-                        ))}
-                        {sensorTimeline.length <= 8 && (
-                          <Legend
-                            wrapperStyle={{ fontSize: 10, fontFamily: "'Geist Mono', monospace", paddingTop: 8, color: 'var(--t3)' }}
-                            formatter={(value, entry) => {
-                              const s = sensorTimeline.find(t => t.deviceId === entry.dataKey);
-                              return s?.deviceName || value;
-                            }}
-                          />
-                        )}
-                      </LineChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--t4)', fontSize: 12, fontFamily: "'Geist Mono', monospace" }}>
-                      NO SENSOR READINGS IN LAST 24H
+                {sensorTimeline.length > 0 ? (
+                  <div style={{ height: 240, overflowY: 'auto' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '108px repeat(24, 1fr)', gap: 2, marginBottom: 4, position: 'sticky', top: 0, background: 'var(--card-bg)', zIndex: 2, paddingBottom: 4 }}>
+                      <div style={{ fontSize: 9, color: 'var(--t4)', fontFamily: "'Geist Mono', monospace", display: 'flex', alignItems: 'center', paddingLeft: 4 }}>SENSOR</div>
+                      {Array.from({ length: 24 }, (_, h) => (
+                        <div key={h} style={{ fontSize: 9, color: 'var(--t4)', fontFamily: "'Geist Mono', monospace", textAlign: 'center' }}>
+                          {String(h).padStart(2, '0')}
+                        </div>
+                      ))}
                     </div>
-                  )}
-                </div>
+                    {sensorTimeline.map(s => {
+                      const hourMap = new Map(s.data.map(d => [d.hour, d.confidence]));
+                      return (
+                        <div key={s.deviceId} style={{ display: 'grid', gridTemplateColumns: '108px repeat(24, 1fr)', gap: 2, marginBottom: 2 }}>
+                          <div style={{ fontSize: 10, color: 'var(--t2)', fontFamily: "'Geist Mono', monospace", display: 'flex', alignItems: 'center', paddingLeft: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {s.deviceName}
+                          </div>
+                          {Array.from({ length: 24 }, (_, h) => {
+                            const hourKey = `${String(h).padStart(2, '0')}:00`;
+                            const conf = hourMap.get(hourKey) ?? null;
+                            return (
+                              <div key={h}
+                                title={`${s.deviceName} @ ${hourKey}: ${conf !== null ? (conf * 100).toFixed(1) + '%' : '—'}`}
+                                style={{ height: 20, borderRadius: 3, background: heatmapColor(conf, sysSettings?.warningThreshold ?? 0.70, sysSettings?.criticalThreshold ?? 0.85), border: '1px solid rgba(255,255,255,0.04)', cursor: 'default' }}
+                              />
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, fontSize: 10, color: 'var(--t4)', fontFamily: "'Geist Mono', monospace" }}>
+                      <span>Low</span>
+                      <div style={{ display: 'flex', gap: 2 }}>
+                        {[0, 0.2, 0.4, 0.6, 0.8, 1.0].map((r, i) => (
+                          <div key={i} style={{ width: 18, height: 10, borderRadius: 2, background: heatmapColor(r, 0.999, 1) }} />
+                        ))}
+                      </div>
+                      <span>High</span>
+                      <div style={{ marginLeft: 8, display: 'flex', gap: 10 }}>
+                        <span style={{ color: '#f59e0b' }}>▪ MIDDLE ≥{sysSettings?.warningThreshold ?? 0.70}</span>
+                        <span style={{ color: '#ef4444' }}>▪ HIGH ≥{sysSettings?.criticalThreshold ?? 0.85}</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--t4)', fontSize: 12, fontFamily: "'Geist Mono', monospace" }}>
+                    NO SENSOR READINGS IN LAST 24H
+                  </div>
+                )}
               </div>
 
               {/* Row 3: Top by RU + Top by Device Type */}

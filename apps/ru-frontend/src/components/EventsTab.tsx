@@ -16,7 +16,7 @@ const TYPE_META: Record<string, { label: string; color: string; bg: string }> = 
   THRESHOLD_BREACH: { label: 'Threshold Breach', color: '#ef4444', bg: 'rgba(239,68,68,0.1)' },
   DEVICE_OFFLINE:   { label: 'Device Offline',   color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
   DEVICE_ONLINE:    { label: 'Device Online',     color: '#38bdf8', bg: 'rgba(56,189,248,0.1)' },
-  LOGIN:            { label: 'Login',              color: '#a78bfa', bg: 'rgba(167,139,250,0.1)' },
+  LOGIN:            { label: 'Login',              color: '#3b82f6', bg: 'rgba(59,130,246,0.1)' },
   LOGOUT:           { label: 'Logout',             color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' },
   ACK:              { label: 'Acknowledgement',    color: '#34d399', bg: 'rgba(52,211,153,0.1)' },
 };
@@ -107,7 +107,7 @@ function generateReportHTML(events: EventLog[], user: User, ruId: string): strin
     .badge.threshold_breach { background: #fee2e2; color: #dc2626; }
     .badge.device_offline   { background: #fef3c7; color: #d97706; }
     .badge.device_online    { background: #dbeafe; color: #1d4ed8; }
-    .badge.login            { background: #ede9fe; color: #7c3aed; }
+    .badge.login            { background: #dbeafe; color: #2563eb; }
     .badge.ack              { background: #d1fae5; color: #059669; }
     .footer { margin-top: 24px; font-size: 10px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 12px; text-align: center; }
     @media print { body { padding: 16px; } }
