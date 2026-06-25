@@ -1,0 +1,15 @@
+{
+  "name": "gld-nodered-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Per-RU Node-RED decode bridge for the PertaminaGLD wire protocol (gld/gateway/uplink -> gld/server/decoded|alarm, gld/gateway/error). See ../memory/nodered_integration.md.",
+  "scripts": {
+    "test": "node functions/pertamina-gld-decode.test.js",
+    "start": "node-red -s ./settings.js"
+  },
+  "dependencies": {
+    "aedes": "^0.51.3",
+    "dotenv": "^16.4.5",
+    "node-red": "^3.1.9"
+  }
+}

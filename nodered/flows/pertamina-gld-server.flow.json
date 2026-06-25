@@ -1,0 +1,90 @@
+[
+  {
+    "id": "gld-tab1",
+    "type": "tab",
+    "label": "PertaminaGLD Server Bridge",
+    "disabled": false,
+    "info": "Decodes gld/gateway/uplink (encrypted GLDRecords) and republishes to gld/server/decoded, gld/server/alarm, gld/gateway/error. See memory/nodered_integration.md and memory/pertamina_gld_protocol.md. Run via: node-red -s ./settings.js -f flows/pertamina-gld-server.flow.json"
+  },
+  {
+    "id": "gld-broker1",
+    "type": "mqtt-broker",
+    "name": "Local embedded Aedes",
+    "broker": "127.0.0.1",
+    "port": "1884",
+    "clientid": "",
+    "autoConnect": true,
+    "usetls": false,
+    "protocolVersion": "4",
+    "keepalive": "60",
+    "cleansession": true
+  },
+  {
+    "id": "gld-uplink-in",
+    "type": "mqtt in",
+    "z": "gld-tab1",
+    "name": "gld/gateway/uplink",
+    "topic": "gld/gateway/uplink",
+    "qos": "1",
+    "datatype": "json",
+    "broker": "gld-broker1",
+    "x": 160,
+    "y": 140,
+    "wires": [["gld-decode-fn"]]
+  },
+  {
+    "id": "gld-decode-fn",
+    "type": "function",
+    "z": "gld-tab1",
+    "name": "decode GLDRecord(s)",
+    "func": "// envelope shape: { gatewayId, clusterId, frameHex, frameLen, rssi, snr, parseStatus }\nconst gldDecode = global.get('gldDecode');\nconst keysById = global.get('gldKeysById') || {};\n\nif (!msg.payload || !msg.payload.frameHex) {\n    node.warn('uplink message missing frameHex, dropping');\n    return null;\n}\n\nconst events = gldDecode.decodeGatewayFrame(msg.payload, keysById);\nreturn events.map((event) => ({ payload: event }));",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 380,
+    "y": 140,
+    "wires": [["gld-route-fn"]]
+  },
+  {
+    "id": "gld-route-fn",
+    "type": "function",
+    "z": "gld-tab1",
+    "name": "route by ok/alarm",
+    "func": "const event = msg.payload;\n\nif (!event || event.ok === false) {\n    msg.topic = 'gld/gateway/error';\n} else if (event.alarm === true) {\n    msg.topic = 'gld/server/alarm';\n} else {\n    msg.topic = 'gld/server/decoded';\n}\n\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 610,
+    "y": 140,
+    "wires": [["gld-out", "gld-debug"]]
+  },
+  {
+    "id": "gld-out",
+    "type": "mqtt out",
+    "z": "gld-tab1",
+    "name": "publish decoded/alarm/error",
+    "topic": "",
+    "qos": "1",
+    "retain": "false",
+    "broker": "gld-broker1",
+    "x": 870,
+    "y": 120
+  },
+  {
+    "id": "gld-debug",
+    "type": "debug",
+    "z": "gld-tab1",
+    "name": "decoded event (debug)",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "true",
+    "x": 880,
+    "y": 180
+  }
+]

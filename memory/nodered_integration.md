@@ -42,8 +42,36 @@ Each RU's local server install now runs **two processes**:
 
 This needs to be folded into `start.sh`/`start.bat` so a non-technical operator double-clicking the script still gets a fully working pipeline — currently those scripts only start NestJS+Next.js. **Open item**, see `open_items.md`.
 
+## Implementation (2026-06-25)
+
+Built under `nodered/` at repo root (sibling to `apps/`, since it's a separate
+per-RU process, not part of the NestJS/Next.js workspaces):
+
+- `nodered/functions/pertamina-gld-decode.js` — dependency-free decoder
+  (`decodeGLDRecord`, `decodeGatewayFrame`) using Node's built-in `crypto`.
+  Passes through `seq`, `clusterId`, `rssi`, `snr` from the gateway envelope
+  onto every decoded event — closes the "still needed" item below.
+- `nodered/functions/pertamina-gld-decode.test.js` — validates byte-for-byte
+  against the test vector in `pertamina_gld_protocol.md`, plus tampered-tag
+  and unknown-keyId rejection. Run with `npm test` inside `nodered/`.
+- `nodered/settings.js` — starts an embedded Aedes broker in the same Node.js
+  process as Node-RED (`node-red -s ./settings.js`) and exposes the decoder +
+  this RU's AES key to flow function nodes via `functionGlobalContext`, so
+  the real key is never pasted into the flow JSON.
+- `nodered/flows/pertamina-gld-server.flow.json` — `gld/gateway/uplink` →
+  decode function → route-by-ok/alarm function → publishes to
+  `gld/server/decoded` / `gld/server/alarm` / `gld/gateway/error`.
+- `nodered/.env.example`, `nodered/package.json`, `nodered/README.md`.
+
+**Assumption not yet confirmed against real gateway firmware** (flagged in
+code comments too): `frameHex` on `gld/gateway/uplink` is one or more
+concatenated raw 34-byte GLDRecords, with no outer AppFrame header. If real
+firmware wraps GLDRecords differently, strip that header before calling
+`decodeGatewayFrame()` — the GLDRecord/AES-GCM layer itself doesn't need to
+change.
+
 ## Still needed
 
-- Confirm Node-RED's decoded JSON includes `seq`, `clusterId`, `rssi`, `snr` (required for dedup, topology assignment in the commissioning wizard, and the live-verification panel) — currently the documented decode output only shows `gld-event` level fields. May require extending `pertamina-gld-decode.js`.
 - Decide how the per-RU AES key gets from "generated/assigned" to "in this RU's Node-RED `.env`" — process question, not purely technical (see `commissioning_mode.md` §6).
 - Add Node-RED startup to `start.sh`/`start.bat`, or document it as a manual one-time setup step for V1.
+- Confirm the AppFrame-vs-raw-GLDRecord framing assumption above once real gateway firmware/hardware is available to test against.

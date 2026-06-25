@@ -1,5 +1,5 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
-import { Device, DeviceLocation, BatteryMetrics, NetworkMetrics, CreateDeviceInput, GasReading, DashboardStats, RuStats, TimelineEntry, Alert, BatteryDistEntry, NetworkQualityEntry, SystemSettings, UpdateSettingsInput, User, CreateUserInput, LoginResult, AnalyticsStats, WeeklyTrendEntry, HeatmapEntry, SiteRanking, EventLog, CreateEventLogInput, SensorTimeline, TrendPoint, RuComparisonEntry, HeatmapCell, TopSensorEntry, FleetBatteryBucket, FleetNetworkBucket, FleetHealthStats } from './device.model';
+import { Device, DeviceLocation, BatteryMetrics, NetworkMetrics, CreateDeviceInput, GasReading, DashboardStats, RuStats, TimelineEntry, Alert, BatteryDistEntry, NetworkQualityEntry, SystemSettings, UpdateSettingsInput, User, CreateUserInput, LoginResult, AnalyticsStats, WeeklyTrendEntry, HeatmapEntry, SiteRanking, EventLog, CreateEventLogInput, SensorTimeline, TrendPoint, RuComparisonEntry, HeatmapCell, TopSensorEntry, FleetBatteryBucket, FleetNetworkBucket, FleetHealthStats, CommissionDeviceInput } from './device.model';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -326,22 +326,42 @@ export class DeviceService {
 
   // --- SETTINGS ---
 
+  private serializeSettings(s: any): SystemSettings {
+    return {
+      ...s,
+      ruName: s.ruName ?? undefined,
+      ruLat: s.ruLat ?? undefined,
+      ruLng: s.ruLng ?? undefined,
+      mqttBrokerHost: s.mqttBrokerHost ?? undefined,
+      mqttBrokerPort: s.mqttBrokerPort ?? undefined,
+      aesKeyId: s.aesKeyId ?? undefined,
+    };
+  }
+
   async getSettings(): Promise<SystemSettings> {
     let settings = await this.prisma.systemSettings.findFirst();
     if (!settings) { settings = await this.prisma.systemSettings.upsert({ where: { id: 1 }, create: { id: 1 }, update: {} }); }
-    return settings;
+    return this.serializeSettings(settings);
   }
 
   async updateSettings(input: UpdateSettingsInput): Promise<SystemSettings> {
     const current = await this.getSettings();
-    return this.prisma.systemSettings.update({
+    const s = await this.prisma.systemSettings.update({
       where: { id: current.id },
       data: {
         warningThreshold: input.warningThreshold ?? undefined,
         criticalThreshold: input.criticalThreshold ?? undefined,
         refreshInterval: input.refreshInterval ?? undefined,
+        siteSetupComplete: input.siteSetupComplete ?? undefined,
+        ruName: input.ruName ?? undefined,
+        ruLat: input.ruLat ?? undefined,
+        ruLng: input.ruLng ?? undefined,
+        mqttBrokerHost: input.mqttBrokerHost ?? undefined,
+        mqttBrokerPort: input.mqttBrokerPort ?? undefined,
+        aesKeyId: input.aesKeyId ?? undefined,
       }
     });
+    return this.serializeSettings(s);
   }
 
   // --- DASHBOARD STATS ---
@@ -465,20 +485,49 @@ export class DeviceService {
     return [...new Set([...this.RU_SITES, ...ruIds])].map(id => ({ id }));
   }
 
-  async addReading(macAddress: string, confidence: number, aiClass = 0): Promise<GasReading> {
+  // Auto-creates an unknown device in a gated DISCOVERED state — see memory/commissioning_mode.md §3.
+  // Readings are always stored (needed for the commissioning wizard's live-verification panel), but
+  // only ACTIVE devices can raise a THRESHOLD_BREACH EventLog/alarm.
+  async addReading(macAddress: string, confidence: number, aiClass = 0, powerMode?: string): Promise<GasReading> {
     if (typeof confidence !== 'number' || confidence < 0 || confidence > 1 || !Number.isFinite(confidence)) {
       throw new HttpException('Invalid confidence value: must be between 0.0 and 1.0', HttpStatus.BAD_REQUEST);
     }
-    const device = await this.prisma.device.findUnique({ where: { macAddress } });
-    if (!device) throw new HttpException(`Device with MAC ${macAddress} not found`, HttpStatus.NOT_FOUND);
     const settings = await this.getSettings();
+    let device = await this.prisma.device.findUnique({ where: { macAddress } });
+    if (!device) {
+      device = await this.prisma.device.create({
+        data: {
+          macAddress,
+          name: macAddress,
+          deviceType: 'SENSOR',
+          ruId: settings.ruName || 'UNASSIGNED',
+          location: JSON.stringify({ lat: settings.ruLat ?? 0, lng: settings.ruLng ?? 0 }),
+          batteryStats: JSON.stringify({ voltage: 0, soc: 0 }),
+          networkStats: JSON.stringify({ rssi: -100, qualityScore: 'D' }),
+          healthScore: 0,
+          status: 'ONLINE',
+          registeredBy: 'SYSTEM_MQTT_DISCOVERY',
+          isDummy: false,
+          commissioningStatus: 'DISCOVERED',
+        }
+      });
+      await this.prisma.eventLog.create({
+        data: {
+          type: 'DEVICE_DISCOVERED',
+          severity: 'INFO',
+          deviceId: device.id,
+          ruId: device.ruId,
+          message: `New device discovered: ${macAddress} — awaiting commissioning`,
+        }
+      });
+    }
     const riskLevel = (aiClass !== 0 && confidence >= settings.criticalThreshold) ? 'HIGH'
       : (aiClass !== 0 && confidence >= settings.warningThreshold) ? 'MIDDLE'
       : 'LOW';
     const r = await this.prisma.gasReading.create({
-      data: { deviceId: device.id, confidence, aiClass, riskLevel, isDummy: device.isDummy }
+      data: { deviceId: device.id, confidence, aiClass, riskLevel, powerMode, isDummy: device.isDummy }
     });
-    if (riskLevel !== 'LOW') {
+    if (riskLevel !== 'LOW' && device.commissioningStatus === 'ACTIVE') {
       const recent = await this.prisma.eventLog.findFirst({
         where: { deviceId: device.id, type: 'THRESHOLD_BREACH', timestamp: { gte: new Date(Date.now() - 15 * 60 * 1000) } }
       });
@@ -495,7 +544,62 @@ export class DeviceService {
         });
       }
     }
-    return { id: r.id, deviceId: r.deviceId, confidence: r.confidence, aiClass: r.aiClass, riskLevel: r.riskLevel, timestamp: r.timestamp };
+    return { id: r.id, deviceId: r.deviceId, confidence: r.confidence, aiClass: r.aiClass, riskLevel: r.riskLevel, powerMode: r.powerMode ?? undefined, timestamp: r.timestamp };
+  }
+
+  // --- COMMISSIONING ---
+
+  async getPendingDevices(ruId?: string): Promise<Device[]> {
+    const where: any = { commissioningStatus: { in: ['DISCOVERED', 'COMMISSIONING'] } };
+    if (ruId && ruId !== 'ALL') where.ruId = ruId;
+    const devices = await this.prisma.device.findMany({
+      where,
+      include: { readings: { orderBy: { timestamp: 'desc' }, take: 1 } },
+      orderBy: { discoveredAt: 'desc' },
+    });
+    return devices.map(d => this.mapToDevice(d));
+  }
+
+  async markCommissioningInProgress(deviceId: string): Promise<Device> {
+    const d = await this.prisma.device.update({
+      where: { id: deviceId },
+      data: { commissioningStatus: 'COMMISSIONING' },
+    });
+    return this.mapToDevice(d);
+  }
+
+  async commissionDevice(input: CommissionDeviceInput, operatorId: string): Promise<Device> {
+    const device = await this.prisma.device.findUnique({ where: { id: input.deviceId } });
+    if (!device) throw new HttpException('Device not found', HttpStatus.NOT_FOUND);
+    const lastReading = await this.prisma.gasReading.findFirst({
+      where: { deviceId: device.id },
+      orderBy: { timestamp: 'desc' },
+    });
+    if (!lastReading) {
+      throw new HttpException('Cannot commission a device with no verified readings yet', HttpStatus.BAD_REQUEST);
+    }
+    const d = await this.prisma.device.update({
+      where: { id: input.deviceId },
+      data: {
+        name: input.name,
+        location: JSON.stringify(input.location),
+        parentId: input.parentId ?? undefined,
+        commissioningStatus: 'ACTIVE',
+        commissionedAt: new Date(),
+        commissionedBy: operatorId,
+      }
+    });
+    await this.prisma.eventLog.create({
+      data: {
+        type: 'DEVICE_COMMISSIONED',
+        severity: 'INFO',
+        deviceId: d.id,
+        ruId: d.ruId,
+        operatorId,
+        message: `${d.name} commissioned and now active`,
+      }
+    });
+    return this.mapToDevice(d);
   }
 
   async create(input: CreateDeviceInput): Promise<Device> {
@@ -561,13 +665,18 @@ export class DeviceService {
         } as NetworkMetrics,
         healthScore: d.healthScore,
         latestConfidence: d.readings?.[0]?.confidence ?? 0,
-        status: d.status
+        status: d.status,
+        commissioningStatus: d.commissioningStatus,
+        discoveredAt: d.discoveredAt,
+        commissionedAt: d.commissionedAt ?? undefined,
+        commissionedBy: d.commissionedBy ?? undefined,
       };
     } catch (e) {
       console.error('[mapToDevice] Error mapping device:', d.id, e);
       return {
         id: d.id, macAddress: d.macAddress, name: d.macAddress, ruId: d.ruId, type: d.deviceType, location: { lat: 0, lng: 0 },
-        battery: { voltage: 0, soc: 0 }, network: { rssi: -100 }, healthScore: 0, status: 'ERROR'
+        battery: { voltage: 0, soc: 0 }, network: { rssi: -100 }, healthScore: 0, status: 'ERROR',
+        commissioningStatus: d.commissioningStatus || 'DISCOVERED', discoveredAt: d.discoveredAt || new Date(),
       };
     }
   }

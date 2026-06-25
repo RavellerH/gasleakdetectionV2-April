@@ -4,6 +4,8 @@ import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { join } from 'path';
 import type { Request } from 'express';
 import { DeviceModule } from './devices/device.module';
+import { MqttConsumerModule } from './mqtt/mqtt-consumer.module';
+import { CommissioningModule } from './commissioning/commissioning.module';
 
 @Module({
   imports: [
@@ -14,7 +16,9 @@ import { DeviceModule } from './devices/device.module';
       playground: true,
       context: ({ req }: { req: Request }) => ({ req })
     }),
-    DeviceModule
+    DeviceModule,
+    MqttConsumerModule,
+    CommissioningModule
   ]
 })
 export class AppModule {}

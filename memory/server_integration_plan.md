@@ -40,7 +40,7 @@ model GasReading {
   // ADD:
   riskLevel   String   // "LOW" | "MIDDLE" | "HIGH"            -- already present in current schema.prisma, verify naming matches
   aiClass     Int      // 0–6, maps to gasClass (NOT 0–8 anymore — see protocol doc)
-  confidence  Float    // store as 0–100 to match wire format directly (avoid an extra /100 conversion bug); confirm with frontend which convention it expects
+  confidence  Float    // RESOLVED 2026-06-25 (was: store as 0-100): stays 0.0-1.0, matching existing frontend threshold logic (DevicePin.tsx/GasLeakDashboard.tsx, default 0.70/0.80). Wire's 0-100 uint8 is divided by 100 only at the MQTT ingestion boundary (MqttConsumerService), not stored as-is. See open_items.md #5.
   powerMode   String   // "BATTERY" | "EXTERNAL" — derived from `externalPower` boolean in decoded JSON
 }
 
@@ -83,12 +83,12 @@ Input shape (from `gld/server/decoded` or `gld/server/alarm`, see `pertamina_gld
 
 Pipeline:
 1. Look up `Device` by `nodeIdHex` (stored in `macAddress`). If missing → create with `commissioningStatus: 'DISCOVERED'` (see `commissioning_mode.md` §3).
-2. Dedup check using `clusterId + nodeId + seq + kind` (need `seq`/`clusterId` passed through from Node-RED's envelope — confirm Node-RED's decoded JSON includes them, currently the documented shape above does not show `seq`/`clusterId` explicitly; **open item**, flag to firmware/Node-RED side).
-3. Map `gasClass` → `aiClass`, `confidence` (0–100, store as-is), risk level:
+2. Dedup check using `clusterId + nodeId + seq + kind` — `seq`/`clusterId` are now passed through from Node-RED's envelope (`nodered/functions/pertamina-gld-decode.js`, resolved 2026-06-25, see `open_items.md` #1).
+3. Map `gasClass` → `aiClass`; convert `confidence` from wire's 0–100 to DB's 0.0–1.0 (`confidence / 100`); compute risk level:
    ```
-   if aiClass !== 0 && confidence >= 80   → HIGH
-   else if aiClass !== 0 && confidence >= 70 → MIDDLE
-   else                                       → LOW
+   if aiClass !== 0 && confidence >= 0.80    → HIGH
+   else if aiClass !== 0 && confidence >= 0.70 → MIDDLE
+   else                                          → LOW
    ```
 4. Store `GasReading` unconditionally (needed for the commissioning wizard's live-verification panel).
 5. Commissioning gate: only create `EventLog` (WARNING/CRITICAL) if `device.commissioningStatus === 'ACTIVE'`. See `commissioning_mode.md` §3.

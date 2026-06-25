@@ -154,6 +154,27 @@ export class SystemSettings {
 
   @Field(() => Int)
   refreshInterval!: number;
+
+  @Field(() => Boolean)
+  siteSetupComplete!: boolean;
+
+  @Field({ nullable: true })
+  ruName?: string;
+
+  @Field(() => Float, { nullable: true })
+  ruLat?: number;
+
+  @Field(() => Float, { nullable: true })
+  ruLng?: number;
+
+  @Field({ nullable: true })
+  mqttBrokerHost?: string;
+
+  @Field(() => Int, { nullable: true })
+  mqttBrokerPort?: number;
+
+  @Field(() => Int, { nullable: true })
+  aesKeyId?: number;
 }
 
 @InputType()
@@ -172,6 +193,40 @@ export class UpdateSettingsInput {
   @IsNumber()
   @IsOptional()
   refreshInterval?: number;
+
+  @Field(() => Boolean, { nullable: true })
+  @IsOptional()
+  siteSetupComplete?: boolean;
+
+  @Field({ nullable: true })
+  @IsString()
+  @IsOptional()
+  ruName?: string;
+
+  @Field(() => Float, { nullable: true })
+  @IsNumber()
+  @IsOptional()
+  ruLat?: number;
+
+  @Field(() => Float, { nullable: true })
+  @IsNumber()
+  @IsOptional()
+  ruLng?: number;
+
+  @Field({ nullable: true })
+  @IsString()
+  @IsOptional()
+  mqttBrokerHost?: string;
+
+  @Field(() => Int, { nullable: true })
+  @IsNumber()
+  @IsOptional()
+  mqttBrokerPort?: number;
+
+  @Field(() => Int, { nullable: true })
+  @IsNumber()
+  @IsOptional()
+  aesKeyId?: number;
 }
 
 @ObjectType()
@@ -523,6 +578,9 @@ export class GasReading {
   @Field()
   riskLevel!: string;
 
+  @Field({ nullable: true })
+  powerMode?: string;
+
   @Field(() => Date)
   timestamp!: Date;
 }
@@ -564,5 +622,36 @@ export class Device {
 
   @Field()
   status!: string;
+
+  @Field()
+  commissioningStatus!: string;
+
+  @Field(() => Date)
+  discoveredAt!: Date;
+
+  @Field(() => Date, { nullable: true })
+  commissionedAt?: Date;
+
+  @Field({ nullable: true })
+  commissionedBy?: string;
+}
+
+@InputType()
+export class CommissionDeviceInput {
+  @Field()
+  @IsString()
+  deviceId!: string;
+
+  @Field()
+  @IsString()
+  name!: string;
+
+  @Field(() => CoordinatesInput)
+  location!: CoordinatesInput;
+
+  @Field({ nullable: true })
+  @IsString()
+  @IsOptional()
+  parentId?: string;
 }
 

@@ -24,14 +24,27 @@ model Device {
   name          String   // User-friendly device name
   deviceType    String   // SENSOR, ROUTING_NODE, CLUSTER_HEAD, GATEWAY
   ruId          String
-  location      String   
-  batteryStats  String   
+  location      String
+  batteryStats  String
   networkStats  String   // Will now store { rssiMesh, rssiStar, role, parentMac }
   healthScore   Int      @default(100)
   status        String   @default("ONLINE")
   registeredBy  String
   isDummy       Boolean  @default(false)
-  
+
+  // Hardware telemetry (PertaminaGLD integration)
+  batteryMv     Int?
+  lastSeenAt    DateTime?
+  clusterId     Int?      // which Cluster Head this GLD reports through
+  rssi          Int?
+  snr           Float?
+
+  // Commissioning mode (memory/commissioning_mode.md)
+  commissioningStatus String   @default("DISCOVERED") // DISCOVERED | COMMISSIONING | ACTIVE
+  discoveredAt        DateTime @default(now())
+  commissionedAt       DateTime?
+  commissionedBy        String?
+
   parentId      String?  // For Star Topology tracking
   parent        Device?  @relation("Topology", fields: [parentId], references: [id])
   children      Device[] @relation("Topology")
@@ -41,14 +54,16 @@ model Device {
   registeredAt  DateTime @default(now())
 
   @@index([ruId, status])
+  @@index([ruId, commissioningStatus])
 }
 
 model GasReading {
   id            String   @id @default(cuid())
   deviceId      String
-  confidence    Float                    // AI confidence score 0.0–1.0
-  aiClass       Int      @default(0)    // 0=normal, 1–8=gas type
+  confidence    Float                    // AI confidence score 0.0–1.0 (wire protocol's 0-100 is converted at the MQTT ingestion boundary)
+  aiClass       Int      @default(0)    // 0=normal, 1–6=gas type (PertaminaGLD gasClass)
   riskLevel     String   @default("LOW") // "LOW" | "MIDDLE" | "HIGH"
+  powerMode     String?                  // "BATTERY" | "EXTERNAL" — from decoded externalPower flag
   isDummy       Boolean  @default(false)
   timestamp     DateTime @default(now())
   device        Device   @relation(fields: [deviceId], references: [id])
@@ -62,6 +77,15 @@ model SystemSettings {
   criticalThreshold Float   @default(0.80)  // HIGH risk:   confidence >= this
   refreshInterval   Int     @default(10)
   updatedAt         DateTime @updatedAt
+
+  // Site setup (memory/commissioning_mode.md §4) — first-installation wizard, per-RU
+  siteSetupComplete Boolean @default(false)
+  ruName            String?
+  ruLat             Float?
+  ruLng             Float?
+  mqttBrokerHost    String?
+  mqttBrokerPort    Int?    @default(1884)
+  aesKeyId          Int?    // record only — raw key material lives in Node-RED's .env, never in this DB
 }
 
 model EventLog {

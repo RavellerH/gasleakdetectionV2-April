@@ -5,7 +5,8 @@ import { DeviceService } from './device.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Module({
-  providers: [DeviceResolver, UserResolver, DeviceService, PrismaService]
+  providers: [DeviceResolver, UserResolver, DeviceService, PrismaService],
+  exports: [DeviceService, PrismaService]
 })
 export class DeviceModule {}
 

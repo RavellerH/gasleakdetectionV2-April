@@ -4,9 +4,9 @@ Things that are unresolved and will block specific implementation steps.
 
 ## 🔴 Critical (blocks implementation)
 
-### 1. Node-RED decoded JSON envelope completeness
+### 1. Node-RED decoded JSON envelope completeness — ✅ RESOLVED 2026-06-25
 - `pertamina_gld_protocol.md` documents the `gld-event` decoded shape (`gasClass`, `confidence`, `batteryMv`, `alarm`, `externalPower`, `decryptOk`), but NestJS also needs `seq` (dedup), `clusterId` (topology/parent assignment), `rssi`/`snr` (commissioning wizard's live-verification panel, gateway health).
-- Need to check the actual `pertamina-gld-decode.js`/flow output (not just the contract doc) for whether these are already emitted, or extend the function if not.
+- Our own `nodered/functions/pertamina-gld-decode.js` (built this session, see `nodered_integration.md`) passes `seq`, `clusterId`, `rssi`, `snr` through on every decoded event — no longer blocked. Still need to confirm the *real* gateway firmware's uplink envelope actually carries `clusterId`/`rssi`/`snr` (our decoder trusts whatever's in the envelope passed to it).
 - **Blocks:** `MqttConsumerService.DecodedEventHandler`, commissioning wizard step 3.
 
 ### 2. Per-RU AES key distribution process
@@ -25,9 +25,10 @@ Things that are unresolved and will block specific implementation steps.
 
 ## 🟡 Important (affects architecture)
 
-### 5. GasReading.confidence storage convention
+### 5. GasReading.confidence storage convention — ✅ RESOLVED 2026-06-25
 - Wire format sends confidence as uint8 0–100. Current `GasReading.confidence` is a `Float` with no documented convention (0.0–1.0 vs 0–100) confirmed against frontend usage.
-- **Affects:** `DecodedEventHandler` mapping, any existing frontend code that already assumes a 0.0–1.0 range.
+- **Decision:** keep DB/GraphQL `confidence` as `Float` 0.0–1.0 — matches existing, already-built frontend threshold logic (`DevicePin.tsx`, `GasLeakDashboard.tsx`, default `warningThreshold=0.70`/`criticalThreshold=0.80`). The wire protocol's 0–100 uint8 is divided by 100 only inside `MqttConsumerService.handleDecodedEvent()` at the MQTT ingestion boundary — Node-RED's decoded JSON and the raw GLDRecord plaintext stay 0–100 (per `pertamina_gld_protocol.md`), only our own DB/API layer normalizes it. Deliberately deviates from this doc's earlier draft suggestion of storing 0–100, to avoid breaking the frontend.
+- **Affects:** `DecodedEventHandler` mapping (implemented), any existing frontend code that already assumes a 0.0–1.0 range (unchanged, no longer at risk).
 
 ### 6. Decommissioning / re-commissioning a device
 - Out of scope for the first version of commissioning mode (`commissioning_mode.md` §6) — e.g. hardware swap reusing a `nodeId`. Needs a policy before it comes up in the field.
