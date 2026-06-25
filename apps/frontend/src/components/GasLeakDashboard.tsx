@@ -13,7 +13,6 @@ import {
   X, MoreHorizontal, Download, RotateCcw,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
-import { useRouter } from 'next/navigation';
 import {
   fetchDevices, fetchDashboardStats, fetchSettings, updateSettings,
   fetchUsers, createUser, deleteUser, login,
@@ -148,14 +147,7 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
 /* ════════════════════════════════════════════════════════════════
    MAIN COMPONENT
 ════════════════════════════════════════════════════════════════ */
-interface GasLeakDashboardProps {
-  /** When set, the dashboard is locked to a single RU: no RU switcher, no cross-RU views. */
-  lockedRu?: string;
-}
-
-export default function GasLeakDashboard({ lockedRu }: GasLeakDashboardProps = {}) {
-  const router = useRouter();
-
+export default function GasLeakDashboard() {
   /* auth */
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
@@ -165,18 +157,9 @@ export default function GasLeakDashboard({ lockedRu }: GasLeakDashboardProps = {
 
   /* nav */
   const [tab, setTab] = useState('overview');
-  const [activeRU, setActiveRU] = useState(lockedRu ? lockedRu.toUpperCase() : 'ALL');
+  const [activeRU, setActiveRU] = useState('ALL');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [darkMode, setDarkMode] = useState(true);
-
-  /* RU-scoped users are auto-routed to their own single-RU dashboard; Global_Admin (ruId === 'ALL')
-     can browse any RU's dashboard or the multi-RU home freely. */
-  useEffect(() => {
-    if (!currentUser || currentUser.ruId === 'ALL') return;
-    if (currentUser.ruId.toUpperCase() !== (lockedRu ?? '').toUpperCase()) {
-      router.replace(`/${currentUser.ruId}/dashboard`);
-    }
-  }, [currentUser, lockedRu, router]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
@@ -203,7 +186,7 @@ export default function GasLeakDashboard({ lockedRu }: GasLeakDashboardProps = {
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [showAddUser, setShowAddUser] = useState(false);
-  const [newUser, setNewUser] = useState({ email: '', name: '', password: 'dev', ruId: lockedRu ? lockedRu.toUpperCase() : 'ALL', role: 'ADMIN' });
+  const [newUser, setNewUser] = useState({ email: '', name: '', password: 'dev', ruId: 'ALL', role: 'ADMIN' });
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [deviceToRename, setDeviceToRename] = useState<Device | null>(null);
   const [newDeviceName, setNewDeviceName] = useState('');
@@ -312,7 +295,7 @@ export default function GasLeakDashboard({ lockedRu }: GasLeakDashboardProps = {
 
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault(); setIsSaving(true);
-    try { await createUser(newUser, currentUser!.id); setShowAddUser(false); setNewUser({ email: '', name: '', password: 'dev', ruId: lockedRu ? lockedRu.toUpperCase() : 'ALL', role: 'ADMIN' }); loadDashboardData(); }
+    try { await createUser(newUser, currentUser!.id); setShowAddUser(false); setNewUser({ email: '', name: '', password: 'dev', ruId: 'ALL', role: 'ADMIN' }); loadDashboardData(); }
     catch (err) { console.error(err); } finally { setIsSaving(false); }
   };
 
@@ -368,10 +351,6 @@ export default function GasLeakDashboard({ lockedRu }: GasLeakDashboardProps = {
       if (sortCol === 'rssi')     return (a.network.rssi - b.network.rssi) * v;
       return 0;
     });
-
-  // On a single-RU dashboard, only an ADMIN of that RU manages its users; user list is scoped to the RU.
-  const canManageUsers = !lockedRu || currentUser?.role === 'ADMIN';
-  const visibleUsers = lockedRu ? users.filter(u => u.ruId.toUpperCase() === lockedRu.toUpperCase()) : users;
 
   const minutesSinceUpdate = lastUpdated ? Math.floor((Date.now() - lastUpdated.getTime()) / 60000) : null;
 
@@ -468,7 +447,7 @@ export default function GasLeakDashboard({ lockedRu }: GasLeakDashboardProps = {
           {!sidebarCollapsed && (
             <div>
               <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--t1)', letterSpacing: -0.3 }}>GLD System</div>
-              <div style={{ fontSize: 9, color: 'var(--green)', letterSpacing: 2, fontFamily: "'Geist Mono', monospace" }}>{lockedRu ? lockedRu.toUpperCase() : 'MULTI-RU'}</div>
+              <div style={{ fontSize: 9, color: 'var(--green)', letterSpacing: 2, fontFamily: "'Geist Mono', monospace" }}>MULTI-RU</div>
             </div>
           )}
         </div>
@@ -607,30 +586,21 @@ export default function GasLeakDashboard({ lockedRu }: GasLeakDashboardProps = {
           <button style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 8, cursor: 'pointer', color: 'var(--t2)', fontSize: 12, fontWeight: 500 }}>
             <Filter size={12} /> Filters
           </button>
-          {lockedRu ? (
-            /* Single-RU dashboard: site is fixed, no switcher */
-            <span style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600, background: 'rgba(56,189,248,0.12)', border: '1px solid rgba(56,189,248,0.3)', color: 'var(--green)', fontFamily: "'Geist Mono', monospace" }}>
-              Site: {activeRU}
-            </span>
-          ) : (
-            <>
-              {/* RU pills */}
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {RU_LIST.map(ru => (
-                  <button
-                    key={ru}
-                    onClick={() => setActiveRU(ru)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: activeRU === ru ? 600 : 400, cursor: 'pointer', background: activeRU === ru ? 'rgba(56,189,248,0.12)' : 'var(--card-bg)', border: activeRU === ru ? '1px solid rgba(56,189,248,0.3)' : '1px solid var(--card-border)', color: activeRU === ru ? 'var(--green)' : 'var(--t3)', fontFamily: "'Geist Mono', monospace", transition: 'all 0.15s' }}
-                  >
-                    {ru}
-                    {activeRU === ru && ru !== 'ALL' && <X size={10} onClick={e => { e.stopPropagation(); setActiveRU('ALL'); }} />}
-                  </button>
-                ))}
-              </div>
-              {activeRU !== 'ALL' && (
-                <button onClick={() => setActiveRU('ALL')} style={{ fontSize: 12, color: 'var(--t4)', background: 'transparent', border: 'none', cursor: 'pointer' }}>Clear all</button>
-              )}
-            </>
+          {/* RU pills */}
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {RU_LIST.map(ru => (
+              <button
+                key={ru}
+                onClick={() => setActiveRU(ru)}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: activeRU === ru ? 600 : 400, cursor: 'pointer', background: activeRU === ru ? 'rgba(56,189,248,0.12)' : 'var(--card-bg)', border: activeRU === ru ? '1px solid rgba(56,189,248,0.3)' : '1px solid var(--card-border)', color: activeRU === ru ? 'var(--green)' : 'var(--t3)', fontFamily: "'Geist Mono', monospace", transition: 'all 0.15s' }}
+              >
+                {ru}
+                {activeRU === ru && ru !== 'ALL' && <X size={10} onClick={e => { e.stopPropagation(); setActiveRU('ALL'); }} />}
+              </button>
+            ))}
+          </div>
+          {activeRU !== 'ALL' && (
+            <button onClick={() => setActiveRU('ALL')} style={{ fontSize: 12, color: 'var(--t4)', background: 'transparent', border: 'none', cursor: 'pointer' }}>Clear all</button>
           )}
         </div>
 
@@ -1095,14 +1065,11 @@ export default function GasLeakDashboard({ lockedRu }: GasLeakDashboardProps = {
               </div>
 
               {/* User Management */}
-              {canManageUsers && (
               <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 16, padding: '22px 24px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
                   <div>
                     <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--t1)' }}>User Management</div>
-                    <div style={{ fontSize: 12, color: 'var(--t3)', marginTop: 2 }}>
-                      {lockedRu ? `Operators for ${lockedRu.toUpperCase()}` : 'Administrators and RU-specific operators'}
-                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--t3)', marginTop: 2 }}>Administrators and RU-specific operators</div>
                   </div>
                   <button onClick={() => setShowAddUser(true)} style={{ background: 'linear-gradient(135deg,#0369a1,#0284c7)', color: '#fff', border: 'none', borderRadius: 10, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>+ Add User</button>
                 </div>
@@ -1115,7 +1082,7 @@ export default function GasLeakDashboard({ lockedRu }: GasLeakDashboardProps = {
                     </tr>
                   </thead>
                   <tbody>
-                    {visibleUsers.map((u, i) => (
+                    {users.map((u, i) => (
                       <tr key={u.id} style={{ borderBottom: '1px solid var(--divider)' }}>
                         <td style={{ padding: '12px 10px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -1137,7 +1104,6 @@ export default function GasLeakDashboard({ lockedRu }: GasLeakDashboardProps = {
                   </tbody>
                 </table>
               </div>
-              )}
             </div>
           )}
 
@@ -1160,8 +1126,8 @@ export default function GasLeakDashboard({ lockedRu }: GasLeakDashboardProps = {
                   style={{ background:'var(--input-bg)',border:'1px solid var(--card-border)',borderRadius:10,padding:'10px 14px',color:'var(--t1)',fontSize:13 }} />
               ))}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <select value={newUser.ruId} disabled={!!lockedRu} onChange={e => setNewUser({...newUser,ruId:e.target.value})} style={{ background:'var(--input-bg)',border:'1px solid var(--card-border)',borderRadius:10,padding:'10px 12px',color:'var(--t1)',fontSize:13, opacity: lockedRu ? 0.6 : 1 }}>
-                  {(lockedRu ? [lockedRu.toUpperCase()] : RU_LIST).map(ru => <option key={ru} value={ru}>{ru}</option>)}
+                <select value={newUser.ruId} onChange={e => setNewUser({...newUser,ruId:e.target.value})} style={{ background:'var(--input-bg)',border:'1px solid var(--card-border)',borderRadius:10,padding:'10px 12px',color:'var(--t1)',fontSize:13 }}>
+                  {RU_LIST.map(ru => <option key={ru} value={ru}>{ru}</option>)}
                 </select>
                 <select value={newUser.role} onChange={e => setNewUser({...newUser,role:e.target.value})} style={{ background:'var(--input-bg)',border:'1px solid var(--card-border)',borderRadius:10,padding:'10px 12px',color:'var(--t1)',fontSize:13 }}>
                   <option value="ADMIN">ADMIN</option>
