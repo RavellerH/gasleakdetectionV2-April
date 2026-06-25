@@ -2,10 +2,6 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
-  AreaChart, Area, BarChart, Bar, LineChart, Line, XAxis, YAxis,
-  CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend, ReferenceLine,
-} from 'recharts';
-import {
   Activity, AlertTriangle, ChevronLeft, ChevronRight, ClipboardList,
   Clock, Flame, HardDrive, LayoutDashboard, Map, Moon,
   RefreshCw, Search, Settings, Shield, Sun, TrendingDown,
@@ -64,8 +60,6 @@ const NAV_GROUPS = [
 ];
 const NAV = NAV_GROUPS.flatMap(g => g.items);
 
-const SENSOR_COLORS = ['#38bdf8','#a78bfa','#34d399','#f59e0b','#f472b6','#60a5fa','#fb923c','#4ade80','#e879f9','#22d3ee'];
-
 /* ── tiny helpers ────────────────────────────────────────────── */
 function statusColor(s: string) {
   return s === 'ONLINE' ? '#38bdf8' : s === 'OFFLINE' ? '#ef4444' : '#f59e0b';
@@ -75,6 +69,16 @@ function batteryColor(b: number | null) {
 }
 function severityColor(s: string) {
   return s === 'CRITICAL' ? '#ef4444' : s === 'WARNING' ? '#f59e0b' : '#38bdf8';
+}
+function heatCellColor(value: number | null, warn: number, crit: number) {
+  if (value == null) return 'var(--input-bg)';
+  if (value >= crit) return '#ef4444';
+  if (value >= warn) {
+    const t = crit > warn ? Math.min((value - warn) / (crit - warn), 1) : 1;
+    return `rgba(249,115,22,${(0.45 + t * 0.55).toFixed(2)})`;
+  }
+  const t = warn > 0 ? Math.min(value / warn, 1) : 0;
+  return `rgba(56,189,248,${(0.1 + t * 0.6).toFixed(2)})`;
 }
 function typeIcon(t: string) {
   switch (t.toUpperCase()) {
@@ -146,20 +150,6 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 }
 
 /* ── custom tooltip ──────────────────────────────────────────── */
-function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ name: string; value: number; color?: string }>; label?: string }) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div style={{ background: 'rgba(7,13,11,0.96)', border: '1px solid rgba(56,189,248,0.15)', borderRadius: 10, padding: '10px 14px', backdropFilter: 'blur(16px)' }}>
-      <p style={{ color: 'var(--t3)', fontSize: 11, marginBottom: 6, fontFamily: "'Geist Mono', monospace" }}>{label}</p>
-      {payload.map((p, i) => (
-        <p key={i} style={{ color: p.color || '#38bdf8', fontSize: 12, margin: '2px 0', fontFamily: "'Geist Mono', monospace" }}>
-          {p.name}: <span style={{ fontWeight: 700 }}>{p.value}</span>
-        </p>
-      ))}
-    </div>
-  );
-}
-
 /* ════════════════════════════════════════════════════════════════
    MAIN COMPONENT
 ════════════════════════════════════════════════════════════════ */
@@ -385,6 +375,10 @@ export default function GasLeakDashboard() {
     });
   }, [sensorTimeline]);
 
+  const heatHours = sensorChartData.map(p => p.hour as string);
+  const heatWarn = sysSettings?.warningThreshold ?? 50;
+  const heatCrit = sysSettings?.criticalThreshold ?? heatWarn * 2;
+
   /* ── LOADING ── */
   if (isCheckingAuth) return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -396,11 +390,11 @@ export default function GasLeakDashboard() {
   if (!currentUser) return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Sans', sans-serif", position: 'relative', overflow: 'hidden' }}>
       {/* Syner-style glow */}
-      <div style={{ position: 'fixed', top: -200, right: -200, width: 700, height: 700, borderRadius: '50%', background: 'radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 65%)', pointerEvents: 'none' }} />
+      <div style={{ position: 'fixed', top: -200, right: -200, width: 700, height: 700, borderRadius: '50%', background: 'radial-gradient(circle, rgba(37,99,235,0.12) 0%, transparent 65%)', pointerEvents: 'none' }} />
       <div style={{ width: '100%', maxWidth: 380, padding: 36, background: 'var(--card-bg)', backdropFilter: 'blur(24px)', border: '1px solid var(--card-border)', borderRadius: 20, boxShadow: 'var(--shadow-card)', zIndex: 10 }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 12, background: 'linear-gradient(135deg,#4338ca,#6366f1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
-            <Flame size={22} color="#c7d2fe" />
+          <div style={{ width: 44, height: 44, borderRadius: 12, background: 'linear-gradient(135deg,#1d4ed8,#2563eb)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+            <Flame size={22} color="#bfdbfe" />
           </div>
           <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--t1)', letterSpacing: -0.3 }}>GASGUARD v2.1</div>
           <div style={{ fontSize: 12, color: 'var(--t3)', marginTop: 4, fontFamily: "'Geist Mono', monospace" }}>OPERATIONAL CONTROL PORTAL</div>
@@ -417,7 +411,7 @@ export default function GasLeakDashboard() {
               style={{ width: '100%', background: 'var(--input-bg)', border: '1px solid var(--card-border)', borderRadius: 10, padding: '10px 14px', color: 'var(--t1)', fontSize: 14, outline: 'none' }}
             />
           </div>
-          <button type="submit" disabled={isLoggingIn} style={{ width: '100%', padding: 12, borderRadius: 10, background: 'linear-gradient(135deg,#4f46e5,#6366f1)', color: '#fff', fontSize: 14, fontWeight: 600, border: 'none', cursor: 'pointer', marginTop: 6, opacity: isLoggingIn ? 0.7 : 1 }}>
+          <button type="submit" disabled={isLoggingIn} style={{ width: '100%', padding: 12, borderRadius: 10, background: 'linear-gradient(135deg,#1d4ed8,#2563eb)', color: '#fff', fontSize: 14, fontWeight: 600, border: 'none', cursor: 'pointer', marginTop: 6, opacity: isLoggingIn ? 0.7 : 1 }}>
             {isLoggingIn ? 'AUTHENTICATING…' : 'ACCESS CONTROL PANEL'}
           </button>
         </form>
@@ -443,11 +437,11 @@ export default function GasLeakDashboard() {
       `}</style>
 
       {/* Syner ambient glow */}
-      <div style={{ position: 'fixed', top: -150, right: -150, width: 600, height: 600, borderRadius: '50%', background: 'radial-gradient(circle,rgba(99,102,241,0.08) 0%,transparent 65%)', pointerEvents: 'none', zIndex: 0 }} />
+      <div style={{ position: 'fixed', top: -150, right: -150, width: 600, height: 600, borderRadius: '50%', background: 'radial-gradient(circle,rgba(37,99,235,0.08) 0%,transparent 65%)', pointerEvents: 'none', zIndex: 0 }} />
 
       {/* Backend connecting banner */}
       {!backendReady && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 999, background: 'linear-gradient(90deg,#4338ca,#6366f1)', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center', fontSize: 13, color: '#bae6fd', boxShadow: '0 2px 12px rgba(0,0,0,0.4)' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 999, background: 'linear-gradient(90deg,#1d4ed8,#2563eb)', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center', fontSize: 13, color: '#bae6fd', boxShadow: '0 2px 12px rgba(0,0,0,0.4)' }}>
           <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#38bdf8', animation: 'pulse 1.2s ease-in-out infinite', flexShrink: 0 }} />
           Connecting to server — please wait while the backend starts up...
         </div>
@@ -457,8 +451,8 @@ export default function GasLeakDashboard() {
       <aside style={{ width: S.sidebar.width, background: S.sidebar.bg, borderRight: S.sidebar.border, display: 'flex', flexDirection: 'column', transition: 'width 0.3s ease', zIndex: 50, flexShrink: 0, position: 'relative' }}>
         {/* Logo */}
         <div style={{ padding: sidebarCollapsed ? '18px 0' : '18px 16px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid var(--card-border)', justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }}>
-          <div style={{ width: 32, height: 32, borderRadius: 10, background: 'linear-gradient(135deg,#4338ca,#6366f1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Flame size={16} color="#c7d2fe" />
+          <div style={{ width: 32, height: 32, borderRadius: 10, background: 'linear-gradient(135deg,#1d4ed8,#2563eb)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Flame size={16} color="#bfdbfe" />
           </div>
           {!sidebarCollapsed && (
             <div>
@@ -494,7 +488,7 @@ export default function GasLeakDashboard() {
                   <div
                     key={key}
                     onClick={() => setTab(key)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: sidebarCollapsed ? '10px 0' : '9px 12px', justifyContent: sidebarCollapsed ? 'center' : 'flex-start', borderRadius: 10, cursor: 'pointer', color: active ? '#fff' : 'var(--t3)', background: active ? 'var(--primary)' : 'transparent', boxShadow: active ? '0 4px 10px rgba(99,102,241,0.3)' : 'none', transition: 'all 0.15s' }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: sidebarCollapsed ? '10px 0' : '9px 12px', justifyContent: sidebarCollapsed ? 'center' : 'flex-start', borderRadius: 10, cursor: 'pointer', color: active ? '#fff' : 'var(--t3)', background: active ? 'var(--primary)' : 'transparent', boxShadow: active ? '0 4px 10px rgba(37,99,235,0.3)' : 'none', transition: 'all 0.15s' }}
                     onMouseEnter={e => { if (!active) (e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.04)'; }}
                     onMouseLeave={e => { if (!active) (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
                   >
@@ -513,7 +507,7 @@ export default function GasLeakDashboard() {
         {/* User */}
         <div style={{ padding: '12px 8px', borderTop: '1px solid var(--card-border)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: sidebarCollapsed ? '8px 0' : '8px 12px', justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }}>
-            <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg,#4338ca,#6366f1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg,#1d4ed8,#2563eb)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <Shield size={12} color="var(--green)" />
             </div>
             {!sidebarCollapsed && (
@@ -700,7 +694,7 @@ export default function GasLeakDashboard() {
                 </div>
               </div>
 
-              {/* Row 2: Gas Trend — one line per sensor */}
+              {/* Row 2: Gas Trend — sensor × hour heatmap */}
               <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 20, boxShadow: 'var(--shadow-card)', padding: '20px 24px', backdropFilter: 'blur(12px)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                   <div>
@@ -710,50 +704,53 @@ export default function GasLeakDashboard() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <span style={{ width: 20, height: 2, borderTop: '2px dashed #f59e0b', display: 'inline-block' }} />
-                      <span style={{ fontSize: 10, color: 'var(--t4)', fontFamily: "'Geist Mono', monospace" }}>MIDDLE ≥{sysSettings?.warningThreshold ?? 0.70}</span>
-                    </div>
-                    <PulseDot color="#c7d2fe" />
+                    <PulseDot color="#bfdbfe" />
                     <span style={{ fontSize: 11, color: 'var(--t3)', fontFamily: "'Geist Mono', monospace" }}>Live</span>
                   </div>
                 </div>
-                <div style={{ height: 240 }}>
+                <div style={{ height: 240, overflow: 'auto' }}>
                   {sensorChartData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={sensorChartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
-                        <XAxis dataKey="hour" tick={{ fill: 'var(--t4)', fontSize: 10, fontFamily: "'Geist Mono', monospace" }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
-                        <YAxis tick={{ fill: 'var(--t4)', fontSize: 10, fontFamily: "'Geist Mono', monospace" }} axisLine={false} tickLine={false} />
-                        <Tooltip content={<ChartTooltip />} />
-                        <ReferenceLine y={sysSettings?.warningThreshold || 50} stroke="#f59e0b" strokeDasharray="4 2" strokeOpacity={0.6} />
-                        {sysSettings?.criticalThreshold && (
-                          <ReferenceLine y={sysSettings.criticalThreshold} stroke="#ef4444" strokeDasharray="4 2" strokeOpacity={0.5} />
-                        )}
-                        {sensorTimeline.map((s, idx) => (
-                          <Line
-                            key={s.deviceId}
-                            type="monotone"
-                            dataKey={s.deviceId}
-                            name={s.deviceName}
-                            stroke={SENSOR_COLORS[idx % SENSOR_COLORS.length]}
-                            strokeWidth={1.8}
-                            dot={false}
-                            connectNulls
-                            isAnimationActive={false}
-                          />
+                    <div style={{ minWidth: 110 + heatHours.length * 26 }}>
+                      <div style={{ display: 'flex', paddingLeft: 110, marginBottom: 4 }}>
+                        {heatHours.map((h, i) => (
+                          <div key={h} style={{ width: 26, flexShrink: 0, fontSize: 9, color: 'var(--t4)', fontFamily: "'Geist Mono', monospace", textAlign: 'center' }}>
+                            {i % 2 === 0 ? h : ''}
+                          </div>
                         ))}
-                        {sensorTimeline.length <= 8 && (
-                          <Legend
-                            wrapperStyle={{ fontSize: 10, fontFamily: "'Geist Mono', monospace", paddingTop: 8, color: 'var(--t3)' }}
-                            formatter={(value, entry) => {
-                              const s = sensorTimeline.find(t => t.deviceId === entry.dataKey);
-                              return s?.deviceName || value;
-                            }}
-                          />
-                        )}
-                      </LineChart>
-                    </ResponsiveContainer>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                        {sensorTimeline.map(s => (
+                          <div key={s.deviceId} style={{ display: 'flex', alignItems: 'center' }}>
+                            <div style={{ width: 110, flexShrink: 0, fontSize: 11, color: 'var(--t3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', paddingRight: 8 }}>{s.deviceName}</div>
+                            {heatHours.map(h => {
+                              const r = s.data.find(d => d.hour === h);
+                              const v = r ? r.confidence : null;
+                              return (
+                                <div
+                                  key={h}
+                                  title={`${s.deviceName} · ${h} · ${v != null ? v.toFixed(2) : 'no data'}`}
+                                  style={{ width: 26, height: 20, flexShrink: 0, marginRight: 2, borderRadius: 4, background: heatCellColor(v, heatWarn, heatCrit) }}
+                                />
+                              );
+                            })}
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 10, paddingLeft: 110 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                          <span style={{ width: 10, height: 10, borderRadius: 3, background: 'rgba(56,189,248,0.5)', display: 'inline-block' }} />
+                          <span style={{ fontSize: 10, color: 'var(--t4)' }}>Normal</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                          <span style={{ width: 10, height: 10, borderRadius: 3, background: '#f97316', display: 'inline-block' }} />
+                          <span style={{ fontSize: 10, color: 'var(--t4)' }}>Warning</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                          <span style={{ width: 10, height: 10, borderRadius: 3, background: '#ef4444', display: 'inline-block' }} />
+                          <span style={{ fontSize: 10, color: 'var(--t4)' }}>Critical</span>
+                        </div>
+                      </div>
+                    </div>
                   ) : (
                     <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--t4)', fontSize: 12, fontFamily: "'Geist Mono', monospace" }}>
                       NO SENSOR READINGS IN LAST 24H
@@ -1082,7 +1079,7 @@ export default function GasLeakDashboard() {
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 12, borderTop: '1px solid var(--divider)' }}>
                     <button onClick={() => handleUpdateSettings({ warningThreshold: sysSettings?.warningThreshold, criticalThreshold: sysSettings?.criticalThreshold, refreshInterval: sysSettings?.refreshInterval })}
-                      disabled={isSaving} style={{ background: 'linear-gradient(135deg,#4f46e5,#6366f1)', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 22px', fontWeight: 600, cursor: 'pointer', opacity: isSaving ? 0.7 : 1, fontSize: 14 }}>
+                      disabled={isSaving} style={{ background: 'linear-gradient(135deg,#1d4ed8,#2563eb)', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 22px', fontWeight: 600, cursor: 'pointer', opacity: isSaving ? 0.7 : 1, fontSize: 14 }}>
                       {isSaving ? 'Saving…' : 'Save Configuration'}
                     </button>
                   </div>
@@ -1096,7 +1093,7 @@ export default function GasLeakDashboard() {
                     <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--t1)' }}>User Management</div>
                     <div style={{ fontSize: 12, color: 'var(--t3)', marginTop: 2 }}>Administrators and RU-specific operators</div>
                   </div>
-                  <button onClick={() => setShowAddUser(true)} style={{ background: 'linear-gradient(135deg,#4f46e5,#6366f1)', color: '#fff', border: 'none', borderRadius: 10, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>+ Add User</button>
+                  <button onClick={() => setShowAddUser(true)} style={{ background: 'linear-gradient(135deg,#1d4ed8,#2563eb)', color: '#fff', border: 'none', borderRadius: 10, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>+ Add User</button>
                 </div>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
@@ -1111,7 +1108,7 @@ export default function GasLeakDashboard() {
                       <tr key={u.id} style={{ borderBottom: '1px solid var(--divider)' }}>
                         <td style={{ padding: '12px 10px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg,#4338ca,#6366f1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#fff' }}>{u.email[0].toUpperCase()}</div>
+                            <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg,#1d4ed8,#2563eb)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#fff' }}>{u.email[0].toUpperCase()}</div>
                             <div>
                               <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--t1)' }}>{u.name || 'No Name'}</div>
                               <div style={{ fontSize: 11, color: 'var(--t4)', fontFamily: "'Geist Mono', monospace" }}>{u.email}</div>
@@ -1161,7 +1158,7 @@ export default function GasLeakDashboard() {
               </div>
               <div style={{ display:'flex',gap:10,marginTop:8 }}>
                 <button type="button" onClick={() => setShowAddUser(false)} style={{ flex:1,background:'transparent',border:'1px solid var(--card-border)',color:'var(--t3)',borderRadius:10,padding:'10px',fontSize:13,cursor:'pointer' }}>Cancel</button>
-                <button type="submit" disabled={isSaving} style={{ flex:1,background:'linear-gradient(135deg,#4f46e5,#6366f1)',border:'none',color:'#fff',borderRadius:10,padding:'10px',fontSize:13,fontWeight:600,cursor:'pointer',opacity:isSaving?0.7:1 }}>
+                <button type="submit" disabled={isSaving} style={{ flex:1,background:'linear-gradient(135deg,#1d4ed8,#2563eb)',border:'none',color:'#fff',borderRadius:10,padding:'10px',fontSize:13,fontWeight:600,cursor:'pointer',opacity:isSaving?0.7:1 }}>
                   {isSaving ? 'Creating…' : 'Create User'}
                 </button>
               </div>
@@ -1180,7 +1177,7 @@ export default function GasLeakDashboard() {
                 style={{ background:'var(--input-bg)',border:'1px solid var(--card-border)',borderRadius:10,padding:'10px 14px',color:'var(--t1)',fontSize:14 }} />
               <div style={{ display:'flex',gap:10 }}>
                 <button type="button" onClick={() => setShowRenameModal(false)} style={{ flex:1,background:'transparent',border:'1px solid var(--card-border)',color:'var(--t3)',borderRadius:10,padding:'10px',fontSize:13,cursor:'pointer' }}>Cancel</button>
-                <button type="submit" disabled={isSaving} style={{ flex:1,background:'linear-gradient(135deg,#4f46e5,#6366f1)',border:'none',color:'#fff',borderRadius:10,padding:'10px',fontSize:13,fontWeight:600,cursor:'pointer',opacity:isSaving?0.7:1 }}>
+                <button type="submit" disabled={isSaving} style={{ flex:1,background:'linear-gradient(135deg,#1d4ed8,#2563eb)',border:'none',color:'#fff',borderRadius:10,padding:'10px',fontSize:13,fontWeight:600,cursor:'pointer',opacity:isSaving?0.7:1 }}>
                   {isSaving ? 'Saving…' : 'Save Name'}
                 </button>
               </div>
