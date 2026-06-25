@@ -33,7 +33,7 @@ if not "%NET_CODE%"=="200" (
 :: ── Step 0b: PC specs check ─────────────────────────────────────
 echo.
 echo  Checking your computer's specs...
-for /f "tokens=1,2" %%A in ('powershell -NoProfile -Command "$ram=[math]::Floor((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory/1GB); $drv=(Get-Location).Drive.Name; $disk=[math]::Floor((Get-PSDrive $drv).Free/1GB); Write-Output ('{0}|{1}' -f $ram,$disk)" 2^>nul') do (
+for /f "tokens=1,2 delims=|" %%A in ('powershell -NoProfile -Command "$ram=[math]::Floor((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory/1GB); $drv=(Get-Location).Drive.Name; $disk=[math]::Floor((Get-PSDrive $drv).Free/1GB); Write-Output ('{0}|{1}' -f $ram,$disk)" 2^>nul') do (
     set RAM_GB=%%A
     set DISK_GB=%%B
 )
