@@ -33,12 +33,14 @@ if not "%NET_CODE%"=="200" (
 :: ── Step 0b: PC specs check ─────────────────────────────────────
 echo.
 echo  Checking your computer's specs...
-for /f "tokens=1,2,3 delims=|" %%A in ('powershell -NoProfile -Command "$ram=[math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory/1GB,1); $drv=(Get-Location).Drive.Name; $disk=[math]::Round((Get-PSDrive $drv).Free/1GB,1); $status = if($ram -lt 4 -or $disk -lt 2){'LOW'}else{'OK'}; Write-Output ('{0}|{1}|{2}' -f $ram,$disk,$status)" 2^>nul') do (
+for /f "tokens=1,2" %%A in ('powershell -NoProfile -Command "$ram=[math]::Floor((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory/1GB); $drv=(Get-Location).Drive.Name; $disk=[math]::Floor((Get-PSDrive $drv).Free/1GB); Write-Output ('{0}|{1}' -f $ram,$disk)" 2^>nul') do (
     set RAM_GB=%%A
     set DISK_GB=%%B
-    set SPEC_STATUS=%%C
 )
-echo  RAM: %RAM_GB% GB free disk: %DISK_GB% GB · CPU cores: %NUMBER_OF_PROCESSORS%
+echo  RAM: %RAM_GB% GB free disk: %DISK_GB% GB - CPU cores: %NUMBER_OF_PROCESSORS%
+set SPEC_STATUS=OK
+if %RAM_GB% lss 4 set SPEC_STATUS=LOW
+if %DISK_GB% lss 2 set SPEC_STATUS=LOW
 if "%SPEC_STATUS%"=="LOW" (
     echo  [WARNING] Your computer is below the comfortable minimum
     echo  (4 GB RAM, 2 GB free disk space). The app may still run, but
