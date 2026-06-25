@@ -6,7 +6,7 @@ import {
   CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend, ReferenceLine,
 } from 'recharts';
 import {
-  Activity, AlertTriangle, Bell, ChevronLeft, ChevronRight, ClipboardList,
+  Activity, AlertTriangle, ChevronLeft, ChevronRight, ClipboardList,
   Clock, Flame, HardDrive, LayoutDashboard, Map, Moon,
   RefreshCw, Search, Settings, Shield, Sun, TrendingDown,
   TrendingUp, Users, Wifi, Network, Radio, LogOut, Filter,
@@ -37,16 +37,32 @@ const DeviceMap = dynamic(() => import('./DeviceMap').then((m) => m.DeviceMap), 
 
 const RU_LIST = ['ALL', 'RU2', 'RU3', 'RU4', 'RU5', 'RU6', 'RU7'];
 
-const NAV = [
-  { icon: LayoutDashboard, label: 'Overview',    key: 'overview' },
-  { icon: HardDrive,       label: 'Devices',     key: 'devices' },
-  { icon: Network,         label: 'Unit Layout',  key: 'layout' },
-  { icon: Map,             label: 'Map View',     key: 'map' },
-  { icon: AlertTriangle,   label: 'Alerts',       key: 'alerts' },
-  { icon: ClipboardList,   label: 'Events',       key: 'events' },
-  { icon: TrendingUp,      label: 'Analytics',    key: 'analytics' },
-  { icon: Settings,        label: 'Settings',     key: 'settings' },
+const NAV_GROUPS = [
+  {
+    label: 'GENERAL',
+    items: [
+      { icon: LayoutDashboard, label: 'Overview',    key: 'overview' },
+      { icon: HardDrive,       label: 'Devices',     key: 'devices' },
+      { icon: Network,         label: 'Unit Layout',  key: 'layout' },
+      { icon: Map,             label: 'Map View',     key: 'map' },
+    ],
+  },
+  {
+    label: 'MONITORING',
+    items: [
+      { icon: AlertTriangle,   label: 'Alerts',       key: 'alerts' },
+      { icon: ClipboardList,   label: 'Events',       key: 'events' },
+      { icon: TrendingUp,      label: 'Analytics',    key: 'analytics' },
+    ],
+  },
+  {
+    label: 'SYSTEM',
+    items: [
+      { icon: Settings,        label: 'Settings',     key: 'settings' },
+    ],
+  },
 ];
+const NAV = NAV_GROUPS.flatMap(g => g.items);
 
 const SENSOR_COLORS = ['#38bdf8','#a78bfa','#34d399','#f59e0b','#f472b6','#60a5fa','#fb923c','#4ade80','#e879f9','#22d3ee'];
 
@@ -380,11 +396,11 @@ export default function GasLeakDashboard() {
   if (!currentUser) return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Sans', sans-serif", position: 'relative', overflow: 'hidden' }}>
       {/* Syner-style glow */}
-      <div style={{ position: 'fixed', top: -200, right: -200, width: 700, height: 700, borderRadius: '50%', background: 'radial-gradient(circle, rgba(56,189,248,0.12) 0%, transparent 65%)', pointerEvents: 'none' }} />
-      <div style={{ width: '100%', maxWidth: 380, padding: 36, background: 'var(--card-bg)', backdropFilter: 'blur(24px)', border: '1px solid var(--card-border)', borderRadius: 20, zIndex: 10 }}>
+      <div style={{ position: 'fixed', top: -200, right: -200, width: 700, height: 700, borderRadius: '50%', background: 'radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 65%)', pointerEvents: 'none' }} />
+      <div style={{ width: '100%', maxWidth: 380, padding: 36, background: 'var(--card-bg)', backdropFilter: 'blur(24px)', border: '1px solid var(--card-border)', borderRadius: 20, boxShadow: 'var(--shadow-card)', zIndex: 10 }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 12, background: 'linear-gradient(135deg,#0c2447,#0284c7)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
-            <Flame size={22} color="#38bdf8" />
+          <div style={{ width: 44, height: 44, borderRadius: 12, background: 'linear-gradient(135deg,#4338ca,#6366f1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+            <Flame size={22} color="#c7d2fe" />
           </div>
           <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--t1)', letterSpacing: -0.3 }}>GASGUARD v2.1</div>
           <div style={{ fontSize: 12, color: 'var(--t3)', marginTop: 4, fontFamily: "'Geist Mono', monospace" }}>OPERATIONAL CONTROL PORTAL</div>
@@ -401,7 +417,7 @@ export default function GasLeakDashboard() {
               style={{ width: '100%', background: 'var(--input-bg)', border: '1px solid var(--card-border)', borderRadius: 10, padding: '10px 14px', color: 'var(--t1)', fontSize: 14, outline: 'none' }}
             />
           </div>
-          <button type="submit" disabled={isLoggingIn} style={{ width: '100%', padding: 12, borderRadius: 10, background: 'linear-gradient(135deg,#0369a1,#0284c7)', color: '#fff', fontSize: 14, fontWeight: 600, border: 'none', cursor: 'pointer', marginTop: 6, opacity: isLoggingIn ? 0.7 : 1 }}>
+          <button type="submit" disabled={isLoggingIn} style={{ width: '100%', padding: 12, borderRadius: 10, background: 'linear-gradient(135deg,#4f46e5,#6366f1)', color: '#fff', fontSize: 14, fontWeight: 600, border: 'none', cursor: 'pointer', marginTop: 6, opacity: isLoggingIn ? 0.7 : 1 }}>
             {isLoggingIn ? 'AUTHENTICATING…' : 'ACCESS CONTROL PANEL'}
           </button>
         </form>
@@ -427,11 +443,11 @@ export default function GasLeakDashboard() {
       `}</style>
 
       {/* Syner ambient glow */}
-      <div style={{ position: 'fixed', top: -150, right: -150, width: 600, height: 600, borderRadius: '50%', background: 'radial-gradient(circle,rgba(56,189,248,0.08) 0%,transparent 65%)', pointerEvents: 'none', zIndex: 0 }} />
+      <div style={{ position: 'fixed', top: -150, right: -150, width: 600, height: 600, borderRadius: '50%', background: 'radial-gradient(circle,rgba(99,102,241,0.08) 0%,transparent 65%)', pointerEvents: 'none', zIndex: 0 }} />
 
       {/* Backend connecting banner */}
       {!backendReady && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 999, background: 'linear-gradient(90deg,#0c2447,#0284c7)', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center', fontSize: 13, color: '#bae6fd', boxShadow: '0 2px 12px rgba(0,0,0,0.4)' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 999, background: 'linear-gradient(90deg,#4338ca,#6366f1)', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center', fontSize: 13, color: '#bae6fd', boxShadow: '0 2px 12px rgba(0,0,0,0.4)' }}>
           <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#38bdf8', animation: 'pulse 1.2s ease-in-out infinite', flexShrink: 0 }} />
           Connecting to server — please wait while the backend starts up...
         </div>
@@ -441,8 +457,8 @@ export default function GasLeakDashboard() {
       <aside style={{ width: S.sidebar.width, background: S.sidebar.bg, borderRight: S.sidebar.border, display: 'flex', flexDirection: 'column', transition: 'width 0.3s ease', zIndex: 50, flexShrink: 0, position: 'relative' }}>
         {/* Logo */}
         <div style={{ padding: sidebarCollapsed ? '18px 0' : '18px 16px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid var(--card-border)', justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }}>
-          <div style={{ width: 32, height: 32, borderRadius: 10, background: 'linear-gradient(135deg,#0c2447,#0284c7)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Flame size={16} color="#38bdf8" />
+          <div style={{ width: 32, height: 32, borderRadius: 10, background: 'linear-gradient(135deg,#4338ca,#6366f1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Flame size={16} color="#c7d2fe" />
           </div>
           {!sidebarCollapsed && (
             <div>
@@ -466,44 +482,38 @@ export default function GasLeakDashboard() {
         )}
 
         {/* Nav */}
-        <nav style={{ flex: 1, padding: '8px 8px', display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {/* Notifications pseudo-item */}
-          <div
-            onClick={() => setTab('alerts')}
-            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: sidebarCollapsed ? '10px 0' : '9px 12px', justifyContent: sidebarCollapsed ? 'center' : 'flex-start', borderRadius: 9, cursor: 'pointer', color: tab === 'alerts' ? 'var(--green)' : 'var(--t3)', background: tab === 'alerts' ? 'rgba(56,189,248,0.08)' : 'transparent', position: 'relative' }}
-          >
-            <Bell size={16} strokeWidth={tab === 'alerts' ? 2.5 : 1.8} />
-            {!sidebarCollapsed && <span style={{ fontSize: 13, fontWeight: tab === 'alerts' ? 600 : 400 }}>Notifications</span>}
-            {globalAlertCount > 0 && (
-              <span style={{ position: sidebarCollapsed ? 'absolute' : 'relative', top: sidebarCollapsed ? 6 : 'auto', right: sidebarCollapsed ? 6 : 'auto', marginLeft: sidebarCollapsed ? 0 : 'auto', background: '#ef4444', color: '#fff', fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 8, fontFamily: "'Geist Mono', monospace" }}>{globalAlertCount}</span>
-            )}
-          </div>
-
-          {NAV.map(({ icon: Icon, label, key }) => {
-            const active = tab === key;
-            return (
-              <div
-                key={key}
-                onClick={() => setTab(key)}
-                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: sidebarCollapsed ? '10px 0' : '9px 12px', justifyContent: sidebarCollapsed ? 'center' : 'flex-start', borderRadius: 9, cursor: 'pointer', color: active ? 'var(--green)' : 'var(--t3)', background: active ? 'rgba(56,189,248,0.08)' : 'transparent', transition: 'all 0.15s', position: 'relative' }}
-                onMouseEnter={e => { if (!active) (e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.04)'; }}
-                onMouseLeave={e => { if (!active) (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
-              >
-                {active && <span style={{ position: 'absolute', left: 0, top: '20%', bottom: '20%', width: 3, borderRadius: 4, background: 'var(--green)' }} />}
-                <Icon size={16} strokeWidth={active ? 2.5 : 1.8} />
-                {!sidebarCollapsed && <span style={{ fontSize: 13, fontWeight: active ? 600 : 400 }}>{label}</span>}
-                {key === 'alerts' && globalAlertCount > 0 && !sidebarCollapsed && (
-                  <span style={{ marginLeft: 'auto', background: '#ef4444', color: '#fff', fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 8 }}>{globalAlertCount}</span>
-                )}
-              </div>
-            );
-          })}
+        <nav style={{ flex: 1, padding: '8px 8px', display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto' }}>
+          {NAV_GROUPS.map(group => (
+            <div key={group.label} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {!sidebarCollapsed && (
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, color: 'var(--t4)', padding: '0 12px 4px' }}>{group.label}</div>
+              )}
+              {group.items.map(({ icon: Icon, label, key }) => {
+                const active = tab === key;
+                return (
+                  <div
+                    key={key}
+                    onClick={() => setTab(key)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: sidebarCollapsed ? '10px 0' : '9px 12px', justifyContent: sidebarCollapsed ? 'center' : 'flex-start', borderRadius: 10, cursor: 'pointer', color: active ? '#fff' : 'var(--t3)', background: active ? 'var(--primary)' : 'transparent', boxShadow: active ? '0 4px 10px rgba(99,102,241,0.3)' : 'none', transition: 'all 0.15s' }}
+                    onMouseEnter={e => { if (!active) (e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.04)'; }}
+                    onMouseLeave={e => { if (!active) (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
+                  >
+                    <Icon size={16} strokeWidth={active ? 2.5 : 1.8} />
+                    {!sidebarCollapsed && <span style={{ fontSize: 13, fontWeight: active ? 600 : 400 }}>{label}</span>}
+                    {key === 'alerts' && globalAlertCount > 0 && (
+                      <span style={{ position: sidebarCollapsed ? 'absolute' : 'relative', top: sidebarCollapsed ? 6 : 'auto', right: sidebarCollapsed ? 6 : 'auto', marginLeft: sidebarCollapsed ? 0 : 'auto', background: active ? 'rgba(255,255,255,0.25)' : '#ef4444', color: '#fff', fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 8, fontFamily: "'Geist Mono', monospace" }}>{globalAlertCount}</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
         {/* User */}
         <div style={{ padding: '12px 8px', borderTop: '1px solid var(--card-border)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: sidebarCollapsed ? '8px 0' : '8px 12px', justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }}>
-            <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg,#0c2447,#0284c7)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg,#4338ca,#6366f1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <Shield size={12} color="var(--green)" />
             </div>
             {!sidebarCollapsed && (
@@ -522,6 +532,24 @@ export default function GasLeakDashboard() {
             <LogOut size={15} />
             {!sidebarCollapsed && <span style={{ fontSize: 13, fontWeight: 500 }}>Sign Out</span>}
           </div>
+        </div>
+
+        {/* Theme toggle */}
+        <div style={{ padding: sidebarCollapsed ? '0 8px 14px' : '0 12px 14px' }}>
+          {sidebarCollapsed ? (
+            <button onClick={() => setDarkMode(!darkMode)} style={{ width: '100%', display: 'flex', justifyContent: 'center', padding: '8px 0', borderRadius: 9, background: 'var(--input-bg)', border: '1px solid var(--card-border)', cursor: 'pointer', color: 'var(--t3)' }}>
+              {darkMode ? <Moon size={14} /> : <Sun size={14} />}
+            </button>
+          ) : (
+            <div style={{ display: 'flex', background: 'var(--input-bg)', border: '1px solid var(--card-border)', borderRadius: 10, padding: 3, gap: 2 }}>
+              <button onClick={() => setDarkMode(false)} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '7px 0', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, background: !darkMode ? 'var(--card-bg)' : 'transparent', color: !darkMode ? 'var(--t1)' : 'var(--t4)', boxShadow: !darkMode ? '0 1px 4px rgba(0,0,0,0.15)' : 'none' }}>
+                <Sun size={13} /> Light
+              </button>
+              <button onClick={() => setDarkMode(true)} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '7px 0', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, background: darkMode ? 'var(--card-bg)' : 'transparent', color: darkMode ? 'var(--t1)' : 'var(--t4)', boxShadow: darkMode ? '0 1px 4px rgba(0,0,0,0.15)' : 'none' }}>
+                <Moon size={13} /> Dark
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Collapse toggle */}
@@ -550,9 +578,6 @@ export default function GasLeakDashboard() {
                 </button>
               </div>
             )}
-            <button onClick={() => setDarkMode(!darkMode)} style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, color: 'var(--t3)', fontSize: 12 }}>
-              {darkMode ? <Sun size={13} /> : <Moon size={13} />}
-            </button>
             <button
               onClick={() => setTab('events')}
               title="Event Log & Export"
@@ -572,7 +597,7 @@ export default function GasLeakDashboard() {
             <button
               key={key}
               onClick={() => setTab(key)}
-              style={{ padding: '12px 16px', fontSize: 13, fontWeight: tab === key ? 600 : 400, color: tab === key ? 'var(--green)' : 'var(--t3)', background: 'transparent', border: 'none', cursor: 'pointer', borderBottom: tab === key ? '2px solid var(--green)' : '2px solid transparent', marginBottom: -1, transition: 'all 0.15s', whiteSpace: 'nowrap' }}
+              style={{ padding: '12px 16px', fontSize: 13, fontWeight: tab === key ? 600 : 400, color: tab === key ? 'var(--primary)' : 'var(--t3)', background: 'transparent', border: 'none', cursor: 'pointer', borderBottom: tab === key ? '2px solid var(--primary)' : '2px solid transparent', marginBottom: -1, transition: 'all 0.15s', whiteSpace: 'nowrap' }}
             >
               {label}
             </button>
@@ -592,7 +617,7 @@ export default function GasLeakDashboard() {
               <button
                 key={ru}
                 onClick={() => setActiveRU(ru)}
-                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: activeRU === ru ? 600 : 400, cursor: 'pointer', background: activeRU === ru ? 'rgba(56,189,248,0.12)' : 'var(--card-bg)', border: activeRU === ru ? '1px solid rgba(56,189,248,0.3)' : '1px solid var(--card-border)', color: activeRU === ru ? 'var(--green)' : 'var(--t3)', fontFamily: "'Geist Mono', monospace", transition: 'all 0.15s' }}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: activeRU === ru ? 600 : 400, cursor: 'pointer', background: activeRU === ru ? 'var(--primary-soft)' : 'var(--card-bg)', border: activeRU === ru ? '1px solid var(--primary-border)' : '1px solid var(--card-border)', color: activeRU === ru ? 'var(--primary)' : 'var(--t3)', fontFamily: "'Geist Mono', monospace", transition: 'all 0.15s' }}
               >
                 {ru}
                 {activeRU === ru && ru !== 'ALL' && <X size={10} onClick={e => { e.stopPropagation(); setActiveRU('ALL'); }} />}
@@ -615,7 +640,7 @@ export default function GasLeakDashboard() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
 
                 {/* Total Devices card (Syner "Total emissions" style) */}
-                <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 16, padding: '22px 24px', backdropFilter: 'blur(12px)' }}>
+                <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 20, boxShadow: 'var(--shadow-card)', padding: '22px 24px', backdropFilter: 'blur(12px)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                     <div style={{ fontSize: 12, color: 'var(--t3)', display: 'flex', alignItems: 'center', gap: 5 }}>
                       <HardDrive size={12} /> Total Devices
@@ -657,7 +682,7 @@ export default function GasLeakDashboard() {
                     { label: 'Active Alerts', value: totalAlerts, unit: '', sub: activeRU === 'ALL' ? 'All sites' : activeRU, trend: -4, color: '#38bdf8', spark: [12,8,10,6,9,5,totalAlerts] },
                     { label: 'Avg Battery', value: avgBattery, unit: '%', sub: activeRU === 'ALL' ? 'All sites' : activeRU, trend: -20, color: '#38bdf8', spark: [70,72,75,74,77,76,avgBattery] },
                   ].map(({ label, value, unit, sub, trend, color, spark, inverse }) => (
-                    <div key={label} style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 14, padding: '16px 18px', backdropFilter: 'blur(12px)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                    <div key={label} style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 18, boxShadow: 'var(--shadow-card)', padding: '16px 18px', backdropFilter: 'blur(12px)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                         <div style={{ fontSize: 12, color: 'var(--t3)' }}>{label}</div>
                         <TrendBadge value={trend} inverse={inverse} />
@@ -676,7 +701,7 @@ export default function GasLeakDashboard() {
               </div>
 
               {/* Row 2: Gas Trend — one line per sensor */}
-              <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 16, padding: '20px 24px', backdropFilter: 'blur(12px)' }}>
+              <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 20, boxShadow: 'var(--shadow-card)', padding: '20px 24px', backdropFilter: 'blur(12px)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--t1)' }}>Gas / Environment Trend</div>
@@ -689,7 +714,7 @@ export default function GasLeakDashboard() {
                       <span style={{ width: 20, height: 2, borderTop: '2px dashed #f59e0b', display: 'inline-block' }} />
                       <span style={{ fontSize: 10, color: 'var(--t4)', fontFamily: "'Geist Mono', monospace" }}>MIDDLE ≥{sysSettings?.warningThreshold ?? 0.70}</span>
                     </div>
-                    <PulseDot color="#38bdf8" />
+                    <PulseDot color="#c7d2fe" />
                     <span style={{ fontSize: 11, color: 'var(--t3)', fontFamily: "'Geist Mono', monospace" }}>Live</span>
                   </div>
                 </div>
@@ -741,7 +766,7 @@ export default function GasLeakDashboard() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
 
                 {/* Top by RU — battery health + connection quality */}
-                <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 16, padding: '20px 22px', backdropFilter: 'blur(12px)' }}>
+                <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 20, boxShadow: 'var(--shadow-card)', padding: '20px 22px', backdropFilter: 'blur(12px)' }}>
                   <SectionTitle>Refinery Unit Health</SectionTitle>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
                     {ruData.slice(0, 6).map((r, i) => {
@@ -791,7 +816,7 @@ export default function GasLeakDashboard() {
                 </div>
 
                 {/* Top by Device Type — battery health + connection quality */}
-                <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 16, padding: '20px 22px', backdropFilter: 'blur(12px)' }}>
+                <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 20, boxShadow: 'var(--shadow-card)', padding: '20px 22px', backdropFilter: 'blur(12px)' }}>
                   <SectionTitle>Health by Device Type</SectionTitle>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
                     {[
@@ -850,20 +875,20 @@ export default function GasLeakDashboard() {
           {/* ══ DEVICES ══ */}
           {tab === 'devices' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16, animation: 'fadeUp 0.4s ease' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 14, padding: '14px 18px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 18, boxShadow: 'var(--shadow-card)', padding: '14px 18px' }}>
                 <div>
                   <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--t1)' }}>Device Fleet</div>
                   <div style={{ fontSize: 11, color: 'var(--t3)', fontFamily: "'Geist Mono', monospace" }}>{filteredDevices.length} NODES — {activeRU}</div>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   {['ALL','GATEWAY','CLUSTER','SENSOR'].map(type => (
-                    <button key={type} onClick={() => setActiveType(type)} style={{ padding: '5px 12px', borderRadius: 20, fontSize: 11, fontWeight: activeType === type ? 600 : 400, cursor: 'pointer', background: activeType === type ? 'rgba(56,189,248,0.12)' : 'var(--input-bg)', border: activeType === type ? '1px solid rgba(56,189,248,0.3)' : '1px solid var(--card-border)', color: activeType === type ? 'var(--green)' : 'var(--t3)', fontFamily: "'Geist Mono', monospace" }}>
+                    <button key={type} onClick={() => setActiveType(type)} style={{ padding: '5px 12px', borderRadius: 20, fontSize: 11, fontWeight: activeType === type ? 600 : 400, cursor: 'pointer', background: activeType === type ? 'var(--primary-soft)' : 'var(--input-bg)', border: activeType === type ? '1px solid var(--primary-border)' : '1px solid var(--card-border)', color: activeType === type ? 'var(--primary)' : 'var(--t3)', fontFamily: "'Geist Mono', monospace" }}>
                       {type}
                     </button>
                   ))}
                 </div>
               </div>
-              <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 14, overflow: 'hidden' }}>
+              <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 18, boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
                 <div style={{ overflowX: 'auto', maxHeight: 520, overflowY: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead style={{ position: 'sticky', top: 0, background: 'var(--sidebar-bg)', zIndex: 10 }}>
@@ -935,12 +960,12 @@ export default function GasLeakDashboard() {
           {/* ══ MAP ══ */}
           {tab === 'map' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16, animation: 'fadeUp 0.4s ease' }}>
-              <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 16, padding: '18px 20px' }}>
+              <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 20, boxShadow: 'var(--shadow-card)', padding: '18px 20px' }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--t1)', marginBottom: 4 }}>RU Map — {mapRu}</div>
                 <div style={{ fontSize: 11, color: 'var(--t3)', fontFamily: "'Geist Mono', monospace", marginBottom: 14 }}>Interactive physical positioning</div>
                 <DeviceMap devices={apiDevices} ruId={mapRu} selectedDevice={selectedDevice} onDeviceSelect={setSelectedDevice} warningThreshold={sysSettings?.warningThreshold} criticalThreshold={sysSettings?.criticalThreshold} onDeviceUpdate={() => loadDevices(activeRU)} />
               </div>
-              {activeRU !== 'ALL' && <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 16, padding: '18px 20px' }}><UnitLayoutMap devices={apiDevices} onNodeClick={d => setSelectedDevice(d)} /></div>}
+              {activeRU !== 'ALL' && <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 20, boxShadow: 'var(--shadow-card)', padding: '18px 20px' }}><UnitLayoutMap devices={apiDevices} onNodeClick={d => setSelectedDevice(d)} /></div>}
             </div>
           )}
 
@@ -948,7 +973,7 @@ export default function GasLeakDashboard() {
           {tab === 'layout' && (
             <div style={{ animation: 'fadeUp 0.4s ease' }}>
               {activeRU === 'ALL' ? (
-                <div style={{ padding: '60px 20px', textAlign: 'center', background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 16 }}>
+                <div style={{ padding: '60px 20px', textAlign: 'center', background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 20, boxShadow: 'var(--shadow-card)' }}>
                   <Network size={36} color="var(--t4)" style={{ margin: '0 auto 12px' }} />
                   <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--t1)' }}>Select an RU to view its topology</div>
                   <div style={{ fontSize: 13, color: 'var(--t3)', marginTop: 6 }}>Use the RU filters above</div>
@@ -996,7 +1021,7 @@ export default function GasLeakDashboard() {
                 </div>
               ))}
               {localAlerts.filter(a => activeRU === 'ALL' || a.ru === activeRU).length === 0 && (
-                <div style={{ padding: '60px 20px', textAlign: 'center', background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 16 }}>
+                <div style={{ padding: '60px 20px', textAlign: 'center', background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 20, boxShadow: 'var(--shadow-card)' }}>
                   <Shield size={36} color="var(--green)" style={{ margin: '0 auto 12px', opacity: 0.5 }} />
                   <div style={{ fontSize: 14, color: 'var(--t3)', fontFamily: "'Geist Mono', monospace" }}>SYSTEM CLEAR — NO ACTIVE ALERTS</div>
                 </div>
@@ -1021,7 +1046,7 @@ export default function GasLeakDashboard() {
           {/* ══ SETTINGS ══ */}
           {tab === 'settings' && (
             <div style={{ maxWidth: 780, display: 'flex', flexDirection: 'column', gap: 20, animation: 'fadeUp 0.4s ease' }}>
-              <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 16, padding: '24px 26px' }}>
+              <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 20, boxShadow: 'var(--shadow-card)', padding: '24px 26px' }}>
                 <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--t1)', marginBottom: 4 }}>System Configuration</div>
                 <div style={{ fontSize: 13, color: 'var(--t3)', marginBottom: 24 }}>Global parameters for sensors and alerting logic.</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -1057,7 +1082,7 @@ export default function GasLeakDashboard() {
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 12, borderTop: '1px solid var(--divider)' }}>
                     <button onClick={() => handleUpdateSettings({ warningThreshold: sysSettings?.warningThreshold, criticalThreshold: sysSettings?.criticalThreshold, refreshInterval: sysSettings?.refreshInterval })}
-                      disabled={isSaving} style={{ background: 'linear-gradient(135deg,#0369a1,#0284c7)', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 22px', fontWeight: 600, cursor: 'pointer', opacity: isSaving ? 0.7 : 1, fontSize: 14 }}>
+                      disabled={isSaving} style={{ background: 'linear-gradient(135deg,#4f46e5,#6366f1)', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 22px', fontWeight: 600, cursor: 'pointer', opacity: isSaving ? 0.7 : 1, fontSize: 14 }}>
                       {isSaving ? 'Saving…' : 'Save Configuration'}
                     </button>
                   </div>
@@ -1065,13 +1090,13 @@ export default function GasLeakDashboard() {
               </div>
 
               {/* User Management */}
-              <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 16, padding: '22px 24px' }}>
+              <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 20, boxShadow: 'var(--shadow-card)', padding: '22px 24px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
                   <div>
                     <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--t1)' }}>User Management</div>
                     <div style={{ fontSize: 12, color: 'var(--t3)', marginTop: 2 }}>Administrators and RU-specific operators</div>
                   </div>
-                  <button onClick={() => setShowAddUser(true)} style={{ background: 'linear-gradient(135deg,#0369a1,#0284c7)', color: '#fff', border: 'none', borderRadius: 10, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>+ Add User</button>
+                  <button onClick={() => setShowAddUser(true)} style={{ background: 'linear-gradient(135deg,#4f46e5,#6366f1)', color: '#fff', border: 'none', borderRadius: 10, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>+ Add User</button>
                 </div>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
@@ -1086,7 +1111,7 @@ export default function GasLeakDashboard() {
                       <tr key={u.id} style={{ borderBottom: '1px solid var(--divider)' }}>
                         <td style={{ padding: '12px 10px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg,#0c2447,#0284c7)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#fff' }}>{u.email[0].toUpperCase()}</div>
+                            <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg,#4338ca,#6366f1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#fff' }}>{u.email[0].toUpperCase()}</div>
                             <div>
                               <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--t1)' }}>{u.name || 'No Name'}</div>
                               <div style={{ fontSize: 11, color: 'var(--t4)', fontFamily: "'Geist Mono', monospace" }}>{u.email}</div>
@@ -1136,7 +1161,7 @@ export default function GasLeakDashboard() {
               </div>
               <div style={{ display:'flex',gap:10,marginTop:8 }}>
                 <button type="button" onClick={() => setShowAddUser(false)} style={{ flex:1,background:'transparent',border:'1px solid var(--card-border)',color:'var(--t3)',borderRadius:10,padding:'10px',fontSize:13,cursor:'pointer' }}>Cancel</button>
-                <button type="submit" disabled={isSaving} style={{ flex:1,background:'linear-gradient(135deg,#0369a1,#0284c7)',border:'none',color:'#fff',borderRadius:10,padding:'10px',fontSize:13,fontWeight:600,cursor:'pointer',opacity:isSaving?0.7:1 }}>
+                <button type="submit" disabled={isSaving} style={{ flex:1,background:'linear-gradient(135deg,#4f46e5,#6366f1)',border:'none',color:'#fff',borderRadius:10,padding:'10px',fontSize:13,fontWeight:600,cursor:'pointer',opacity:isSaving?0.7:1 }}>
                   {isSaving ? 'Creating…' : 'Create User'}
                 </button>
               </div>
@@ -1155,7 +1180,7 @@ export default function GasLeakDashboard() {
                 style={{ background:'var(--input-bg)',border:'1px solid var(--card-border)',borderRadius:10,padding:'10px 14px',color:'var(--t1)',fontSize:14 }} />
               <div style={{ display:'flex',gap:10 }}>
                 <button type="button" onClick={() => setShowRenameModal(false)} style={{ flex:1,background:'transparent',border:'1px solid var(--card-border)',color:'var(--t3)',borderRadius:10,padding:'10px',fontSize:13,cursor:'pointer' }}>Cancel</button>
-                <button type="submit" disabled={isSaving} style={{ flex:1,background:'linear-gradient(135deg,#0369a1,#0284c7)',border:'none',color:'#fff',borderRadius:10,padding:'10px',fontSize:13,fontWeight:600,cursor:'pointer',opacity:isSaving?0.7:1 }}>
+                <button type="submit" disabled={isSaving} style={{ flex:1,background:'linear-gradient(135deg,#4f46e5,#6366f1)',border:'none',color:'#fff',borderRadius:10,padding:'10px',fontSize:13,fontWeight:600,cursor:'pointer',opacity:isSaving?0.7:1 }}>
                   {isSaving ? 'Saving…' : 'Save Name'}
                 </button>
               </div>
