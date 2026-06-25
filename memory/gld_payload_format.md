@@ -1,4 +1,6 @@
-# GLD Sensor Payload Format
+# GLD Sensor Payload Format (SUPERSEDED — see pertamina_gld_protocol.md)
+
+> ⚠️ **2026-06-25:** This document describes our own speculative draft (unencrypted, 9-class, 7-byte payload). The real firmware repo (`fadlurrahmanf/PertaminaGLD`) defines a different, **encrypted** (AES-128-GCM), 0–6-class, 4-byte-plaintext protocol with concrete test vectors. That spec is now authoritative — see `pertamina_gld_protocol.md`. Kept below for historical reference only; do not implement against this file.
 
 **Source docs:** `md file design/designnodeGLDv2.md`, `md file design/design (1).md`
 

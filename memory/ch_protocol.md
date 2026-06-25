@@ -1,6 +1,8 @@
 # Cluster Head (CH) Protocol
 
-**Source docs:** `Design CH_24052026.md` (root, newer), `md file design/designClusterHeadMeshv3.md` (v3)
+> ⚠️ **2026-06-25:** The message-type tables and frame layouts below are our own speculative drafts, **superseded** wherever they cross the now-authoritative `GLDRecord`/AppFrame boundary defined in `pertamina_gld_protocol.md` (real firmware repo: `fadlurrahmanf/PertaminaGLD`). Radio hardware parameters below (frequencies, SF, sync words, battery thresholds) are likely still accurate as our actual firmware target and are not contradicted by PertaminaGLD's docs — but treat them as unconfirmed until cross-checked against PertaminaGLD's `firmware/ch/` and `docs/design/ch/design.updated.draft.md`. PertaminaGLD's own CH↔CH multi-hop design is still a draft, not live-tested on their side either (see `open_items.md` #7).
+
+**Source docs:** `Design CH_24052026.md` (root, newer), `md file design/designClusterHeadMeshv3.md` (v3) — our own drafts, not the firmware team's repo.
 
 ## Hardware
 

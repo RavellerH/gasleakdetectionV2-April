@@ -17,26 +17,26 @@ Industrial gas leak detection across 6 Pertamina refinery units (RU2–RU7) usin
 
 ## Full Hardware → Software Chain
 
+> Updated 2026-06-25 to match the real firmware repo (`fadlurrahmanf/PertaminaGLD`) — see `pertamina_gld_protocol.md` for byte-level detail. This replaces the previous (speculative) chain below it.
+
 ```
 GLD Sensor Node (ESP32-S3)
-  8x MQ sensors → ADS1256 ADC → AGC → TFLite Micro inference
-  → predicted_class (0–8) + confidence (0.0–1.0)
-  → AppFrame SENSOR_DATA  [LoRa STAR, 920 MHz, SF7]
+  Sensors → on-device inference → gasClass (0–6) + confidence (0–100) + batteryMv
+  → encrypted (AES-128-GCM) into GLDRecord payload → LoRa STAR to CH
         ↓
-Cluster Head / CH (ESP32-S3, dual SX1262)
-  Radio A = STAR (920 MHz SF7) ← receives GLD
-  Radio B = MESH (921 MHz SF9) → sends to Gateway
-  Buffers normal data; pushes alarm immediately
-        ↓ multi-hop tree: CH → CH → Gateway
-Gateway (single LoRa + WiFi/Ethernet)
-  Publishes binary AppFrame to MQTT broker
+Cluster Head / CH (ESP32-S3, dual radio, mesh)
+  Relays GLDRecord toward Gateway (does not decrypt)
+        ↓ LoRa MESH, possibly multi-hop (CH-CH multi-hop still draft upstream)
+Gateway (ESP32-S3 + WiFi/MQTT)
+  Publishes JSON-wrapped encrypted frame hex — does not decrypt
+  Topics: gld/gateway/uplink, gld/gateway/status
         ↓
-MQTT Broker (mosquitto)
-  Topic: gld/gw/{gatewayId}/up  ← uplink
-  Topic: gld/gw/{gatewayId}/dn  → downlink
+Node-RED + embedded Aedes broker  (per-RU local server, decode/decrypt bridge)
+  AES-128-GCM decrypt + AppFrame/GLDRecord parse + validate
+  Topics out: gld/server/decoded, gld/server/alarm, gld/gateway/error
         ↓
-NestJS Backend (port 4000) — GraphQL API
-        ↓ Prisma ORM
+NestJS Backend (port 4000) — MQTT subscriber + GraphQL API
+        ↓ Prisma ORM, gated by Device.commissioningStatus
 SQLite (prisma/dev.db)
         ↓ polling
 Next.js Frontend (port 3000)
@@ -46,12 +46,15 @@ Next.js Frontend (port 3000)
 
 | Decision | Answer |
 |---|---|
-| Sensor data unit | AI risk level: **LOW / MIDDLE / HIGH** (no PPM) |
-| Node identity | nodeId (uint16) stored as hex string in `macAddress`, e.g. `"0x0005"` |
-| Gateway → Server transport | **MQTT broker** |
-| Database strategy | **Hybrid** — SQLite for app logic, MySQL for Node-RED ingestion staging |
-| Node-RED role | Aggregator of mixed sources (MQTT, HTTP, Serial) → MySQL staging → backend polls MySQL |
-| Device registration | Not yet decided: skip unknown nodeId OR auto-create |
+| Sensor data unit | AI classification: `gasClass` (0–6) + `confidence` (0–100) + `riskLevel` (LOW/MIDDLE/HIGH derived server-side); no PPM |
+| Node identity | nodeId (uint16) stored as hex string in `macAddress`, e.g. `"0xF001"` |
+| Wire protocol | **PertaminaGLD's `GLDRecord`/AppFrame contract** (AES-128-GCM encrypted) — authoritative, see `pertamina_gld_protocol.md` |
+| Gateway → Server transport | MQTT broker, **encrypted end-to-end until Node-RED** (Gateway never decrypts) |
+| Decode/decrypt location | **Node-RED**, per RU, alongside NestJS — not ported into NestJS |
+| Database strategy | SQLite only — no MySQL staging (dropped; Node-RED publishes decoded JSON directly back onto MQTT) |
+| Node-RED role | AES-GCM decode/decrypt bridge, reusing PertaminaGLD's own flow as the starting point |
+| Device registration | **Auto-create, gated** — unknown nodeId creates a `Device` row in `commissioningStatus: 'DISCOVERED'`; readings stored but excluded from alarms until a technician commissions it. See `commissioning_mode.md`. |
+| Deployment topology | One local server (this stack) per RU, on-prem — see `commissioning_mode.md` for the first-installation flow |
 
 ## Planned Production Upgrade (from Architecture.md)
 - Database: SQLite (dev) → **TimescaleDB/PostgreSQL** (production)

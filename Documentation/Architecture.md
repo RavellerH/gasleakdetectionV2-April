@@ -21,11 +21,15 @@ The system follows a classic Client-Server-Database architecture with a focus on
 - **State Management**: React state and GraphQL hooks for data synchronization.
 
 ### 3. Data Flow
-1. **Sensors/Gateways**: Devices in the field collect gas concentration (PPM), battery levels, and network metrics.
-2. **Ingestion**: Data is sent via GraphQL Mutations (or potentially MQTT in a full production setup).
-3. **Persistence**: The backend validates and stores the data using Prisma.
-4. **Real-time Updates**: The frontend fetches the latest state via GraphQL Queries and Subscriptions (planned).
-5. **Visualization**: Real-time readings are mapped to device pins on a Mapbox interface and visualized in charts using Recharts.
+1. **Sensors/Gateways**: Field devices (GLD sensor nodes, Cluster Heads, Gateways — see [`fadlurrahmanf/PertaminaGLD`](https://github.com/fadlurrahmanf/PertaminaGLD) for the firmware/protocol) collect AI-classified gas readings, battery levels, and network metrics.
+2. **Ingestion (dev/demo)**: Data is sent via GraphQL Mutations for local development without hardware.
+3. **Ingestion (planned production)**: Gateway → MQTT (AES-128-GCM encrypted) → Node-RED decode/decrypt bridge (per RU) → backend MQTT subscriber. New devices are gated through a commissioning workflow before they can raise alarms. See internal notes: `memory/pertamina_gld_protocol.md`, `memory/server_integration_plan.md`, `memory/commissioning_mode.md`.
+4. **Persistence**: The backend validates and stores the data using Prisma.
+5. **Real-time Updates**: The frontend fetches the latest state via GraphQL Queries and Subscriptions (planned).
+6. **Visualization**: Real-time readings are mapped to device pins on a Mapbox interface and visualized in charts using Recharts.
+
+### 4. Deployment Topology (planned)
+Each Refinery Unit (RU2–RU7) runs its own on-prem local server instance of this stack (NestJS + Next.js + a Node-RED decode bridge), rather than one centrally hosted multi-tenant instance. `ruId`-based tenant isolation (below) still applies within each instance.
 
 ## 👥 Multi-Tenant Isolation (RU-based)
 The system uses `ruId` as a tenant identifier. All users and devices are associated with a specific Refinery Unit (e.g., RU2, RU7), ensuring that operators only see data relevant to their area.

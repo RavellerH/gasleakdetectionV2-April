@@ -28,6 +28,7 @@ The Gas Leak Detector leverages a modern, production-ready tech stack focused on
 - **Linter/Formatter**: ESLint & Prettier
 
 ## 📡 Protocols (Simulated/Planned)
-- **MQTT**: Planned for direct hardware-to-backend communication.
+- **MQTT**: Planned for direct hardware-to-backend communication, via a per-RU Node-RED decode/decrypt bridge. Wire protocol and topic map defined by [`fadlurrahmanf/PertaminaGLD`](https://github.com/fadlurrahmanf/PertaminaGLD) (the firmware repo) — see `memory/pertamina_gld_protocol.md` for details.
+- **AES-128-GCM**: Sensor payloads are encrypted end-to-end from the GLD node until the Node-RED decode bridge; the Gateway never decrypts.
 - **HTTP/HTTPS**: For standard API interactions.
-- **LoRaWAN**: The hardware layer uses LoRa for long-range, low-power sensor communication.
+- **LoRa (mesh + star)**: The hardware layer uses LoRa for long-range, low-power sensor-to-gateway communication.

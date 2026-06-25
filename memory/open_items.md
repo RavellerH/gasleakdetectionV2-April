@@ -4,64 +4,58 @@ Things that are unresolved and will block specific implementation steps.
 
 ## 🔴 Critical (blocks implementation)
 
-### 1. Which CH protocol version is the firmware implementing?
-- **Option A:** `Design CH_24052026.md` (root folder) — 10-byte AppFrame header, `hopList[]`, `CLUSTER_DATA_RESPONSE (0x31)`, `SERVER_NODE_COMMAND (0x32)`
-- **Option B:** `md file design/designClusterHeadMeshv3.md` — 11-byte AppFrame header, `path_len+path[]`, `CLUSTER_BULK_DATA (0x31)`, no `SERVER_NODE_COMMAND`
-- **Blocks:** AppFrameParser, PullSchedulerService, ClusterBulkDataHandler
+### 1. Node-RED decoded JSON envelope completeness
+- `pertamina_gld_protocol.md` documents the `gld-event` decoded shape (`gasClass`, `confidence`, `batteryMv`, `alarm`, `externalPower`, `decryptOk`), but NestJS also needs `seq` (dedup), `clusterId` (topology/parent assignment), `rssi`/`snr` (commissioning wizard's live-verification panel, gateway health).
+- Need to check the actual `pertamina-gld-decode.js`/flow output (not just the contract doc) for whether these are already emitted, or extend the function if not.
+- **Blocks:** `MqttConsumerService.DecodedEventHandler`, commissioning wizard step 3.
 
-### 2. MySQL table schema for Node-RED staging
-- Run `DESCRIBE sensor_readings;` (or whatever the table is named) and share output
-- **Blocks:** ReadingsPollerService field mapping
+### 2. Per-RU AES key distribution process
+- Phase 1 firmware uses one global dummy key. Production needs (at minimum) one real key per RU, matched between the firmware build and that RU's Node-RED `.env`.
+- Who generates it, how it's delivered to the firmware flashing process vs. the local server install — this is partly an ops/process question, not just code.
+- **Blocks:** Site setup wizard step 3 (`commissioning_mode.md` §4), and going to production with anything beyond the dummy test key.
 
-### 3. Exact binary layout of LORA_PKT_NORMAL (12-byte) and LORA_PKT_ALARM (32-byte)
-- `design (1).md` Section 16 names the fields but does not give byte offsets
-- **Blocks:** SensorDataAlarmHandler payload parsing
+### 3. Single-DB-per-RU vs. centralized multi-RU deployment
+- The schema already supports multi-tenant `ruId` tagging in one DB (current dev/demo setup spans RU2–RU7 in one SQLite file). The new requirement — one local server per RU — implies each production install is its own isolated instance with a constant `ruId`.
+- Need to confirm: does the centralized multi-RU dashboard still exist (e.g., for HQ-level cross-RU visibility), aggregating from each RU's local server? Or is centralized visibility out of scope entirely?
+- **Blocks:** `SystemSettings` site-setup schema design (`commissioning_mode.md` §2/§4) — if a central aggregator is needed later, the per-RU local server needs an outbound sync/export path, which isn't designed yet.
+
+### 4. Add Node-RED to the install/start scripts
+- Each RU now runs NestJS+Next.js *and* Node-RED. `start.sh`/`start.bat` currently only handle the former.
+- **Blocks:** the "zero-install, double-click start.bat" experience for field installs — currently this would require a manual Node-RED setup step.
 
 ## 🟡 Important (affects architecture)
 
-### 4. Device registration policy for unknown nodeId
-- **Option A:** Skip — only pre-registered devices get readings stored (safe, explicit)
-- **Option B:** Auto-create — first-seen nodeId automatically creates a Device record
-- **Affects:** MqttGatewayService + ReadingsPollerService
+### 5. GasReading.confidence storage convention
+- Wire format sends confidence as uint8 0–100. Current `GasReading.confidence` is a `Float` with no documented convention (0.0–1.0 vs 0–100) confirmed against frontend usage.
+- **Affects:** `DecodedEventHandler` mapping, any existing frontend code that already assumes a 0.0–1.0 range.
 
-### 5. Pending downlink GLD policy in CH firmware
-- When new SERVER_NODE_COMMAND arrives but old command not yet delivered:
-- **Option A:** Overwrite (new command replaces old)
-- **Option B:** Queue (deliver in order)
-- **Affects:** CH firmware, not server — but server retry logic depends on it
+### 6. Decommissioning / re-commissioning a device
+- Out of scope for the first version of commissioning mode (`commissioning_mode.md` §6) — e.g. hardware swap reusing a `nodeId`. Needs a policy before it comes up in the field.
+
+### 7. CH-internal protocol (GLD↔CH boundary, CH↔CH multi-hop)
+- PertaminaGLD's locked contract (`payload-contract.draft.md`) only covers the GLD→CH→Server data unit (`GLDRecord`) and the Gateway↔Server MQTT boundary. The CH↔CH multi-hop design is still a draft, not live-tested on their side either.
+- Our old `ch_protocol.md` radio parameters (frequencies, SF, sync words) are still probably valid as our own firmware's actual hardware config, but the message-type tables in that doc are superseded for anything that crosses the documented `GLDRecord` boundary.
+- **Affects:** any future work on CH firmware itself (not server-side integration) — lower priority since this session's scope is server/commissioning, not CH firmware.
 
 ## 🟢 Lower Priority (design / future)
 
-### 6. CH persistent storage finalization
-- Candidate: ESP32 NVS, namespace `chdual`
-- Data to persist: `cluster_id`, `gateway_id`, `parent_id`, `parent_id_alt`, intervals, power guard, radio tuning
-- **Never persist:** cache, queue, pending downlinks
+### 8. Sensor nulling/calibration trigger in the commissioning wizard
+- GLD firmware has a nulling self-test mode (`gld_nulling_selftest_esp32s3`). Noted as a future wizard step, not required for V1 (`commissioning_mode.md` §5).
 
-### 7. Final battery calibration offset
-- Default `BATTERY_OFFSET_MV = +200 mV` — needs validation on real board
-- Formula: `VBAT_MV = ADC_PIN_MV × 3.0 + 200`
+### 9. Production database migration
+- SQLite (current dev) → TimescaleDB/PostgreSQL (planned production). Timing: before go-live, not needed for integration work.
 
-### 8. Production database migration
-- SQLite (current dev) → TimescaleDB/PostgreSQL (planned production)
-- Timing: before go-live, not needed for integration work
+### 10. WebSocket / real-time frontend
+- Current: frontend polls every `refreshInterval` (10s default). Planned: Socket.io/GraphQL Subscriptions for instant alarm broadcasting.
 
-### 9. WebSocket / real-time frontend
-- Current: frontend polls every `refreshInterval` (10s default)
-- Planned: Socket.io for instant alarm broadcasting
-- Requires: backend GraphQL Subscriptions or Socket.io gateway
+### 11. Authentication
+- Current: none (email-only DEV login). Planned: Keycloak JWT + RU tenant guard. Timing: before production deployment.
 
-### 10. Authentication
-- Current: none (email-only DEV login, no password check)
-- Planned: Keycloak JWT + RU tenant guard
-- Timing: before production deployment
+## ✅ Resolved (2026-06-25)
 
-## Answered / Resolved
-
-| Item | Answer |
+| Item | Resolution |
 |---|---|
-| Sensor data unit | AI risk level (LOW/MIDDLE/HIGH), not PPM |
-| Gateway transport | MQTT broker |
-| Node identity | uint16 nodeId as hex string in macAddress field |
-| DB strategy | Hybrid: SQLite + MySQL staging |
-| Node-RED role | Aggregator → MySQL staging → backend polls |
-| MQTT topic scheme | `gld/gw/{gatewayId}/up` and `gld/gw/{gatewayId}/dn` (proposed) |
+| Which CH/GLD protocol version is real | **PertaminaGLD's `payload-contract.draft.md`** is authoritative (AES-128-GCM encrypted, `GLDRecord`/34 bytes, 0–6 gas classes). Our own `Design CH_24052026.md`/`designClusterHeadMeshv3.md` drafts are superseded. See `pertamina_gld_protocol.md`. |
+| Decode/decrypt location | **Node-RED stays as the bridge**, per RU, alongside NestJS. NestJS subscribes to decoded MQTT topics only — no AES/binary parsing in NestJS. See `nodered_integration.md`. |
+| Device registration policy for unknown nodeId | **Auto-create in a gated state.** Unknown nodeId → `Device` row created with `commissioningStatus: 'DISCOVERED'`; readings stored but cannot raise alarms until a technician explicitly commissions the device — applies even to production-range node IDs, not just the `0xF000–0xFEFF` test range. See `commissioning_mode.md`. |
+| MySQL staging for Node-RED → NestJS | **Dropped.** Node-RED publishes decoded JSON directly back onto MQTT; NestJS subscribes directly. No MySQL anywhere in this pipeline. |
