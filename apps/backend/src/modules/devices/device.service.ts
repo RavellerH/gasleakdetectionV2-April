@@ -308,7 +308,7 @@ export class DeviceService {
       include: {
         readings: { where: { timestamp: { gte: twentyFourHoursAgo } }, orderBy: { timestamp: 'asc' } }
       },
-      take: 15,
+      take: 100,
     });
     return sensors.map(s => {
       const hourlyMap = new Map<string, number[]>();
