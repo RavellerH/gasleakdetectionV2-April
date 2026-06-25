@@ -43,7 +43,7 @@ if %RAM_GB% lss 4 set SPEC_STATUS=LOW
 if %DISK_GB% lss 2 set SPEC_STATUS=LOW
 if "%SPEC_STATUS%"=="LOW" (
     echo  [WARNING] Your computer is below the comfortable minimum
-    echo  (4 GB RAM, 2 GB free disk space). The app may still run, but
+    echo  ^(4 GB RAM, 2 GB free disk space^). The app may still run, but
     echo  could feel slow.
 ) else (
     echo  [OK] Your computer meets the recommended specs.
