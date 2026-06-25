@@ -9,19 +9,19 @@ Things that are unresolved and will block specific implementation steps.
 - Our own `nodered/functions/pertamina-gld-decode.js` (built this session, see `nodered_integration.md`) passes `seq`, `clusterId`, `rssi`, `snr` through on every decoded event — no longer blocked. Still need to confirm the *real* gateway firmware's uplink envelope actually carries `clusterId`/`rssi`/`snr` (our decoder trusts whatever's in the envelope passed to it).
 - **Blocks:** `MqttConsumerService.DecodedEventHandler`, commissioning wizard step 3.
 
-### 2. Per-RU AES key distribution process
+### 2. Per-RU AES key distribution process — ✅ RESOLVED 2026-06-25
 - Phase 1 firmware uses one global dummy key. Production needs (at minimum) one real key per RU, matched between the firmware build and that RU's Node-RED `.env`.
-- Who generates it, how it's delivered to the firmware flashing process vs. the local server install — this is partly an ops/process question, not just code.
-- **Blocks:** Site setup wizard step 3 (`commissioning_mode.md` §4), and going to production with anything beyond the dummy test key.
+- **Decision:** manual process, no tooling planned for this. Whoever flashes the firmware for an RU's GLD/CH units generates the key (e.g. `openssl rand -hex 16`), bakes it into that firmware build, and a human manually pastes the same hex string into that RU's `nodered/.env` (`GLD_AES128_KEY_HEX`) during the local server install — matching the existing "never commit a real key" rule. `start.sh`/`start.bat` auto-generate a random placeholder key on first run purely so the out-of-box demo/dev experience works; that placeholder must be manually overwritten with the real key before going live with actual GLD hardware.
+- **Blocks (cleared):** Site setup wizard step 3 (`commissioning_mode.md` §4) can proceed assuming a manual paste-in step, not an automated distribution flow.
 
-### 3. Single-DB-per-RU vs. centralized multi-RU deployment
+### 3. Single-DB-per-RU vs. centralized multi-RU deployment — ✅ RESOLVED 2026-06-25
 - The schema already supports multi-tenant `ruId` tagging in one DB (current dev/demo setup spans RU2–RU7 in one SQLite file). The new requirement — one local server per RU — implies each production install is its own isolated instance with a constant `ruId`.
-- Need to confirm: does the centralized multi-RU dashboard still exist (e.g., for HQ-level cross-RU visibility), aggregating from each RU's local server? Or is centralized visibility out of scope entirely?
-- **Blocks:** `SystemSettings` site-setup schema design (`commissioning_mode.md` §2/§4) — if a central aggregator is needed later, the per-RU local server needs an outbound sync/export path, which isn't designed yet.
+- **Decision:** yes, a centralized multi-RU dashboard still needs to exist for HQ-level cross-RU visibility, aggregating from each RU's local server.
+- **Still open (not designed or implemented yet):** the outbound sync/export path from each RU's local server to the central aggregator. Each RU install remains its own isolated DB/instance (per `commissioning_mode.md`); nothing here changes that. The aggregator's data model, sync protocol (push from RU vs. pull by HQ), auth between RU and HQ, and how `ruId` collisions/identity are handled across independently-provisioned RUs are all undesigned — needs its own design pass before implementation, not bundled into this session's commissioning-mode work.
 
-### 4. Add Node-RED to the install/start scripts
+### 4. Add Node-RED to the install/start scripts — ✅ RESOLVED 2026-06-25
 - Each RU now runs NestJS+Next.js *and* Node-RED. `start.sh`/`start.bat` currently only handle the former.
-- **Blocks:** the "zero-install, double-click start.bat" experience for field installs — currently this would require a manual Node-RED setup step.
+- **Implemented:** both scripts now also provision `nodered/.env` (generating a random placeholder AES key on first run, see item #2 above), install its dependencies (added to the root npm workspaces), and launch it as a third background process/window alongside backend and frontend.
 
 ## 🟡 Important (affects architecture)
 
@@ -60,3 +60,8 @@ Things that are unresolved and will block specific implementation steps.
 | Decode/decrypt location | **Node-RED stays as the bridge**, per RU, alongside NestJS. NestJS subscribes to decoded MQTT topics only — no AES/binary parsing in NestJS. See `nodered_integration.md`. |
 | Device registration policy for unknown nodeId | **Auto-create in a gated state.** Unknown nodeId → `Device` row created with `commissioningStatus: 'DISCOVERED'`; readings stored but cannot raise alarms until a technician explicitly commissions the device — applies even to production-range node IDs, not just the `0xF000–0xFEFF` test range. See `commissioning_mode.md`. |
 | MySQL staging for Node-RED → NestJS | **Dropped.** Node-RED publishes decoded JSON directly back onto MQTT; NestJS subscribes directly. No MySQL anywhere in this pipeline. |
+| Node-RED decoded JSON envelope completeness | `seq`/`clusterId`/`rssi`/`snr` now pass through on every decoded event. See item #1 above. |
+| GasReading.confidence storage convention | Stays `Float` 0.0–1.0 in DB/GraphQL; wire's 0–100 converted only at the MQTT ingestion boundary. See item #5 above. |
+| Per-RU AES key distribution | **Manual.** A human pastes the same key into the firmware build and that RU's `nodered/.env`. See item #2 above. |
+| Centralized multi-RU dashboard | **Yes, still needed** for HQ-level visibility — but the RU→HQ sync path is undesigned. See item #3 above. |
+| Node-RED in install/start scripts | **Implemented** in `start.sh`/`start.bat`. See item #4 above. |

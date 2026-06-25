@@ -145,6 +145,17 @@ if not exist "apps\frontend\.env.local" (
     echo  [OK] Configuration already exists.
 )
 
+:: ── Step 3b: Create Node-RED bridge config ─────────────────────
+if not exist "nodered\.env" (
+    for /f "tokens=*" %%k in ('node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"') do set PLACEHOLDER_KEY=%%k
+    copy /y "nodered\.env.example" "nodered\.env" >nul
+    powershell -NoProfile -Command "(Get-Content 'nodered\.env') -replace 'GLD_AES128_KEY_HEX=.*', 'GLD_AES128_KEY_HEX=%PLACEHOLDER_KEY%' | Set-Content 'nodered\.env'"
+    echo  [OK] Node-RED bridge configured with a generated placeholder key.
+    echo       Real GLD hardware needs a real key — see nodered\README.md.
+) else (
+    echo  [OK] Node-RED bridge configuration already exists.
+)
+
 :: ── Step 4: Setup database ─────────────────────────────────────
 echo.
 echo  [3/4] Preparing the database...
@@ -176,14 +187,19 @@ netstat -ano | findstr ":4000 " >nul 2>&1
 if %errorlevel% equ 0 set PORT_BUSY=1
 netstat -ano | findstr ":3000 " >nul 2>&1
 if %errorlevel% equ 0 set PORT_BUSY=1
+netstat -ano | findstr ":1880 " >nul 2>&1
+if %errorlevel% equ 0 set PORT_BUSY=1
+netstat -ano | findstr ":1884 " >nul 2>&1
+if %errorlevel% equ 0 set PORT_BUSY=1
 
 if %PORT_BUSY% equ 1 (
     echo  [NOTICE] It looks like this app might already be running
     echo  in another window, or another program is using its ports.
     echo.
     echo  If the app doesn't open properly in a moment, close any
-    echo  other "GLD — Backend" / "GLD — Frontend" windows and any
-    echo  other app you know uses ports 3000 or 4000, then try again.
+    echo  other "GLD — Backend" / "GLD — Frontend" / "GLD — Node-RED"
+    echo  windows and any other app you know uses ports 3000, 4000,
+    echo  1880, or 1884, then try again.
     echo.
 )
 
@@ -194,10 +210,12 @@ echo.
 start "GLD — Backend  (port 4000)" cmd /k "title GLD Backend && cd /d %~dp0apps\backend && npm run start:dev"
 timeout /t 2 >nul
 start "GLD — Frontend (port 3000)" cmd /k "title GLD Frontend && cd /d %~dp0apps\frontend && npm run dev"
+timeout /t 2 >nul
+start "GLD — Node-RED Bridge (port 1880)" cmd /k "title GLD Node-RED && cd /d %~dp0nodered && npm run start"
 
 echo  =============================================
 echo.
-echo    The app is starting in two new windows.
+echo    The app is starting in three new windows.
 echo    Leave those windows open while you use the app.
 echo.
 echo    Open your browser to:  http://localhost:3000
@@ -211,7 +229,7 @@ echo.
 echo    Your browser needs WebGL support to show the map —
 echo    recent Chrome, Edge, or Firefox all work out of the box.
 echo.
-echo    To STOP the app: close the Backend and Frontend windows.
+echo    To STOP the app: close the Backend, Frontend, and Node-RED windows.
 echo  =============================================
 echo.
 pause

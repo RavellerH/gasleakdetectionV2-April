@@ -4,7 +4,7 @@
 
 **Confirmed decision (2026-06-25):** gate **all** devices, including ones with a normal production-range node ID (`0x0001–0xEFFF`) — not just the `0xF000–0xFEFF` test range that PertaminaGLD's firmware already reserves. Every device must be explicitly signed off by a technician before its readings can raise a `EventLog` alarm.
 
-**Deployment assumption:** one RU = one physical local server = one SQLite DB instance. `ruId` is set once during site setup and is effectively constant for that instance (the existing RU-tenant fields in the schema stay as-is — useful if a central/demo instance ever aggregates multiple RUs, but production is per-site). Flagged as an open item in `open_items.md` since it hasn't been explicitly confirmed.
+**Deployment assumption:** one RU = one physical local server = one SQLite DB instance. `ruId` is set once during site setup and is effectively constant for that instance (the existing RU-tenant fields in the schema stay as-is — useful for the centralized multi-RU HQ dashboard that's confirmed to still be needed, see `open_items.md` #3; the sync path into that dashboard is undesigned).
 
 ---
 
@@ -94,6 +94,6 @@ Sensor nulling/calibration (GLD firmware has a dedicated nulling self-test mode)
 
 ## 6. Open items this design surfaces
 
-- **Single-DB-per-RU vs. centralized multi-RU** — confirm before building `SystemSettings` site-setup fields, since they assume one RU per instance.
-- **AES key distribution process** — who generates per-RU keys and how they get into both the firmware build and the local server's Node-RED `.env`? This is partly a non-software/ops process; needs an owner.
+- **Single-DB-per-RU vs. centralized multi-RU** — ✅ resolved 2026-06-25: each RU install stays its own isolated instance (assumption above unchanged), but a centralized HQ dashboard aggregating across RUs is still needed. The RU→HQ sync path is undesigned — see `open_items.md` #3.
+- **AES key distribution process** — ✅ resolved 2026-06-25: manual. A human generates the key, bakes it into that RU's firmware build, and pastes the same value into that RU's `nodered/.env`. See `open_items.md` #2.
 - **Decommissioning / re-commissioning** a device (e.g., swapped hardware reusing a `nodeId`) is explicitly out of scope for this first version.

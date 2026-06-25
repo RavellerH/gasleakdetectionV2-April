@@ -119,6 +119,22 @@ else
     echo " [OK] Configuration already exists."
 fi
 
+# ── Step 3b: Create Node-RED bridge config ─────────────────────
+NODERED_ENV="nodered/.env"
+if [ ! -f "$NODERED_ENV" ]; then
+    PLACEHOLDER_KEY="$(node -e "console.log(require('crypto').randomBytes(16).toString('hex'))")"
+    cp nodered/.env.example "$NODERED_ENV"
+    if [ "$OS" = "Darwin" ]; then
+        sed -i '' "s/^GLD_AES128_KEY_HEX=.*/GLD_AES128_KEY_HEX=$PLACEHOLDER_KEY/" "$NODERED_ENV"
+    else
+        sed -i "s/^GLD_AES128_KEY_HEX=.*/GLD_AES128_KEY_HEX=$PLACEHOLDER_KEY/" "$NODERED_ENV"
+    fi
+    echo " [OK] Node-RED bridge configured with a generated placeholder key."
+    echo "      Real GLD hardware needs a real key — see nodered/README.md."
+else
+    echo " [OK] Node-RED bridge configuration already exists."
+fi
+
 # ── Step 4: Setup database ─────────────────────────────────────
 echo
 echo " [3/4] Preparing the database..."
@@ -142,6 +158,8 @@ echo
 PORT_BUSY=0
 if lsof -i :4000 >/dev/null 2>&1; then PORT_BUSY=1; fi
 if lsof -i :3000 >/dev/null 2>&1; then PORT_BUSY=1; fi
+if lsof -i :1880 >/dev/null 2>&1; then PORT_BUSY=1; fi
+if lsof -i :1884 >/dev/null 2>&1; then PORT_BUSY=1; fi
 
 if [ "$PORT_BUSY" -eq 1 ]; then
     echo " [NOTICE] It looks like this app might already be running,"
@@ -149,18 +167,18 @@ if [ "$PORT_BUSY" -eq 1 ]; then
     echo
     echo " If the app doesn't open properly in a moment, stop any"
     echo " other copy of this app and any other app using ports"
-    echo " 3000 or 4000, then try again."
+    echo " 3000, 4000, 1880, or 1884, then try again."
     echo
 fi
 
-# ── Launch backend and frontend ─────────────────────────────────
+# ── Launch backend, frontend, and the Node-RED bridge ───────────
 echo " Starting the app..."
 echo
 
 cleanup() {
     echo
     echo " Stopping the app..."
-    kill "$BACKEND_PID" "$FRONTEND_PID" 2>/dev/null
+    kill "$BACKEND_PID" "$FRONTEND_PID" "$NODERED_PID" 2>/dev/null
 }
 trap cleanup EXIT INT TERM
 
@@ -169,6 +187,8 @@ BACKEND_PID=$!
 sleep 2
 ( cd apps/frontend && npm run dev ) &
 FRONTEND_PID=$!
+( cd nodered && npm run start ) &
+NODERED_PID=$!
 
 echo " ============================================="
 echo

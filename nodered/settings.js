@@ -28,7 +28,8 @@ const keysById = keyHex.length === 32 ? { [keyId]: Buffer.from(keyHex, 'hex') } 
 
 module.exports = {
   uiPort: Number(process.env.NODE_RED_PORT) || 1880,
-  flowFile: 'pertamina-gld-server.flow.json',
+  userDir: __dirname,
+  flowFile: 'flows/pertamina-gld-server.flow.json',
   functionGlobalContext: {
     gldDecode: decode,
     gldKeysById: keysById,

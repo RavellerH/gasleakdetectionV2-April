@@ -36,11 +36,10 @@ If Node-RED's decoded JSON envelope is missing a field NestJS needs (e.g. `seq`,
 
 ## Per-RU process model
 
-Each RU's local server install now runs **two processes**:
-1. NestJS + Next.js (existing `start.sh`/`start.bat` entry point)
-2. Node-RED (new — needs to be added to the install/start scripts, or documented as a manual prerequisite for V1)
-
-This needs to be folded into `start.sh`/`start.bat` so a non-technical operator double-clicking the script still gets a fully working pipeline — currently those scripts only start NestJS+Next.js. **Open item**, see `open_items.md`.
+Each RU's local server install now runs **three processes**, all launched by `start.sh`/`start.bat`:
+1. NestJS (port 4000)
+2. Next.js (port 3000)
+3. Node-RED + embedded Aedes broker (admin UI port 1880, MQTT port 1884)
 
 ## Implementation (2026-06-25)
 
@@ -70,8 +69,18 @@ firmware wraps GLDRecords differently, strip that header before calling
 `decodeGatewayFrame()` — the GLDRecord/AES-GCM layer itself doesn't need to
 change.
 
+## Install/start scripts (2026-06-25)
+
+`nodered` was added to the root npm workspaces, and `start.sh`/`start.bat` now:
+- create `nodered/.env` from `.env.example` on first run if missing, with a
+  freshly-generated random AES-128 key (`openssl rand -hex 16` / PowerShell
+  equivalent) as a placeholder so the bridge works out of the box for
+  demos/dev — **this is not a real key**, see `open_items.md` #2 for the
+  manual real-key process before going live with actual GLD hardware.
+- launch `nodered` as a third background process (`npm run start` inside
+  `nodered/`), alongside the existing backend/frontend processes, and
+  include it in port-busy checks (1880, 1884) and shutdown/cleanup.
+
 ## Still needed
 
-- Decide how the per-RU AES key gets from "generated/assigned" to "in this RU's Node-RED `.env`" — process question, not purely technical (see `commissioning_mode.md` §6).
-- Add Node-RED startup to `start.sh`/`start.bat`, or document it as a manual one-time setup step for V1.
 - Confirm the AppFrame-vs-raw-GLDRecord framing assumption above once real gateway firmware/hardware is available to test against.

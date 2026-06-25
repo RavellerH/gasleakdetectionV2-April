@@ -5,7 +5,8 @@
   "description": "Gas Leak Detector multi-RU monitoring platform - monorepo (backend + frontend) based on Gas-Leak-Design-v2.1.md",
   "workspaces": [
     "apps/backend",
-    "apps/frontend"
+    "apps/frontend",
+    "nodered"
   ],
   "scripts": {
     "dev:backend": "cd apps/backend && npm run start:dev",
