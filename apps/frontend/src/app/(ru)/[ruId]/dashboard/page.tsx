@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { RuDashboardContent } from '@/components/RuDashboardContent';
+import GasLeakDashboard from '@/components/GasLeakDashboard';
 
 const RU_IDS = ['RU2', 'RU3', 'RU4', 'RU5', 'RU6', 'RU7'];
 
@@ -24,5 +24,5 @@ export default async function RuDashboardPage({ params }: Props) {
     notFound();
   }
 
-  return <RuDashboardContent ruId={ru} />;
+  return <GasLeakDashboard lockedRu={ru} />;
 }
