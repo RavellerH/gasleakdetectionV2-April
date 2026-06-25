@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import MapGL, { Marker, Popup, MapRef, Source, Layer } from 'react-map-gl';
-import type { FillExtrusionLayerSpecification, SkyLayerSpecification } from 'mapbox-gl';
+import type { SkyLayerSpecification } from 'mapbox-gl';
 import useSupercluster from 'use-supercluster';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { X, Compass, Mountain, Share2 } from 'lucide-react';
@@ -31,22 +31,6 @@ interface DeviceMapProps {
   criticalThreshold?: number;
   onDeviceUpdate?: () => void;
 }
-
-/* ── 3D buildings layer ─────────────────────────────────────── */
-const buildingsLayer: FillExtrusionLayerSpecification = {
-  id: '3d-buildings',
-  source: 'composite',
-  'source-layer': 'building',
-  filter: ['==', 'extrude', 'true'],
-  type: 'fill-extrusion',
-  minzoom: 14,
-  paint: {
-    'fill-extrusion-color': '#0a1628',
-    'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 14, 0, 14.05, ['get', 'height']],
-    'fill-extrusion-base':   ['interpolate', ['linear'], ['zoom'], 14, 0, 14.05, ['get', 'min_height']],
-    'fill-extrusion-opacity': 0.75,
-  },
-};
 
 /* ── Sky atmosphere layer ───────────────────────────────────── */
 const skyLayer: SkyLayerSpecification = {
@@ -85,7 +69,7 @@ function ClusterPin({ count, hasCritical, hasWarning, onClick }: {
   );
 }
 
-export function DeviceMap({
+export const DeviceMap = React.memo(function DeviceMap({
   devices,
   ruId,
   selectedDevice,
@@ -298,9 +282,14 @@ export function DeviceMap({
         mapStyle="mapbox://styles/mapbox/dark-v11"
         antialias
         onMove={handleMove}
+        onLoad={(e) => {
+          const m = e.target;
+          for (const id of ['3d-buildings', 'building', 'building-extrusion']) {
+            if (m.getLayer(id)) m.removeLayer(id);
+          }
+        }}
       >
         <Layer {...skyLayer} />
-        {is3D && <Layer {...buildingsLayer} />}
 
         {/* ── Topology lines (hidden below zoom 11) ── */}
         <Source id="topology" type="geojson" data={topologyGeoJSON as any}>
@@ -485,4 +474,4 @@ export function DeviceMap({
       </div>
     </div>
   );
-}
+});

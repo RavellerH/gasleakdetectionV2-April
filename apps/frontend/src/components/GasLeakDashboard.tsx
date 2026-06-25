@@ -427,7 +427,7 @@ export default function GasLeakDashboard() {
       )}
 
       {/* ── SIDEBAR ── */}
-      <aside style={{ width: S.sidebar.width, background: S.sidebar.bg, borderRight: S.sidebar.border, display: 'flex', flexDirection: 'column', transition: 'width 0.3s ease', zIndex: 50, flexShrink: 0, position: 'relative' }}>
+      <aside style={{ width: S.sidebar.width, height: '100vh', background: S.sidebar.bg, borderRight: S.sidebar.border, display: 'flex', flexDirection: 'column', transition: 'width 0.3s ease', zIndex: 50, flexShrink: 0, position: 'fixed', left: 0, top: 0 }}>
         {/* Logo */}
         <div style={{ padding: sidebarCollapsed ? '18px 0' : '18px 16px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid var(--card-border)', justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }}>
           <div style={{ width: 32, height: 32, borderRadius: 10, background: 'linear-gradient(135deg,#1d4ed8,#2563eb)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -535,7 +535,7 @@ export default function GasLeakDashboard() {
       </aside>
 
       {/* ── MAIN ── */}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, zIndex: 10 }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, zIndex: 10, marginLeft: S.sidebar.width, transition: 'margin-left 0.3s ease' }}>
 
         {/* Top header */}
         <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 24px', background: 'var(--header-bg)', backdropFilter: 'blur(16px)', borderBottom: '1px solid var(--card-border)' }}>
