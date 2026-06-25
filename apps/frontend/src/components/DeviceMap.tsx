@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import MapGL, { Marker, Popup, MapRef, Source, Layer } from 'react-map-gl';
 import type { SkyLayerSpecification } from 'mapbox-gl';
 import useSupercluster from 'use-supercluster';
@@ -69,7 +69,7 @@ function ClusterPin({ count, hasCritical, hasWarning, onClick }: {
   );
 }
 
-export const DeviceMap = React.memo(function DeviceMap({
+export function DeviceMap({
   devices,
   ruId,
   selectedDevice,
@@ -81,14 +81,24 @@ export const DeviceMap = React.memo(function DeviceMap({
   const mapRef         = useRef<MapRef>(null);
   const animFrameRef   = useRef<number>(0);
   const lastCenteredRu = useRef<string | null>('ALL');
+  const zoomRef        = useRef(4.5);
+  const boundsRef      = useRef<[number, number, number, number]>([95, -11, 141, 6]);
 
   const [updating,     setUpdating]     = useState<string | null>(null);
   const [is3D,         setIs3D]         = useState(true);
   const [showTopology, setShowTopology] = useState(true);
 
-  /* viewport state — needed by supercluster */
+  /* viewport state — synced from refs via interval to avoid render loops */
   const [zoom,   setZoom]   = useState(4.5);
   const [bounds, setBounds] = useState<[number, number, number, number]>([95, -11, 141, 6]);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setZoom(z => { if (Math.abs(z - zoomRef.current) > 0.01) return zoomRef.current; return z; });
+      setBounds(boundsRef.current);
+    }, 200);
+    return () => clearInterval(id);
+  }, []);
 
   /* ── supercluster points ── */
   const points = useMemo(() => devices.map(d => ({
@@ -227,9 +237,9 @@ export const DeviceMap = React.memo(function DeviceMap({
   );
 
   const handleMove = useCallback((evt: { viewState: { zoom: number }; target: mapboxgl.Map }) => {
-    setZoom(evt.viewState.zoom);
+    zoomRef.current = evt.viewState.zoom;
     const b = evt.target.getBounds();
-    if (b) setBounds([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]);
+    if (b) boundsRef.current = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
   }, []);
 
   if (!MAPBOX_TOKEN) {
@@ -287,6 +297,12 @@ export const DeviceMap = React.memo(function DeviceMap({
           for (const id of ['3d-buildings', 'building', 'building-extrusion']) {
             if (m.getLayer(id)) m.removeLayer(id);
           }
+          // Sync initial viewport state
+          zoomRef.current = m.getZoom();
+          const b = m.getBounds();
+          if (b) boundsRef.current = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
+          setZoom(zoomRef.current);
+          setBounds(boundsRef.current);
         }}
       >
         <Layer {...skyLayer} />
@@ -474,4 +490,4 @@ export const DeviceMap = React.memo(function DeviceMap({
       </div>
     </div>
   );
-});
+}
