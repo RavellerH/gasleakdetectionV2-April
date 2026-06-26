@@ -3,12 +3,12 @@
 // fadlurrahmanf/PertaminaGLD). Validated against that doc's AES-128-GCM test
 // vector in pertamina-gld-decode.test.js.
 //
-// Assumption (flagged in memory/nodered_integration.md "Still needed",
-// unconfirmed against real gateway firmware): `frameHex` on
-// `gld/gateway/uplink` is one or more concatenated raw GLDRecords (34 bytes
-// each — a CLUSTER_DATA_RESPONSE can carry up to 2 per 80-byte MESH frame).
-// If the real gateway instead wraps GLDRecords in an outer AppFrame header,
-// strip that header before passing frameHex in here.
+// Confirmed 2026-06-26 against fadlurrahmanf/PertaminaGLD's actual Node-RED
+// decode function: `frameHex` on `gld/gateway/uplink` is one or more
+// concatenated raw GLDRecords (34 bytes each — a CLUSTER_DATA_RESPONSE can
+// carry up to 2 per 80-byte MESH frame), with no outer AppFrame header. The
+// AppFrame/0xAA-magic parser in their code is only used for a separate
+// contract/direct-frame path, not gateway uplink.
 //
 // No dependencies beyond Node's built-in `crypto` — usable directly from a
 // Node-RED function node (paste the body, or `require()` this file if your

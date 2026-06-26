@@ -62,12 +62,14 @@ per-RU process, not part of the NestJS/Next.js workspaces):
   `gld/server/decoded` / `gld/server/alarm` / `gld/gateway/error`.
 - `nodered/.env.example`, `nodered/package.json`, `nodered/README.md`.
 
-**Assumption not yet confirmed against real gateway firmware** (flagged in
-code comments too): `frameHex` on `gld/gateway/uplink` is one or more
-concatenated raw 34-byte GLDRecords, with no outer AppFrame header. If real
-firmware wraps GLDRecords differently, strip that header before calling
-`decodeGatewayFrame()` — the GLDRecord/AES-GCM layer itself doesn't need to
-change.
+**Confirmed 2026-06-26** against `fadlurrahmanf/PertaminaGLD`'s actual
+Node-RED decode function (`server/nodered/...`): `frameHex` on
+`gld/gateway/uplink` is one or more concatenated raw 34-byte GLDRecords, with
+no outer AppFrame header — their gateway-status handler parses
+`payload_hex` directly as a GLDRecord or encrypted payload by length check;
+the AppFrame/`0xAA`-magic parser in their code is a separate path used only
+for contract/direct frames, not gateway uplink. Our framing assumption in
+`decodeGatewayFrame()` matches as-is, no change needed.
 
 ## Install/start scripts (2026-06-25)
 
@@ -83,4 +85,4 @@ change.
 
 ## Still needed
 
-- Confirm the AppFrame-vs-raw-GLDRecord framing assumption above once real gateway firmware/hardware is available to test against.
+- Nothing outstanding on the framing question (see confirmation above). Remaining unknowns are hardware-side: validate against a real gateway/CH/GLD unit once available, since the source-repo comparison only confirms the *server-side* decode logic, not real-world RF/timing behavior.
