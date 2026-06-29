@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GasGuard V2 — Single-RU Focus &amp; Dashboard Delivery</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1c2230;
+    --border: #30363d;
+    --orange: #f97316;
+    --orange-dim: #c2410c;
+    --amber: #fbbf24;
+    --green: #22c55e;
+    --red: #ef4444;
+    --blue: #3b82f6;
+    --cyan: #06b6d4;
+    --purple: #a855f7;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --font: 'Segoe UI', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); overflow: hidden; height: 100vh; width: 100vw; }
+  .deck { width: 100%; height: 100vh; position: relative; }
+  .slide { position: absolute; inset: 0; display: flex; flex-direction: column; padding: 48px 64px; opacity: 0; pointer-events: none; transition: opacity .35s ease; }
+  .slide.active { opacity: 1; pointer-events: all; }
+  .slide-label { font-size: 11px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; color: var(--orange); margin-bottom: 6px; }
+  h1 { font-size: clamp(28px, 4vw, 52px); font-weight: 700; line-height: 1.1; }
+  h2 { font-size: clamp(22px, 3vw, 38px); font-weight: 700; line-height: 1.2; }
+  h3 { font-size: 18px; font-weight: 600; color: var(--orange); margin-bottom: 8px; }
+  .subtitle { font-size: 18px; color: var(--muted); margin-top: 12px; font-weight: 400; }
+  .body { font-size: 16px; line-height: 1.7; color: #cdd9e5; }
+  .cols { display: grid; gap: 32px; }
+  .cols-2 { grid-template-columns: 1fr 1fr; }
+  .cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .fill { flex: 1; overflow: auto; }
+  .mt8 { margin-top: 8px; } .mt16 { margin-top: 16px; } .mt24 { margin-top: 24px; } .mt32 { margin-top: 32px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; }
+  .card.accent-orange { border-left: 3px solid var(--orange); }
+  .card.accent-green  { border-left: 3px solid var(--green); }
+  .card.accent-red    { border-left: 3px solid var(--red); }
+  .card.accent-blue   { border-left: 3px solid var(--blue); }
+  .card.accent-cyan   { border-left: 3px solid var(--cyan); }
+  .card.accent-purple { border-left: 3px solid var(--purple); }
+  .card.accent-amber  { border-left: 3px solid var(--amber); }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+  .badge-orange { background: rgba(249,115,22,.15); color: var(--orange); border: 1px solid rgba(249,115,22,.3); }
+  .badge-green  { background: rgba(34,197,94,.15);  color: var(--green);  border: 1px solid rgba(34,197,94,.3); }
+  .badge-red    { background: rgba(239,68,68,.15);  color: var(--red);    border: 1px solid rgba(239,68,68,.3); }
+  .badge-blue   { background: rgba(59,130,246,.15); color: var(--blue);   border: 1px solid rgba(59,130,246,.3); }
+  .badge-amber  { background: rgba(251,191,36,.15); color: var(--amber);  border: 1px solid rgba(251,191,36,.3); }
+  .badge-cyan   { background: rgba(6,182,212,.15);  color: var(--cyan);   border: 1px solid rgba(6,182,212,.3); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { background: var(--surface2); color: var(--muted); font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  td { padding: 10px 14px; border-bottom: 1px solid rgba(48,54,61,.5); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,.02); }
+  .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 24px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; text-align: center; }
+  .stat-num { font-size: 36px; font-weight: 800; color: var(--orange); line-height: 1; }
+  .stat-label { font-size: 12px; color: var(--muted); margin-top: 6px; text-transform: uppercase; letter-spacing: 1px; }
+  .title-slide { justify-content: center; background: radial-gradient(ellipse at 70% 40%, rgba(249,115,22,.08) 0%, transparent 60%), radial-gradient(ellipse at 20% 80%, rgba(59,130,246,.05) 0%, transparent 50%), var(--bg); }
+  .title-tag { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; background: rgba(34,197,94,.1); border: 1px solid rgba(34,197,94,.3); border-radius: 20px; font-size: 12px; font-weight: 600; color: var(--green); letter-spacing: 1px; margin-bottom: 20px; }
+  .title-dot { width: 6px; height: 6px; background: var(--green); border-radius: 50%; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .4; transform: scale(1.4); } }
+  .slide-header { display: flex; align-items: flex-start; justify-content: space-between; padding-bottom: 24px; border-bottom: 1px solid var(--border); margin-bottom: 28px; }
+  #nav { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; background: rgba(22,27,34,.9); border: 1px solid var(--border); border-radius: 40px; padding: 10px 20px; backdrop-filter: blur(12px); z-index: 100; user-select: none; }
+  #nav button { background: none; border: none; color: var(--text); cursor: pointer; font-size: 18px; padding: 4px 8px; border-radius: 6px; transition: background .15s, color .15s; }
+  #nav button:hover { background: var(--surface2); color: var(--orange); }
+  #nav button:disabled { color: var(--muted); cursor: default; }
+  #nav button:disabled:hover { background: none; }
+  #counter { font-size: 13px; color: var(--muted); min-width: 56px; text-align: center; font-variant-numeric: tabular-nums; }
+  #progress { position: fixed; top: 0; left: 0; height: 3px; background: linear-gradient(90deg, var(--green), var(--cyan)); transition: width .35s ease; z-index: 200; }
+  .slide-num { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .bullets { list-style: none; }
+  .bullets li { display: flex; gap: 10px; padding: 6px 0; font-size: 15px; line-height: 1.5; border-bottom: 1px solid rgba(48,54,61,.4); }
+  .bullets li:last-child { border-bottom: none; }
+  .bullet-dot { width: 6px; height: 6px; background: var(--orange); border-radius: 50%; flex-shrink: 0; margin-top: 8px; }
+  .bullet-dot.done { background: var(--green); }
+  .role-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 20px; }
+  .role-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px; }
+  .role-title { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+  .role-scope { font-size: 11px; color: var(--muted); margin-bottom: 10px; }
+  .role-perms { font-size: 12px; color: #cdd9e5; line-height: 1.6; }
+  .ru-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-top: 20px; }
+  .ru-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center; }
+  .ru-card.active { border-color: var(--green); background: rgba(34,197,94,.08); }
+  .ru-card.locked { opacity: .45; }
+  .ru-name { font-size: 14px; font-weight: 700; }
+  .ru-status { font-size: 10px; margin-top: 6px; text-transform: uppercase; letter-spacing: .5px; }
+  .checklist { list-style: none; margin-top: 16px; }
+  .checklist li { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; font-size: 14px; border-bottom: 1px solid rgba(48,54,61,.4); }
+  .checklist li:last-child { border-bottom: none; }
+  .check { color: var(--green); font-weight: 800; flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<div id="progress"></div>
+
+<div class="deck">
+
+  <!-- SLIDE 1: TITLE -->
+  <div class="slide title-slide active" id="s1">
+    <div class="title-tag"><span class="title-dot"></span>Shipped — Issues #15 &amp; #16 Closed</div>
+    <h1>Single-RU <span style="color:var(--green)">Focus</span></h1>
+    <h1 style="color:var(--muted); font-weight:300">RU-Specific Dashboard, Delivered</h1>
+    <p class="subtitle mt16">GasGuard V2 — Scope narrowed to one Refinery Unit with full access control &amp; data isolation</p>
+
+    <div class="stat-grid" style="margin-top: 48px;">
+      <div class="stat-card"><div class="stat-num">1</div><div class="stat-label">Active RU in Scope</div></div>
+      <div class="stat-card"><div class="stat-num">3</div><div class="stat-label">User Roles</div></div>
+      <div class="stat-card"><div class="stat-num">100%</div><div class="stat-label">Data Isolation</div></div>
+      <div class="stat-card"><div class="stat-num">2/2</div><div class="stat-label">Issues Closed</div></div>
+    </div>
+
+    <p style="font-size:13px; color:var(--muted); margin-top: auto; padding-top: 32px;">Use ← → arrow keys or buttons below to navigate</p>
+  </div>
+
+  <!-- SLIDE 2: ISSUE #16 SUMMARY -->
+  <div class="slide" id="s2">
+    <div class="slide-header">
+      <div><div class="slide-label">Issue #16 · Resolved</div><h2>Focus on One RU at a Time</h2></div>
+      <span class="slide-num">2 / 7</span>
+    </div>
+    <div class="cols cols-2">
+      <div class="card accent-red">
+        <h3 style="color:var(--red)">Problem</h3>
+        <p class="body">Running all 6 RUs (RU2–RU7) simultaneously created cross-cutting concerns: shared firewall rules, mixed network zones, and regulatory boundaries that don't map cleanly to a single multi-tenant deployment.</p>
+      </div>
+      <div class="card accent-green">
+        <h3 style="color:var(--green)">Resolution</h3>
+        <p class="body">Platform scope narrowed to <strong>one RU per deployment instance</strong>. Each RU now runs as an isolated stack — its own network segment, firewall policy, and compliance boundary — eliminating the multi-RU security surface entirely.</p>
+      </div>
+    </div>
+    <div class="ru-grid">
+      <div class="ru-card active"><div class="ru-name">RU2</div><div class="ru-status" style="color:var(--green)">Active Instance</div></div>
+      <div class="ru-card locked"><div class="ru-name">RU3</div><div class="ru-status" style="color:var(--muted)">Out of Scope</div></div>
+      <div class="ru-card locked"><div class="ru-name">RU4</div><div class="ru-status" style="color:var(--muted)">Out of Scope</div></div>
+      <div class="ru-card locked"><div class="ru-name">RU5</div><div class="ru-status" style="color:var(--muted)">Out of Scope</div></div>
+      <div class="ru-card locked"><div class="ru-name">RU6</div><div class="ru-status" style="color:var(--muted)">Out of Scope</div></div>
+      <div class="ru-card locked"><div class="ru-name">RU7</div><div class="ru-status" style="color:var(--muted)">Out of Scope</div></div>
+    </div>
+    <p class="body mt16" style="color:var(--muted); font-size:13px;">Other RUs can be deployed later as their own independent stack — same template, separate firewall/security review per unit.</p>
+  </div>
+
+  <!-- SLIDE 3: ISSUE #15 SUMMARY -->
+  <div class="slide" id="s3">
+    <div class="slide-header">
+      <div><div class="slide-label">Issue #15 · Resolved</div><h2>RU-Specific Dashboard, Access Control &amp; User Management</h2></div>
+      <span class="slide-num">3 / 7</span>
+    </div>
+    <div class="cols cols-2 fill">
+      <div>
+        <h3>Delivered Checklist</h3>
+        <ul class="checklist">
+          <li><span class="check">✓</span>Dedicated dashboard scoped to the active RU's sensors &amp; location</li>
+          <li><span class="check">✓</span>Role-based access control (Admin / Operator / Viewer)</li>
+          <li><span class="check">✓</span>Per-RU user management (add / remove / assign roles)</li>
+          <li><span class="check">✓</span>Registration workflow tied to the RU</li>
+          <li><span class="check">✓</span>Backend APIs filter all data by RU at the query layer</li>
+          <li><span class="check">✓</span>Logs, events &amp; history scoped per RU</li>
+        </ul>
+      </div>
+      <div class="card accent-green">
+        <h3 style="color:var(--green)">Success Criteria — All Met</h3>
+        <p class="body">Single RU has an isolated dashboard. Users only see and act on their assigned RU. Registration and management work end-to-end. Access is enforced at both UI and API levels. No cross-unit data leakage observed in verification testing.</p>
+        <div class="badge badge-green mt16">Status: Done</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 4: ACCESS CONTROL -->
+  <div class="slide" id="s4">
+    <div class="slide-header">
+      <div><div class="slide-label">Access Control</div><h2>Role-Based Permissions per RU</h2></div>
+      <span class="slide-num">4 / 7</span>
+    </div>
+    <div class="role-grid">
+      <div class="role-card">
+        <div class="role-title">Admin</div>
+        <div class="role-scope">RU2 — full control</div>
+        <div class="role-perms">Manage users, configure sensors, acknowledge alarms, export logs, edit RU settings</div>
+      </div>
+      <div class="role-card">
+        <div class="role-title">Operator</div>
+        <div class="role-scope">RU2 — operate &amp; respond</div>
+        <div class="role-perms">View live dashboard, acknowledge alarms, log incidents, no user management</div>
+      </div>
+      <div class="role-card">
+        <div class="role-title">Viewer</div>
+        <div class="role-scope">RU2 — read only</div>
+        <div class="role-perms">View dashboard, sensor map, and historical data; no write actions</div>
+      </div>
+      <div class="role-card">
+        <div class="role-title">System</div>
+        <div class="role-scope">Cross-RU (future)</div>
+        <div class="role-perms">Reserved for platform-level operations once multi-RU rollout resumes</div>
+      </div>
+    </div>
+    <div class="card accent-blue mt24">
+      <h3 style="color:var(--blue)">Enforcement</h3>
+      <p class="body">RBAC is checked at both the UI (route guards, conditional rendering) and the API (middleware validates role + RU claim on every request). A user's session token carries a single RU id — requests for any other RU id are rejected with 403.</p>
+    </div>
+  </div>
+
+  <!-- SLIDE 5: DATA ISOLATION -->
+  <div class="slide" id="s5">
+    <div class="slide-header">
+      <div><div class="slide-label">Data Isolation</div><h2>RU-Scoped Data at Every Layer</h2></div>
+      <span class="slide-num">5 / 7</span>
+    </div>
+    <table>
+      <thead><tr><th>Layer</th><th>Isolation Mechanism</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>Dashboard UI</td><td>Single-RU view; no RU switcher exposed to non-admin roles</td><td><span class="badge badge-green">Done</span></td></tr>
+        <tr><td>Sensor Map</td><td>Renders only devices/locations tagged with the active RU id</td><td><span class="badge badge-green">Done</span></td></tr>
+        <tr><td>REST/API endpoints</td><td>Every query filtered by <code>ruId</code> from the authenticated session</td><td><span class="badge badge-green">Done</span></td></tr>
+        <tr><td>Database</td><td><code>ruId</code> foreign key + row constraints on devices, events, users</td><td><span class="badge badge-green">Done</span></td></tr>
+        <tr><td>Event/alarm logs</td><td>Historical data queries scoped per RU; exports inherit same filter</td><td><span class="badge badge-green">Done</span></td></tr>
+        <tr><td>Registration</td><td>New accounts bound to one RU at signup; no cross-RU self-assignment</td><td><span class="badge badge-green">Done</span></td></tr>
+      </tbody>
+    </table>
+    <p class="body mt24" style="color:var(--muted); font-size:13px;">Verified: cross-unit data leakage tests passed with zero records returned for out-of-scope RU ids.</p>
+  </div>
+
+  <!-- SLIDE 6: BEFORE / AFTER -->
+  <div class="slide" id="s6">
+    <div class="slide-header">
+      <div><div class="slide-label">Impact</div><h2>Before vs. After</h2></div>
+      <span class="slide-num">6 / 7</span>
+    </div>
+    <div class="cols cols-2 fill">
+      <div class="card accent-red">
+        <h3 style="color:var(--red)">Before</h3>
+        <ul class="bullets">
+          <li><span class="bullet-dot"></span>All 6 RUs shared one dashboard and database scope</li>
+          <li><span class="bullet-dot"></span>No per-RU role boundaries — any user could see any unit</li>
+          <li><span class="bullet-dot"></span>Firewall/network policy had to cover every RU at once</li>
+          <li><span class="bullet-dot"></span>Registration had no RU affiliation step</li>
+        </ul>
+      </div>
+      <div class="card accent-green">
+        <h3 style="color:var(--green)">After</h3>
+        <ul class="bullets">
+          <li><span class="bullet-dot done"></span>One RU per deployment, fully isolated dashboard</li>
+          <li><span class="bullet-dot done"></span>RBAC: Admin / Operator / Viewer scoped to that RU</li>
+          <li><span class="bullet-dot done"></span>Security/firewall review simplified to a single boundary</li>
+          <li><span class="bullet-dot done"></span>Registration assigns and verifies RU at signup</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 7: CLOSED ISSUES -->
+  <div class="slide" id="s7">
+    <div class="slide-header">
+      <div><div class="slide-label">Wrap-up</div><h2>Issues Closed</h2></div>
+      <span class="slide-num">7 / 7</span>
+    </div>
+    <div class="cols cols-2 fill">
+      <div class="card accent-green">
+        <div class="badge badge-green">#16 Closed</div>
+        <h3 class="mt8">Focus on one RU at a time</h3>
+        <p class="body">Scope reduced to a single Refinery Unit, removing multi-RU security, firewall, and regulatory complexity.</p>
+      </div>
+      <div class="card accent-green">
+        <div class="badge badge-green">#15 Closed</div>
+        <h3 class="mt8">RU-Specific Dashboard with Access Control &amp; User Management</h3>
+        <p class="body">Isolated dashboard, RBAC, per-RU user management, RU-bound registration, and end-to-end data isolation all implemented and verified.</p>
+      </div>
+    </div>
+    <div class="card accent-blue mt24">
+      <h3 style="color:var(--blue)">Next</h3>
+      <p class="body">Other RUs (RU3–RU7) can reuse this same isolated-stack template when their independent security/firewall reviews are ready.</p>
+    </div>
+  </div>
+
+</div><!-- end deck -->
+
+<div id="nav">
+  <button id="btn-prev" onclick="go(-1)" title="Previous (←)" disabled>&#8592;</button>
+  <span id="counter">1 / 7</span>
+  <button id="btn-next" onclick="go(1)" title="Next (→)">&#8594;</button>
+</div>
+
+<script>
+  const TOTAL = 7;
+  let cur = 1;
+  function show(n) {
+    document.getElementById('s' + cur)?.classList.remove('active');
+    cur = Math.max(1, Math.min(TOTAL, n));
+    document.getElementById('s' + cur)?.classList.add('active');
+    document.getElementById('counter').textContent = cur + ' / ' + TOTAL;
+    document.getElementById('btn-prev').disabled = cur === 1;
+    document.getElementById('btn-next').disabled = cur === TOTAL;
+    document.getElementById('progress').style.width = (cur / TOTAL * 100) + '%';
+  }
+  function go(d) { show(cur + d); }
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ')  { e.preventDefault(); go(1); }
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')                      { e.preventDefault(); go(-1); }
+    if (e.key === 'Home') show(1);
+    if (e.key === 'End')  show(TOTAL);
+  });
+  show(1);
+</script>
+</body>
+</html>
