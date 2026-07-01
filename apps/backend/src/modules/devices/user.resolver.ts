@@ -1,5 +1,5 @@
 import { Args, Mutation, Query, Resolver, Int } from '@nestjs/graphql';
-import { User, CreateUserInput, LoginResult, AnalyticsStats, EventLog, CreateEventLogInput } from './device.model';
+import { User, CreateUserInput, UpdateUserInput, LoginResult, AnalyticsStats, EventLog, CreateEventLogInput } from './device.model';
 import { DeviceService } from './device.service';
 
 @Resolver(() => User)
@@ -39,6 +39,14 @@ export class UserResolver {
     @Args('id', { type: () => String }) id: string
   ): Promise<boolean> {
     return this.deviceService.deleteUser(id);
+  }
+
+  @Mutation(() => User)
+  async updateUser(
+    @Args('id', { type: () => String }) id: string,
+    @Args('input', { type: () => UpdateUserInput }) input: UpdateUserInput,
+  ): Promise<User> {
+    return this.deviceService.updateUser(id, input);
   }
 
   @Query(() => [EventLog])

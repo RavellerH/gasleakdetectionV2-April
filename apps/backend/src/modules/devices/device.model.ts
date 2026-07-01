@@ -132,6 +132,57 @@ export class CreateUserInput {
   role!: string;
 }
 
+@InputType()
+export class UpdateUserInput {
+  @Field({ nullable: true })
+  @IsString()
+  @IsOptional()
+  email?: string;
+
+  @Field({ nullable: true })
+  @IsString()
+  @IsOptional()
+  name?: string;
+
+  @Field({ nullable: true })
+  @IsString()
+  @IsOptional()
+  password?: string;
+
+  @Field({ nullable: true })
+  @IsString()
+  @IsOptional()
+  ruId?: string;
+
+  @Field({ nullable: true })
+  @IsString()
+  @IsOptional()
+  role?: string;
+}
+
+@InputType()
+export class UpdateDeviceInput {
+  @Field({ nullable: true })
+  @IsString()
+  @IsOptional()
+  name?: string;
+
+  @Field({ nullable: true })
+  @IsString()
+  @IsOptional()
+  deviceType?: string;
+
+  @Field({ nullable: true })
+  @IsString()
+  @IsOptional()
+  ruId?: string;
+
+  @Field({ nullable: true })
+  @IsString()
+  @IsOptional()
+  status?: string;
+}
+
 @ObjectType()
 export class LoginResult {
   @Field(() => User, { nullable: true })
