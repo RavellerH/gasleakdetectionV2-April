@@ -496,6 +496,17 @@ export default function GasLeakDashboard() {
               </div>
             )}
           </div>
+          {currentUser.role === 'ADMIN' && (
+            <a
+              href="/admin"
+              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: sidebarCollapsed ? '8px 0' : '8px 12px', justifyContent: sidebarCollapsed ? 'center' : 'flex-start', borderRadius: 9, cursor: 'pointer', color: 'var(--accent)', marginTop: 2, textDecoration: 'none' }}
+              onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(56,189,248,0.07)'}
+              onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.background = 'transparent'}
+            >
+              <Shield size={15} />
+              {!sidebarCollapsed && <span style={{ fontSize: 13, fontWeight: 500 }}>Admin Panel</span>}
+            </a>
+          )}
           <div
             onClick={handleLogout}
             style={{ display: 'flex', alignItems: 'center', gap: 10, padding: sidebarCollapsed ? '8px 0' : '8px 12px', justifyContent: sidebarCollapsed ? 'center' : 'flex-start', borderRadius: 9, cursor: 'pointer', color: '#ef4444', marginTop: 2 }}

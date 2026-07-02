@@ -1,5 +1,5 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
-import { Device, DeviceLocation, BatteryMetrics, NetworkMetrics, CreateDeviceInput, GasReading, DashboardStats, RuStats, TimelineEntry, Alert, BatteryDistEntry, NetworkQualityEntry, SystemSettings, UpdateSettingsInput, User, CreateUserInput, LoginResult, AnalyticsStats, WeeklyTrendEntry, HeatmapEntry, SiteRanking, EventLog, CreateEventLogInput, SensorTimeline, TrendPoint, RuComparisonEntry, HeatmapCell, TopSensorEntry, FleetBatteryBucket, FleetNetworkBucket, FleetHealthStats } from './device.model';
+import { Device, DeviceLocation, BatteryMetrics, NetworkMetrics, CreateDeviceInput, UpdateDeviceInput, GasReading, DashboardStats, RuStats, TimelineEntry, Alert, BatteryDistEntry, NetworkQualityEntry, SystemSettings, UpdateSettingsInput, User, CreateUserInput, UpdateUserInput, LoginResult, AnalyticsStats, WeeklyTrendEntry, HeatmapEntry, SiteRanking, EventLog, CreateEventLogInput, SensorTimeline, TrendPoint, RuComparisonEntry, HeatmapCell, TopSensorEntry, FleetBatteryBucket, FleetNetworkBucket, FleetHealthStats } from './device.model';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -218,6 +218,17 @@ export class DeviceService {
   async deleteUser(id: string): Promise<boolean> {
     await this.prisma.user.delete({ where: { id } });
     return true;
+  }
+
+  async updateUser(id: string, input: UpdateUserInput): Promise<User> {
+    const data: Record<string, unknown> = {};
+    if (input.email !== undefined) data.email = input.email;
+    if (input.name !== undefined) data.name = input.name;
+    if (input.password !== undefined) data.password = input.password;
+    if (input.ruId !== undefined) data.ruId = input.ruId;
+    if (input.role !== undefined) data.role = input.role;
+    const u = await this.prisma.user.update({ where: { id }, data });
+    return { ...u, name: u.name || undefined };
   }
 
   // DEV MODE: password check disabled
@@ -518,11 +529,27 @@ export class DeviceService {
   }
 
   async findAll(ruId: string): Promise<Device[]> {
+    const where = ruId === 'ALL' ? {} : { ruId };
     const devices = await this.prisma.device.findMany({
-      where: { ruId },
+      where,
       include: { readings: { orderBy: { timestamp: 'desc' }, take: 1 } }
     });
     return devices.map(d => this.mapToDevice(d));
+  }
+
+  async deleteDevice(id: string): Promise<boolean> {
+    await this.prisma.device.delete({ where: { id } });
+    return true;
+  }
+
+  async updateDevice(id: string, input: UpdateDeviceInput): Promise<Device> {
+    const data: Record<string, unknown> = {};
+    if (input.name !== undefined) data.name = input.name;
+    if (input.deviceType !== undefined) data.deviceType = input.deviceType;
+    if (input.ruId !== undefined) data.ruId = input.ruId;
+    if (input.status !== undefined) data.status = input.status;
+    const d = await this.prisma.device.update({ where: { id }, data });
+    return this.mapToDevice(d);
   }
 
   async updateLocation(deviceId: string, location: { lat: number; lng: number }): Promise<Device | null> {
