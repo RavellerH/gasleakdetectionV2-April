@@ -442,6 +442,63 @@ export async function updateDeviceName(
   return data.updateDeviceName;
 }
 
+const DELETE_DEVICE_MUTATION = /* GraphQL */ `
+  mutation DeleteDevice($id: String!) {
+    deleteDevice(id: $id)
+  }
+`;
+
+const UPDATE_DEVICE_MUTATION = /* GraphQL */ `
+  mutation UpdateDevice($id: String!, $input: UpdateDeviceInput!) {
+    updateDevice(id: $id, input: $input) {
+      id macAddress name ruId type healthScore status
+      location { lat lng }
+      battery { voltage soc }
+      network { rssi qualityScore }
+    }
+  }
+`;
+
+const CREATE_DEVICE_MUTATION = /* GraphQL */ `
+  mutation CreateDevice($input: CreateDeviceInput!) {
+    createDevice(input: $input) {
+      id macAddress name ruId type healthScore status
+      location { lat lng }
+      battery { voltage soc }
+      network { rssi qualityScore }
+    }
+  }
+`;
+
+export interface UpdateDeviceInput {
+  name?: string;
+  deviceType?: string;
+  ruId?: string;
+  status?: string;
+}
+
+export async function deleteDevice(id: string): Promise<boolean> {
+  const data = await graphqlClient.request<{ deleteDevice: boolean }>(DELETE_DEVICE_MUTATION, { id });
+  return data.deleteDevice;
+}
+
+export async function updateDevice(id: string, input: UpdateDeviceInput): Promise<Device> {
+  const data = await graphqlClient.request<{ updateDevice: Device }>(UPDATE_DEVICE_MUTATION, { id, input });
+  return data.updateDevice;
+}
+
+export async function createDevice(input: {
+  macAddress: string;
+  name?: string;
+  deviceType: string;
+  ruId: string;
+  location: { lat: number; lng: number };
+  registeredBy: string;
+}): Promise<Device> {
+  const data = await graphqlClient.request<{ createDevice: Device }>(CREATE_DEVICE_MUTATION, { input });
+  return data.createDevice;
+}
+
 // ── EVENT LOG ──────────────────────────────────────────────────
 
 export interface EventLog {

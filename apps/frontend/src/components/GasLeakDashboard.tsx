@@ -12,7 +12,8 @@ import dynamic from 'next/dynamic';
 import {
   fetchDevices, fetchDashboardStats, fetchSettings, updateSettings,
   fetchUsers, createUser, deleteUser, login,
-  updateDeviceName, fetchSensorTimeline, createEventLog,
+  updateDeviceName, createDevice, deleteDevice, updateDevice,
+  fetchSensorTimeline, createEventLog,
   type Device, type DashboardStats, type SystemSettings,
   type User, type Alert, type SensorTimeline,
 } from '@/lib/graphql';
@@ -61,6 +62,15 @@ const NAV_GROUPS = [
 const NAV = NAV_GROUPS.flatMap(g => g.items);
 
 const SENSOR_COLORS = ['#38bdf8','#3b82f6','#34d399','#f59e0b','#f472b6','#60a5fa','#fb923c','#4ade80','#e879f9','#22d3ee'];
+
+const RU_CENTERS: Record<string, { lat: number; lng: number }> = {
+  RU2: { lat: 1.6785, lng: 101.4725 },  // Dumai, Riau
+  RU3: { lat: -2.9782, lng: 104.7994 }, // Plaju, Palembang
+  RU4: { lat: -7.7196, lng: 108.9887 }, // Cilacap, Central Java
+  RU5: { lat: -1.2627, lng: 116.8162 }, // Balikpapan, East Kalimantan
+  RU6: { lat: -6.3717, lng: 108.3881 }, // Balongan, Indramayu
+  RU7: { lat: -1.3157, lng: 131.0332 }, // Kasim, Sorong
+};
 
 /* ── tiny helpers ────────────────────────────────────────────── */
 function statusColor(s: string) {
@@ -194,6 +204,11 @@ export default function GasLeakDashboard() {
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [deviceToRename, setDeviceToRename] = useState<Device | null>(null);
   const [newDeviceName, setNewDeviceName] = useState('');
+  const [showDeviceModal, setShowDeviceModal] = useState<'create'|'edit'|null>(null);
+  const [deviceForm, setDeviceForm] = useState({
+    macAddress: '', name: '', deviceType: 'SENSOR', ruId: 'RU2', status: 'ONLINE', lat: '0', lng: '0',
+  });
+  const [deviceToEdit, setDeviceToEdit] = useState<Device | null>(null);
 
   /* restore session */
   useEffect(() => {
@@ -314,6 +329,63 @@ export default function GasLeakDashboard() {
     setIsSaving(true);
     try { await updateDeviceName(deviceToRename.id, newDeviceName.trim()); setShowRenameModal(false); setDeviceToRename(null); setNewDeviceName(''); loadDevices(activeRU); }
     catch (err) { console.error(err); } finally { setIsSaving(false); }
+  };
+
+  const handleCreateDevice = async (e: React.FormEvent) => {
+    e.preventDefault(); setIsSaving(true);
+    try {
+      await createDevice({
+        macAddress: deviceForm.macAddress || `AUTO-${Date.now()}`,
+        name: deviceForm.name,
+        deviceType: deviceForm.deviceType,
+        ruId: deviceForm.ruId,
+        location: { lat: parseFloat(deviceForm.lat) || 0, lng: parseFloat(deviceForm.lng) || 0 },
+        registeredBy: currentUser?.id ?? '',
+      });
+      setShowDeviceModal(null);
+      setDeviceForm({ macAddress: '', name: '', deviceType: 'SENSOR', ruId: 'RU2', status: 'ONLINE', lat: '0', lng: '0' });
+      loadDevices(activeRU);
+    } catch (err) { console.error(err); } finally { setIsSaving(false); }
+  };
+
+  const handleEditDevice = async (e: React.FormEvent) => {
+    e.preventDefault(); if (!deviceToEdit) return;
+    setIsSaving(true);
+    try {
+      await updateDevice(deviceToEdit.id, {
+        name: deviceForm.name,
+        deviceType: deviceForm.deviceType,
+        ruId: deviceForm.ruId,
+        status: deviceForm.status,
+      });
+      setShowDeviceModal(null);
+      setDeviceToEdit(null);
+      setDeviceForm({ macAddress: '', name: '', deviceType: 'SENSOR', ruId: 'RU2', status: 'ONLINE', lat: '0', lng: '0' });
+      loadDevices(activeRU);
+    } catch (err) { console.error(err); } finally { setIsSaving(false); }
+  };
+
+  const handleDeleteDevice = async (d: Device) => {
+    if (!confirm(`Delete device "${d.name}" (${d.macAddress})?`)) return;
+    try { await deleteDevice(d.id); loadDevices(activeRU); }
+    catch (err) { console.error(err); }
+  };
+
+  const openCreateDevice = () => {
+    const ru = activeRU === 'ALL' ? 'RU2' : activeRU;
+    const center = RU_CENTERS[ru] ?? { lat: 0, lng: 0 };
+    setDeviceForm({ macAddress: '', name: '', deviceType: 'SENSOR', ruId: ru, status: 'ONLINE', lat: String(center.lat), lng: String(center.lng) });
+    setShowDeviceModal('create');
+  };
+
+  const openEditDevice = (d: Device) => {
+    setDeviceForm({
+      macAddress: d.macAddress, name: d.name, deviceType: d.type,
+      ruId: d.ruId, status: d.status,
+      lat: String(d.location.lat), lng: String(d.location.lng),
+    });
+    setDeviceToEdit(d);
+    setShowDeviceModal('edit');
   };
 
   const handleUpdateAlertStatus = (alertId: string, status: string) =>
@@ -895,12 +967,15 @@ export default function GasLeakDashboard() {
                   <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--t1)' }}>Device Fleet</div>
                   <div style={{ fontSize: 11, color: 'var(--t3)', fontFamily: "'Geist Mono', monospace" }}>{filteredDevices.length} NODES — {activeRU}</div>
                 </div>
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   {['ALL','GATEWAY','CLUSTER','SENSOR'].map(type => (
                     <button key={type} onClick={() => setActiveType(type)} style={{ padding: '5px 12px', borderRadius: 20, fontSize: 11, fontWeight: activeType === type ? 600 : 400, cursor: 'pointer', background: activeType === type ? 'var(--primary-soft)' : 'var(--input-bg)', border: activeType === type ? '1px solid var(--primary-border)' : '1px solid var(--card-border)', color: activeType === type ? 'var(--primary)' : 'var(--t3)', fontFamily: "'Geist Mono', monospace" }}>
                       {type}
                     </button>
                   ))}
+                  <button onClick={openCreateDevice} style={{ padding:'5px 14px',borderRadius:20,fontSize:11,fontWeight:600,cursor:'pointer',background:'linear-gradient(135deg,#1d4ed8,#2563eb)',border:'none',color:'#fff',fontFamily:"'Geist Mono', monospace",marginLeft:8 }}>
+                    + Register
+                  </button>
                 </div>
               </div>
               <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 18, boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
@@ -957,10 +1032,16 @@ export default function GasLeakDashboard() {
                               </div>
                             </td>
                             <td style={{ padding: '11px 16px' }}>
-                              <button onClick={e => { e.stopPropagation(); setDeviceToRename(d); setNewDeviceName(d.name); setShowRenameModal(true); }}
-                                style={{ fontSize: 11, color: 'var(--t3)', background: 'var(--input-bg)', border: '1px solid var(--card-border)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontWeight: 600 }}>
-                                Rename
-                              </button>
+                              <div style={{ display: 'flex', gap: 6 }}>
+                                <button onClick={e => { e.stopPropagation(); openEditDevice(d); }}
+                                  style={{ fontSize: 11, color: '#38bdf8', background: 'rgba(56,189,248,0.12)', border: '1px solid rgba(56,189,248,0.3)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontWeight: 600 }}>
+                                  Edit
+                                </button>
+                                <button onClick={e => { e.stopPropagation(); handleDeleteDevice(d); }}
+                                  style={{ fontSize: 11, color: '#ef4444', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontWeight: 600 }}>
+                                  Delete
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -1185,18 +1266,68 @@ export default function GasLeakDashboard() {
         </div>
       )}
 
-      {showRenameModal && (
+      {showDeviceModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}>
-          <div style={{ background: 'var(--sidebar-bg)', border: '1px solid var(--card-border)', borderRadius: 18, padding: 28, width: '100%', maxWidth: 380 }}>
-            <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--t1)', marginBottom: 6 }}>Rename Device</h3>
-            <p style={{ fontSize: 12, color: 'var(--t3)', marginBottom: 20, fontFamily: "'Geist Mono', monospace" }}>{deviceToRename?.macAddress}</p>
-            <form onSubmit={handleUpdateDeviceName} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <input autoFocus placeholder="Display name" required value={newDeviceName} onChange={e => setNewDeviceName(e.target.value)}
-                style={{ background:'var(--input-bg)',border:'1px solid var(--card-border)',borderRadius:10,padding:'10px 14px',color:'var(--t1)',fontSize:14 }} />
-              <div style={{ display:'flex',gap:10 }}>
-                <button type="button" onClick={() => setShowRenameModal(false)} style={{ flex:1,background:'transparent',border:'1px solid var(--card-border)',color:'var(--t3)',borderRadius:10,padding:'10px',fontSize:13,cursor:'pointer' }}>Cancel</button>
+          <div style={{ background: 'var(--sidebar-bg)', border: '1px solid var(--card-border)', borderRadius: 18, padding: 28, width: '100%', maxWidth: 460 }}>
+            <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--t1)', marginBottom: 20 }}>
+              {showDeviceModal === 'create' ? 'Register Device' : 'Edit Device'}
+            </h3>
+            <form onSubmit={showDeviceModal === 'create' ? handleCreateDevice : handleEditDevice} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {showDeviceModal === 'create' && (
+                <div>
+                  <label style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 4, display: 'block' }}>MAC Address (leave blank to auto-generate)</label>
+                  <input placeholder="AA:BB:CC:DD:EE:FF" value={deviceForm.macAddress} onChange={e => setDeviceForm(f => ({ ...f, macAddress: e.target.value }))}
+                    style={{ width:'100%',background:'var(--input-bg)',border:'1px solid var(--card-border)',borderRadius:10,padding:'10px 14px',color:'var(--t1)',fontSize:13 }} />
+                </div>
+              )}
+              <div>
+                <label style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 4, display: 'block' }}>Device Name *</label>
+                <input autoFocus required placeholder="Sensor A1" value={deviceForm.name} onChange={e => setDeviceForm(f => ({ ...f, name: e.target.value }))}
+                  style={{ width:'100%',background:'var(--input-bg)',border:'1px solid var(--card-border)',borderRadius:10,padding:'10px 14px',color:'var(--t1)',fontSize:13 }} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 4, display: 'block' }}>Device Type</label>
+                  <select value={deviceForm.deviceType} onChange={e => setDeviceForm(f => ({ ...f, deviceType: e.target.value }))}
+                    style={{ width:'100%',background:'var(--input-bg)',border:'1px solid var(--card-border)',borderRadius:10,padding:'10px 12px',color:'var(--t1)',fontSize:13 }}>
+                    {['SENSOR','ROUTING_NODE','CLUSTER_HEAD','GATEWAY'].map(t => <option key={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 4, display: 'block' }}>RU Site</label>
+                  <select value={deviceForm.ruId} onChange={e => setDeviceForm(f => ({ ...f, ruId: e.target.value }))}
+                    style={{ width:'100%',background:'var(--input-bg)',border:'1px solid var(--card-border)',borderRadius:10,padding:'10px 12px',color:'var(--t1)',fontSize:13 }}>
+                    {['RU2','RU3','RU4','RU5','RU6','RU7'].map(r => <option key={r}>{r}</option>)}
+                  </select>
+                </div>
+              </div>
+              {showDeviceModal === 'edit' && (
+                <div>
+                  <label style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 4, display: 'block' }}>Status</label>
+                  <select value={deviceForm.status} onChange={e => setDeviceForm(f => ({ ...f, status: e.target.value }))}
+                    style={{ width:'100%',background:'var(--input-bg)',border:'1px solid var(--card-border)',borderRadius:10,padding:'10px 12px',color:'var(--t1)',fontSize:13 }}>
+                    {['ONLINE','OFFLINE','WARNING'].map(s => <option key={s}>{s}</option>)}
+                  </select>
+                </div>
+              )}
+              {showDeviceModal === 'create' && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <label style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 4, display: 'block' }}>Latitude</label>
+                    <input type="number" step="any" placeholder="-7.250" value={deviceForm.lat} onChange={e => setDeviceForm(f => ({ ...f, lat: e.target.value }))}
+                      style={{ width:'100%',background:'var(--input-bg)',border:'1px solid var(--card-border)',borderRadius:10,padding:'10px 14px',color:'var(--t1)',fontSize:13 }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 4, display: 'block' }}>Longitude</label>
+                    <input type="number" step="any" placeholder="112.750" value={deviceForm.lng} onChange={e => setDeviceForm(f => ({ ...f, lng: e.target.value }))}
+                      style={{ width:'100%',background:'var(--input-bg)',border:'1px solid var(--card-border)',borderRadius:10,padding:'10px 14px',color:'var(--t1)',fontSize:13 }} />
+                  </div>
+                </div>
+              )}
+              <div style={{ display:'flex',gap:10,marginTop:8 }}>
+                <button type="button" onClick={() => { setShowDeviceModal(null); setDeviceToEdit(null); }} style={{ flex:1,background:'transparent',border:'1px solid var(--card-border)',color:'var(--t3)',borderRadius:10,padding:'10px',fontSize:13,cursor:'pointer' }}>Cancel</button>
                 <button type="submit" disabled={isSaving} style={{ flex:1,background:'linear-gradient(135deg,#1d4ed8,#2563eb)',border:'none',color:'#fff',borderRadius:10,padding:'10px',fontSize:13,fontWeight:600,cursor:'pointer',opacity:isSaving?0.7:1 }}>
-                  {isSaving ? 'Saving…' : 'Save Name'}
+                  {isSaving ? 'Saving…' : showDeviceModal === 'create' ? 'Register Device' : 'Save Changes'}
                 </button>
               </div>
             </form>

@@ -187,20 +187,58 @@ if %PORT_BUSY% equ 1 (
     echo.
 )
 
-:: ── Launch in separate windows ─────────────────────────────────
+:: ── Interactive launch menu ────────────────────────────────────
+echo.
+echo  =============================================
+echo    What would you like to launch?
+echo  =============================================
+echo.
+echo    [1] Backend + Frontend (http://localhost:3000)
+echo    [2] Backend + RU Frontend (http://localhost:3002)
+echo    [3] Backend + Both Frontends
+echo    [Q] Quit
+echo.
+choice /c 123Q /n /m "  Enter your choice (1/2/3/Q): "
+set LAUNCH_CHOICE=%errorlevel%
+
+if "%LAUNCH_CHOICE%"=="4" (
+    echo.
+    echo  Goodbye!
+    timeout /t 1 >nul
+    exit /b 0
+)
+
+echo.
 echo  Starting the app...
 echo.
 
 start "GLD — Backend  (port 4000)" cmd /k "title GLD Backend && cd /d %~dp0apps\backend && npm run start:dev"
-timeout /t 2 >nul
-start "GLD — Frontend (port 3000)" cmd /k "title GLD Frontend && cd /d %~dp0apps\frontend && npm run dev"
+timeout /t 3 >nul
+
+if "%LAUNCH_CHOICE%"=="1" (
+    start "GLD — Frontend (port 3000)" cmd /k "title GLD Frontend && cd /d %~dp0apps\frontend && npm run dev"
+    set OPEN_URL=http://localhost:3000
+    set RUN_LABEL=Frontend
+)
+if "%LAUNCH_CHOICE%"=="2" (
+    start "GLD — RU Frontend (port 3002)" cmd /k "title GLD RU Frontend && cd /d %~dp0apps\ru-frontend && npm run dev"
+    set OPEN_URL=http://localhost:3002
+    set RUN_LABEL=RU Frontend
+)
+if "%LAUNCH_CHOICE%"=="3" (
+    start "GLD — Frontend (port 3000)" cmd /k "title GLD Frontend && cd /d %~dp0apps\frontend && npm run dev"
+    timeout /t 2 >nul
+    start "GLD — RU Frontend (port 3002)" cmd /k "title GLD RU Frontend && cd /d %~dp0apps\ru-frontend && npm run dev"
+    set OPEN_URL=http://localhost:3000
+    set RUN_LABEL=Both Frontends
+)
 
 echo  =============================================
 echo.
-echo    The app is starting in two new windows.
-echo    Leave those windows open while you use the app.
+echo    The app is starting.
+echo    Leave the windows open while you use the app.
 echo.
-echo    Open your browser to:  http://localhost:3000
+echo    Open your browser to:  %OPEN_URL%
 echo.
 echo    Login:  admin@gld.com
 echo    Pass:   admin

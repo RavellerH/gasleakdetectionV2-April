@@ -6,6 +6,14 @@ import { fetchAllDevices, fetchUsers, createDevice, updateDevice, deleteDevice, 
 const DEVICE_TYPES = ['SENSOR', 'ROUTING_NODE', 'CLUSTER_HEAD', 'GATEWAY'];
 const STATUS_OPTIONS = ['ONLINE', 'OFFLINE', 'WARNING'];
 const RU_OPTIONS = ['RU2', 'RU3', 'RU4', 'RU5', 'RU6', 'RU7'];
+const RU_CENTERS: Record<string, { lat: number; lng: number }> = {
+  RU2: { lat: 1.6785, lng: 101.4725 },
+  RU3: { lat: -2.9782, lng: 104.7994 },
+  RU4: { lat: -7.7196, lng: 108.9887 },
+  RU5: { lat: -1.2627, lng: 116.8162 },
+  RU6: { lat: -6.3717, lng: 108.3881 },
+  RU7: { lat: -1.3157, lng: 131.0332 },
+};
 
 const TYPE_COLORS: Record<string, string> = {
   SENSOR: '#38bdf8',
@@ -90,7 +98,9 @@ export default function DevicesPage() {
   });
 
   function openCreate() {
-    setForm({ ...EMPTY_FORM, ruId: isSuperAdmin ? 'RU2' : (currentUser?.ruId ?? 'RU2') });
+    const ru = isSuperAdmin ? 'RU2' : (currentUser?.ruId ?? 'RU2');
+    const center = RU_CENTERS[ru] ?? { lat: 0, lng: 0 };
+    setForm({ ...EMPTY_FORM, ruId: ru, lat: String(center.lat), lng: String(center.lng) });
     setEditTarget(null);
     setModal('create');
   }
