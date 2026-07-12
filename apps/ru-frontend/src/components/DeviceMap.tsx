@@ -5,8 +5,8 @@ import MapGL, { Marker, MapRef, Source, Layer } from 'react-map-gl';
 import type { SkyLayerSpecification } from 'mapbox-gl';
 import useSupercluster from 'use-supercluster';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { X, Compass, Mountain, Share2, BatteryMedium, Wifi, Activity, MapPin, Network } from 'lucide-react';
-import type { Device } from '@/lib/graphql';
+import { X, Compass, Mountain, Share2, BatteryMedium, Wifi, Activity, MapPin, Network, Flame } from 'lucide-react';
+import type { Device, SensorTimeline } from '@/lib/graphql';
 import { updateDeviceLocation } from '@/lib/graphql';
 import { DevicePin } from './DevicePin';
 
@@ -25,11 +25,23 @@ function isWebGLSupported(): boolean {
 interface DeviceMapProps {
   devices: Device[];
   ruId: string;
+  /* known site coordinates — lets the map open zoomed on the RU before devices load */
+  ruCenter?: { lat: number; lng: number };
+  sensorTimeline?: SensorTimeline[];
   selectedDevice?: Device | null;
   onDeviceSelect?: (device: Device | null) => void;
   warningThreshold?: number;
   criticalThreshold?: number;
   onDeviceUpdate?: () => void;
+}
+
+/* same scale as the Overview heatmap */
+function heatmapColor(conf: number | null, warning: number, critical: number): string {
+  if (conf === null) return 'rgba(37,99,235,0.06)';
+  if (conf >= critical) return 'rgba(239,68,68,0.75)';
+  if (conf >= warning) return 'rgba(245,158,11,0.65)';
+  const r = Math.min(conf / Math.max(warning, 0.01), 1);
+  return `rgba(37,99,235,${0.08 + r * 0.50})`;
 }
 
 /* ── Sky atmosphere layer ───────────────────────────────────── */
@@ -72,24 +84,31 @@ function ClusterPin({ count, hasCritical, hasWarning, onClick }: {
 export function DeviceMap({
   devices,
   ruId,
+  ruCenter,
+  sensorTimeline = [],
   selectedDevice,
   onDeviceSelect,
   warningThreshold  = 0.70,
   criticalThreshold = 0.80,
   onDeviceUpdate,
 }: DeviceMapProps) {
+  /* open directly on the RU site when its coordinates are known */
+  const initialZoom = ruCenter ? 14 : 4.5;
+
   const mapRef         = useRef<MapRef>(null);
   const animFrameRef   = useRef<number>(0);
+  /* start at the RU site; the fly-to-devices effect still refines onto real device positions */
   const lastCenteredRu = useRef<string | null>('ALL');
-  const zoomRef        = useRef(4.5);
+  const zoomRef        = useRef(initialZoom);
   const boundsRef      = useRef<[number, number, number, number]>([95, -11, 141, 6]);
 
   const [updating,     setUpdating]     = useState<string | null>(null);
   const [is3D,         setIs3D]         = useState(true);
   const [showTopology, setShowTopology] = useState(true);
+  const [showTrend,    setShowTrend]    = useState(true);
 
   /* viewport state — synced from refs via interval to avoid render loops */
-  const [zoom,   setZoom]   = useState(4.5);
+  const [zoom,   setZoom]   = useState(initialZoom);
   const [bounds, setBounds] = useState<[number, number, number, number]>([95, -11, 141, 6]);
 
   useEffect(() => {
@@ -275,6 +294,7 @@ export function DeviceMap({
       <style>{`
         @keyframes gw-ring { 0% { transform:scale(1); opacity:.7; } 100% { transform:scale(2.2); opacity:0; } }
         @keyframes overlay-in { from { opacity:0; transform:translateX(-16px); } to { opacity:1; transform:translateX(0); } }
+        @keyframes overlay-in-r { from { opacity:0; transform:translateX(16px); } to { opacity:1; transform:translateX(0); } }
         .mapboxgl-popup-content { background:none !important; box-shadow:none !important; padding:0 !important; }
         .mapboxgl-popup-tip { display:none !important; }
         .mapboxgl-ctrl-group { background:rgba(11,13,20,0.85) !important; border:1px solid rgba(56,189,248,0.15) !important; backdrop-filter:blur(12px); }
@@ -288,7 +308,9 @@ export function DeviceMap({
       <MapGL
         ref={mapRef}
         mapboxAccessToken={MAPBOX_TOKEN}
-        initialViewState={{ longitude:118.0, latitude:-2.5, zoom:4.5, pitch:0, bearing:0 }}
+        initialViewState={ruCenter
+          ? { longitude: ruCenter.lng, latitude: ruCenter.lat, zoom: initialZoom, pitch: 55, bearing: -17 }
+          : { longitude: 118.0, latitude: -2.5, zoom: initialZoom, pitch: 0, bearing: 0 }}
         style={{ width:'100%', height:'100%' }}
         mapStyle="mapbox://styles/mapbox/dark-v11"
         antialias
@@ -507,8 +529,91 @@ export function DeviceMap({
         );
       })()}
 
+      {/* ── Gas / Environment Trend overlay — 24h per-sensor heatmap ── */}
+      {showTrend && (
+        <div style={{ position:'absolute', top:14, right:14, bottom:14, width:320, zIndex:15, background:'rgba(7,9,14,0.9)', backdropFilter:'blur(20px)', border:'1px solid rgba(56,189,248,0.2)', borderRadius:14, padding:'14px 16px', color:'var(--t1)', boxShadow:'0 16px 40px -8px rgba(0,0,0,0.65)', display:'flex', flexDirection:'column', gap:10, animation:'overlay-in-r 0.25s ease' }}>
+          <div style={{ display:'flex', alignItems:'flex-start', gap:8 }}>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:13, fontWeight:700, color:'#eef2f8' }}>Gas / Environment Trend</div>
+              <div style={{ fontSize:9.5, color:'var(--t4)', fontFamily:"'Geist Mono', monospace", marginTop:2 }}>
+                24H · PER SENSOR · {sensorTimeline.length} SENSOR{sensorTimeline.length !== 1 ? 'S' : ''}
+              </div>
+            </div>
+            <button
+              onClick={() => setShowTrend(false)}
+              style={{ background:'rgba(255,255,255,0.06)', border:'none', borderRadius:6, padding:5, cursor:'pointer', color:'#94a3b8', display:'flex', flexShrink:0 }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background='rgba(239,68,68,0.18)'; (e.currentTarget as HTMLButtonElement).style.color='#fff'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background='rgba(255,255,255,0.06)'; (e.currentTarget as HTMLButtonElement).style.color='#94a3b8'; }}
+            >
+              <X size={14} />
+            </button>
+          </div>
+
+          {sensorTimeline.length > 0 ? (
+            <div style={{ flex:1, overflowY:'auto', minHeight:0 }}>
+              {/* hour axis — label every 6h to fit the narrow panel */}
+              <div style={{ display:'grid', gridTemplateColumns:'76px repeat(24, 1fr)', gap:1.5, position:'sticky', top:0, background:'rgba(7,9,14,0.95)', zIndex:2, paddingBottom:3 }}>
+                <div style={{ fontSize:8, color:'var(--t4)', fontFamily:"'Geist Mono', monospace", display:'flex', alignItems:'flex-end', paddingLeft:2 }}>SENSOR</div>
+                {Array.from({ length: 24 }, (_, h) => (
+                  <div key={h} style={{ fontSize:8, color:'var(--t4)', fontFamily:"'Geist Mono', monospace", textAlign:'left', overflow:'visible', whiteSpace:'nowrap' }}>
+                    {h % 6 === 0 ? String(h).padStart(2, '0') : ''}
+                  </div>
+                ))}
+              </div>
+              {sensorTimeline.map(s => {
+                const hourMap = new Map(s.data.map(pt => [pt.hour, pt.confidence]));
+                const isSel = selectedDevice?.id === s.deviceId;
+                const dev = devices.find(dd => dd.id === s.deviceId);
+                return (
+                  <div
+                    key={s.deviceId}
+                    onClick={() => { if (dev) onDeviceSelect?.(isSel ? null : dev); }}
+                    title={dev ? `Click to ${isSel ? 'deselect' : 'locate'} ${s.deviceName}` : s.deviceName}
+                    style={{ display:'grid', gridTemplateColumns:'76px repeat(24, 1fr)', gap:1.5, marginBottom:2, cursor:dev?'pointer':'default', background:isSel?'rgba(56,189,248,0.08)':'transparent', borderRadius:4, padding:'1px 0' }}
+                  >
+                    <div style={{ fontSize:9, color:isSel?'#38bdf8':'var(--t2)', fontWeight:isSel?700:400, fontFamily:"'Geist Mono', monospace", display:'flex', alignItems:'center', paddingLeft:2, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                      {s.deviceName}
+                    </div>
+                    {Array.from({ length: 24 }, (_, h) => {
+                      const hourKey = `${String(h).padStart(2, '0')}:00`;
+                      const conf = hourMap.get(hourKey) ?? null;
+                      return (
+                        <div key={h}
+                          title={`${s.deviceName} @ ${hourKey}: ${conf !== null ? (conf * 100).toFixed(1) + '%' : '—'}`}
+                          style={{ height:15, borderRadius:2, background:heatmapColor(conf, warningThreshold, criticalThreshold), border:'1px solid rgba(255,255,255,0.04)' }}
+                        />
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--t4)', fontSize:11, fontFamily:"'Geist Mono', monospace", textAlign:'center' }}>
+              NO SENSOR READINGS<br />IN LAST 24H
+            </div>
+          )}
+
+          {/* legend */}
+          <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:9, color:'var(--t4)', fontFamily:"'Geist Mono', monospace", borderTop:'1px solid rgba(255,255,255,0.06)', paddingTop:8, flexWrap:'wrap' }}>
+            <span>Low</span>
+            <div style={{ display:'flex', gap:2 }}>
+              {[0, 0.2, 0.4, 0.6, 0.8, 1.0].map((r, i) => (
+                <div key={i} style={{ width:14, height:8, borderRadius:2, background:heatmapColor(r, 0.999, 1) }} />
+              ))}
+            </div>
+            <span>High</span>
+            <span style={{ color:'#f59e0b', marginLeft:6 }}>▪ MID ≥{warningThreshold}</span>
+            <span style={{ color:'#ef4444' }}>▪ HIGH ≥{criticalThreshold}</span>
+          </div>
+        </div>
+      )}
+
       {/* ── Controls ── */}
-      <div style={{ position:'absolute', top:14, right:14, display:'flex', flexDirection:'column', gap:8, zIndex:10 }}>
+      <div style={{ position:'absolute', top:14, right: showTrend ? 342 : 14, display:'flex', flexDirection:'column', gap:8, zIndex:10, transition:'right 0.25s ease' }}>
+        <button onClick={() => setShowTrend(v => !v)} title={showTrend?'Hide gas trend':'Show gas trend'} style={ctrlBtn(showTrend)}>
+          <Flame size={13} /> TREND
+        </button>
         <button onClick={() => setShowTopology(v => !v)} title={showTopology?'Hide topology':'Show topology'} style={ctrlBtn(showTopology)}>
           <Share2 size={13} /> TOPO
         </button>
