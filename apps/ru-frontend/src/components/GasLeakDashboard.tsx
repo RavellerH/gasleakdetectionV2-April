@@ -1008,7 +1008,7 @@ export default function GasLeakDashboard() {
               <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 20, padding: '18px 20px', boxShadow: 'var(--shadow-card)' }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--t1)', marginBottom: 4 }}>RU Map — {mapRu}</div>
                 <div style={{ fontSize: 11, color: 'var(--t3)', fontFamily: "'Geist Mono', monospace", marginBottom: 14 }}>Interactive physical positioning</div>
-                <DeviceMap devices={apiDevices} ruId={mapRu} selectedDevice={selectedDevice} onDeviceSelect={setSelectedDevice} warningThreshold={sysSettings?.warningThreshold} criticalThreshold={sysSettings?.criticalThreshold} onDeviceUpdate={() => loadDevices(activeRU)} />
+                <DeviceMap devices={apiDevices} ruId={mapRu} ruCenter={RU_CENTERS[mapRu]} sensorTimeline={sensorTimeline} selectedDevice={selectedDevice} onDeviceSelect={setSelectedDevice} warningThreshold={sysSettings?.warningThreshold} criticalThreshold={sysSettings?.criticalThreshold} onDeviceUpdate={() => loadDevices(activeRU)} />
               </div>
               <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 20, padding: '18px 20px', boxShadow: 'var(--shadow-card)' }}><UnitLayoutMap devices={apiDevices} onNodeClick={d => setSelectedDevice(d)} /></div>
             </div>
