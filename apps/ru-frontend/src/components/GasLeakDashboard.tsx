@@ -41,10 +41,10 @@ const NAV_GROUPS = [
   {
     label: 'GENERAL',
     items: [
+      { icon: MapIcon,         label: 'Map View',     key: 'map' },
       { icon: LayoutDashboard, label: 'Overview',    key: 'overview' },
       { icon: HardDrive,       label: 'Devices',     key: 'devices' },
       { icon: Network,         label: 'Unit Layout',  key: 'layout' },
-      { icon: MapIcon,             label: 'Map View',     key: 'map' },
     ],
   },
   {
@@ -172,8 +172,9 @@ export default function GasLeakDashboard() {
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  /* nav — RU is fixed for this deployment, not switchable */
-  const [tab, setTab] = useState('overview');
+  /* nav — RU is fixed for this deployment, not switchable.
+     Map is the landing view: first thing operators see after login. */
+  const [tab, setTab] = useState('map');
   const activeRU = RU_ID;
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [darkMode, setDarkMode] = useState(true);

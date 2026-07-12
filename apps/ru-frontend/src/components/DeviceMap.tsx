@@ -1,11 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import MapGL, { Marker, Popup, MapRef, Source, Layer } from 'react-map-gl';
+import MapGL, { Marker, MapRef, Source, Layer } from 'react-map-gl';
 import type { SkyLayerSpecification } from 'mapbox-gl';
 import useSupercluster from 'use-supercluster';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { X, Compass, Mountain, Share2 } from 'lucide-react';
+import { X, Compass, Mountain, Share2, BatteryMedium, Wifi, Activity, MapPin, Network } from 'lucide-react';
 import type { Device } from '@/lib/graphql';
 import { updateDeviceLocation } from '@/lib/graphql';
 import { DevicePin } from './DevicePin';
@@ -271,9 +271,10 @@ export function DeviceMap({
   });
 
   return (
-    <div style={{ position:'relative', height:520, width:'100%', borderRadius:14, overflow:'hidden', border:'1px solid var(--card-border)' }}>
+    <div style={{ position:'relative', height:'clamp(520px, calc(100vh - 330px), 880px)', width:'100%', borderRadius:14, overflow:'hidden', border:'1px solid var(--card-border)' }}>
       <style>{`
         @keyframes gw-ring { 0% { transform:scale(1); opacity:.7; } 100% { transform:scale(2.2); opacity:0; } }
+        @keyframes overlay-in { from { opacity:0; transform:translateX(-16px); } to { opacity:1; transform:translateX(0); } }
         .mapboxgl-popup-content { background:none !important; box-shadow:none !important; padding:0 !important; }
         .mapboxgl-popup-tip { display:none !important; }
         .mapboxgl-ctrl-group { background:rgba(11,13,20,0.85) !important; border:1px solid rgba(56,189,248,0.15) !important; backdrop-filter:blur(12px); }
@@ -392,76 +393,119 @@ export function DeviceMap({
           );
         })}
 
-        {/* ── Popup ── */}
-        {selectedDevice && (
-          <Popup
-            longitude={selectedDevice.location.lng}
-            latitude={selectedDevice.location.lat}
-            anchor="top"
-            offset={14}
-            onClose={() => onDeviceSelect?.(null)}
-            closeButton={false}
-            closeOnClick={false}
-          >
-            <div style={{ position:'relative', minWidth:230, background:'rgba(7,9,14,0.92)', backdropFilter:'blur(20px)', border:'1px solid rgba(56,189,248,0.2)', borderRadius:14, padding:'14px 16px', color:'var(--t1)', boxShadow:'0 16px 32px -8px rgba(0,0,0,0.6)' }}>
+      </MapGL>
+
+      {/* ── Detail overlay — full device breakdown, slides in over the map ── */}
+      {selectedDevice && (() => {
+        const d = selectedDevice;
+        const conf   = d.latestConfidence ?? 0;
+        const isHigh = conf >= criticalThreshold;
+        const isMid  = !isHigh && conf >= warningThreshold;
+        const riskLabel = isHigh ? 'HIGH RISK' : isMid ? 'MIDDLE RISK' : 'SAFE';
+        const riskColor = isHigh ? '#ef4444' : isMid ? '#f59e0b' : '#38bdf8';
+        const statusCol = d.status === 'ONLINE' ? '#38bdf8' : d.status === 'OFFLINE' ? '#ef4444' : '#f59e0b';
+        const battCol   = d.battery.soc >= 60 ? '#38bdf8' : d.battery.soc >= 30 ? '#f59e0b' : '#ef4444';
+        const healthCol = d.healthScore >= 80 ? '#38bdf8' : d.healthScore >= 50 ? '#f59e0b' : '#ef4444';
+        const rssiCol   = d.network.rssi > -60 ? '#38bdf8' : d.network.rssi > -75 ? '#f59e0b' : '#ef4444';
+        const sectionLabel: React.CSSProperties = { fontSize:9, fontWeight:700, color:'var(--t4)', textTransform:'uppercase', letterSpacing:1.2, fontFamily:"'Geist Mono', monospace", display:'flex', alignItems:'center', gap:5 };
+        const row = (label: string, value: React.ReactNode) => (
+          <div key={label} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'5px 0', borderBottom:'1px solid rgba(255,255,255,0.05)' }}>
+            <span style={{ fontSize:11, color:'var(--t4)' }}>{label}</span>
+            <span style={{ fontSize:11, fontWeight:600, color:'var(--t2)', fontFamily:"'Geist Mono', monospace" }}>{value}</span>
+          </div>
+        );
+        return (
+          <div style={{ position:'absolute', top:14, left:14, bottom:14, width:310, zIndex:20, background:'rgba(7,9,14,0.92)', backdropFilter:'blur(20px)', border:'1px solid rgba(56,189,248,0.2)', borderRadius:14, padding:'16px 18px', color:'var(--t1)', boxShadow:'0 16px 40px -8px rgba(0,0,0,0.65)', overflowY:'auto', display:'flex', flexDirection:'column', gap:14, animation:'overlay-in 0.25s ease' }}>
+            {/* header */}
+            <div style={{ display:'flex', alignItems:'flex-start', gap:8 }}>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:6 }}>
+                  <span style={{ width:7, height:7, borderRadius:'50%', background:statusCol, boxShadow:`0 0 6px ${statusCol}`, flexShrink:0 }} />
+                  <span style={{ fontSize:10, fontWeight:700, color:'#38bdf8', textTransform:'uppercase', letterSpacing:1, fontFamily:"'Geist Mono', monospace" }}>{d.type}</span>
+                  <span style={{ fontSize:10, fontWeight:700, color:statusCol, fontFamily:"'Geist Mono', monospace", marginLeft:'auto' }}>{d.status}</span>
+                </div>
+                <div style={{ fontSize:16, fontWeight:700, color:'#eef2f8', lineHeight:1.2 }}>{d.name}</div>
+                <div style={{ fontSize:10, color:'var(--t4)', fontFamily:"'Geist Mono', monospace", marginTop:3 }}>{d.macAddress}</div>
+              </div>
               <button
                 onClick={e => { e.stopPropagation(); onDeviceSelect?.(null); }}
-                style={{ position:'absolute', top:8, right:8, background:'rgba(255,255,255,0.06)', border:'none', borderRadius:6, padding:4, cursor:'pointer', color:'#94a3b8', display:'flex' }}
+                style={{ background:'rgba(255,255,255,0.06)', border:'none', borderRadius:6, padding:5, cursor:'pointer', color:'#94a3b8', display:'flex', flexShrink:0 }}
                 onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background='rgba(239,68,68,0.18)'; (e.currentTarget as HTMLButtonElement).style.color='#fff'; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background='rgba(255,255,255,0.06)'; (e.currentTarget as HTMLButtonElement).style.color='#94a3b8'; }}
               >
-                <X size={13} />
+                <X size={14} />
               </button>
-
-              <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:8 }}>
-                <span style={{ width:7, height:7, borderRadius:'50%', background:selectedDevice.status==='ONLINE'?'#38bdf8':'#ef4444', boxShadow:selectedDevice.status==='ONLINE'?'0 0 6px #38bdf8':'none' }} />
-                <span style={{ fontSize:10, fontWeight:700, color:'#38bdf8', textTransform:'uppercase', letterSpacing:1, fontFamily:"'Geist Mono', monospace" }}>{selectedDevice.type}</span>
-                <span style={{ fontSize:10, color:'var(--t4)', fontFamily:"'Geist Mono', monospace", marginLeft:'auto' }}>{selectedDevice.ruId}</span>
-              </div>
-
-              <div style={{ fontSize:15, fontWeight:600, color:'var(--t1)', marginBottom:12 }}>{selectedDevice.name}</div>
-
-              {selectedDevice.type === 'SENSOR' && (() => {
-                const conf = selectedDevice.latestConfidence ?? 0;
-                const isHigh = conf >= criticalThreshold;
-                const isMid  = !isHigh && conf >= warningThreshold;
-                const riskLabel = isHigh ? '⚠ HIGH RISK' : isMid ? '⚠ MIDDLE RISK' : '● SAFE';
-                const riskColor = isHigh ? '#ef4444' : isMid ? '#f59e0b' : '#38bdf8';
-                const bgColor   = isHigh ? 'rgba(239,68,68,0.1)' : isMid ? 'rgba(245,158,11,0.1)' : 'rgba(56,189,248,0.05)';
-                const bdColor   = isHigh ? 'rgba(239,68,68,0.2)'  : isMid ? 'rgba(245,158,11,0.2)'  : 'rgba(56,189,248,0.1)';
-                return (
-                  <div style={{ marginBottom:12, padding:10, borderRadius:9, background:bgColor, border:`1px solid ${bdColor}` }}>
-                    <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
-                      <span style={{ fontSize:9, color:'var(--t4)', textTransform:'uppercase', letterSpacing:.5 }}>AI Confidence</span>
-                      <span style={{ fontSize:9, fontWeight:700, color:riskColor, textTransform:'uppercase' }}>{riskLabel}</span>
-                    </div>
-                    <div style={{ fontSize:20, fontWeight:800, color:riskColor, fontFamily:"'Geist Mono', monospace" }}>
-                      {conf.toFixed(2)} <span style={{ fontSize:10, opacity:.6 }}>conf</span>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, paddingTop:10, borderTop:'1px solid rgba(255,255,255,0.06)' }}>
-                {[
-                  { label:'Battery', value:`${selectedDevice.battery.soc}%`,     color:selectedDevice.battery.soc>20?'#eef2f8':'#ef4444' },
-                  { label:'Signal',  value:`${selectedDevice.network.rssi} dBm`, color:'#38bdf8' },
-                  { label:'Health',  value:`${selectedDevice.healthScore}%`,     color:selectedDevice.healthScore>=80?'#38bdf8':selectedDevice.healthScore>=50?'#f59e0b':'#ef4444' },
-                ].map(({ label, value, color }) => (
-                  <div key={label}>
-                    <div style={{ fontSize:9, color:'var(--t4)', marginBottom:2, textTransform:'uppercase' }}>{label}</div>
-                    <div style={{ fontSize:13, fontWeight:700, color, fontFamily:"'Geist Mono', monospace" }}>{value}</div>
-                  </div>
-                ))}
-              </div>
-
-              {updating === selectedDevice.id && (
-                <div style={{ marginTop:10, fontSize:10, color:'#38bdf8', textAlign:'center', fontFamily:"'Geist Mono', monospace" }}>● Syncing location…</div>
-              )}
             </div>
-          </Popup>
-        )}
-      </MapGL>
+
+            {/* AI risk (sensors only) */}
+            {d.type === 'SENSOR' && (
+              <div style={{ padding:12, borderRadius:10, background:isHigh?'rgba(239,68,68,0.1)':isMid?'rgba(245,158,11,0.1)':'rgba(56,189,248,0.05)', border:`1px solid ${isHigh?'rgba(239,68,68,0.25)':isMid?'rgba(245,158,11,0.25)':'rgba(56,189,248,0.12)'}` }}>
+                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
+                  <span style={{ fontSize:9, color:'var(--t4)', textTransform:'uppercase', letterSpacing:.5 }}>AI Gas Detection Confidence</span>
+                  <span style={{ fontSize:9, fontWeight:800, color:riskColor, textTransform:'uppercase' }}>{isHigh || isMid ? '⚠ ' : '● '}{riskLabel}</span>
+                </div>
+                <div style={{ fontSize:24, fontWeight:800, color:riskColor, fontFamily:"'Geist Mono', monospace", marginBottom:8 }}>
+                  {(conf * 100).toFixed(1)}<span style={{ fontSize:11, opacity:.6 }}>%</span>
+                </div>
+                <div style={{ position:'relative', height:5, background:'rgba(255,255,255,0.08)', borderRadius:3 }}>
+                  <div style={{ height:'100%', width:`${Math.min(conf * 100, 100)}%`, background:riskColor, borderRadius:3, transition:'width 0.6s ease' }} />
+                  <div style={{ position:'absolute', top:-2, bottom:-2, left:`${warningThreshold * 100}%`, width:1.5, background:'#f59e0b' }} title={`MIDDLE ≥ ${warningThreshold}`} />
+                  <div style={{ position:'absolute', top:-2, bottom:-2, left:`${criticalThreshold * 100}%`, width:1.5, background:'#ef4444' }} title={`HIGH ≥ ${criticalThreshold}`} />
+                </div>
+                <div style={{ display:'flex', justifyContent:'space-between', marginTop:5, fontSize:8.5, color:'var(--t4)', fontFamily:"'Geist Mono', monospace" }}>
+                  <span>0</span><span style={{ color:'#f59e0b' }}>MID {warningThreshold}</span><span style={{ color:'#ef4444' }}>HIGH {criticalThreshold}</span>
+                </div>
+              </div>
+            )}
+
+            {/* vitals */}
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8 }}>
+              {[
+                { icon:BatteryMedium, label:'Battery', value:`${d.battery.soc}%`,      color:battCol },
+                { icon:Wifi,          label:'Signal',  value:`${d.network.rssi}dBm`,   color:rssiCol },
+                { icon:Activity,      label:'Health',  value:`${d.healthScore}%`,      color:healthCol },
+              ].map(({ icon:Icon, label, value, color }) => (
+                <div key={label} style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:9, padding:'9px 8px', textAlign:'center' }}>
+                  <Icon size={13} color={color} style={{ margin:'0 auto 4px', display:'block' }} />
+                  <div style={{ fontSize:12, fontWeight:700, color, fontFamily:"'Geist Mono', monospace" }}>{value}</div>
+                  <div style={{ fontSize:8.5, color:'var(--t4)', textTransform:'uppercase', letterSpacing:.5, marginTop:2 }}>{label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* power */}
+            <div>
+              <div style={{ ...sectionLabel, marginBottom:4 }}><BatteryMedium size={10} /> Power</div>
+              {row('Voltage', `${d.battery.voltage.toFixed(2)} V`)}
+              {d.battery.cycles != null && row('Charge cycles', d.battery.cycles)}
+              {d.battery.estimatedHours != null && row('Est. runtime', `${d.battery.estimatedHours} h`)}
+            </div>
+
+            {/* network */}
+            <div>
+              <div style={{ ...sectionLabel, marginBottom:4 }}><Network size={10} /> Mesh Network</div>
+              {row('Parent node', (d.parentMac ?? d.network.parentMac) || '— (root)')}
+              {d.network.hopsToGateway != null && row('Hops to gateway', d.network.hopsToGateway)}
+              {d.network.peersCount != null && row('Peers', d.network.peersCount)}
+              {d.network.qualityScore != null && row('Link quality', d.network.qualityScore)}
+              {d.network.rssiMesh != null && row('RSSI (mesh)', `${d.network.rssiMesh} dBm`)}
+              {d.network.rssiStar != null && row('RSSI (star)', `${d.network.rssiStar} dBm`)}
+            </div>
+
+            {/* location */}
+            <div>
+              <div style={{ ...sectionLabel, marginBottom:4 }}><MapPin size={10} /> Location</div>
+              {row('Site', d.ruId)}
+              {row('Latitude', d.location.lat.toFixed(6))}
+              {row('Longitude', d.location.lng.toFixed(6))}
+            </div>
+
+            {updating === d.id && (
+              <div style={{ fontSize:10, color:'#38bdf8', textAlign:'center', fontFamily:"'Geist Mono', monospace" }}>● Syncing location…</div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ── Controls ── */}
       <div style={{ position:'absolute', top:14, right:14, display:'flex', flexDirection:'column', gap:8, zIndex:10 }}>
