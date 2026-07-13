@@ -35,7 +35,7 @@ const DeviceMap = dynamic(() => import('./DeviceMap').then((m) => m.DeviceMap), 
 
 /* This app is a single-RU child deployment: one instance runs per Refinery Unit,
    configured via NEXT_PUBLIC_RU_ID. It never sees other RUs' data. */
-const RU_ID = (process.env.NEXT_PUBLIC_RU_ID || 'RU3').toUpperCase();
+const RU_ID = (process.env.NEXT_PUBLIC_RU_ID || 'RU4').toUpperCase();
 
 const NAV_GROUPS = [
   {
