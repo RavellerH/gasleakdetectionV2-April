@@ -28,3 +28,6 @@ Thumbs.db
 .idea/
 *.swp
 *.bak
+
+# Downloaded map tiles (regenerate with: npm run tiles -w @gas-leak/ru-frontend)
+apps/ru-frontend/public/tiles/
