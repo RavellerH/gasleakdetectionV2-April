@@ -27,6 +27,13 @@ export interface NetworkMetrics {
   parentMac?: string | null;
 }
 
+export interface DeviceWindRisk {
+  score: number;
+  sourceDeviceId: string;
+  sourceDeviceName: string;
+  distanceM: number;
+}
+
 export interface Device {
   id: string;
   macAddress: string;
@@ -40,6 +47,7 @@ export interface Device {
   healthScore: number;
   latestConfidence?: number;
   status: string;
+  windRisk?: DeviceWindRisk | null;
 }
 
 const DEVICES_QUERY = /* GraphQL */ `
@@ -57,9 +65,35 @@ const DEVICES_QUERY = /* GraphQL */ `
       healthScore
       latestConfidence
       status
+      windRisk { score sourceDeviceId sourceDeviceName distanceM }
     }
   }
 `;
+
+// ── WIND ───────────────────────────────────────────────────────
+
+export interface WindData {
+  ruId: string;
+  directionDeg: number;
+  speedKmh: number;
+  fetchedAt: string;
+}
+
+const WIND_DATA_QUERY = /* GraphQL */ `
+  query WindData($ruId: String!) {
+    windData(ruId: $ruId) {
+      ruId
+      directionDeg
+      speedKmh
+      fetchedAt
+    }
+  }
+`;
+
+export async function fetchWindData(ruId: string): Promise<WindData> {
+  const data = await graphqlClient.request<{ windData: WindData }>(WIND_DATA_QUERY, { ruId });
+  return data.windData;
+}
 
 const UPDATE_DEVICE_LOCATION_MUTATION = /* GraphQL */ `
   mutation UpdateDeviceLocation($deviceId: String!, $location: CoordinatesInput!) {

@@ -13,7 +13,8 @@ interface Props {
 }
 
 const TYPE_META: Record<string, { label: string; color: string; bg: string }> = {
-  THRESHOLD_BREACH: { label: 'Threshold Breach', color: '#ef4444', bg: 'rgba(239,68,68,0.1)' },
+  THRESHOLD_BREACH:      { label: 'Threshold Breach', color: '#ef4444', bg: 'rgba(239,68,68,0.1)' },
+  WIND_HAZARD_DOWNWIND:  { label: 'Wind Hazard',      color: '#a855f7', bg: 'rgba(168,85,247,0.1)' },
   DEVICE_OFFLINE:   { label: 'Device Offline',   color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
   DEVICE_ONLINE:    { label: 'Device Online',     color: '#38bdf8', bg: 'rgba(56,189,248,0.1)' },
   LOGIN:            { label: 'Login',              color: '#3b82f6', bg: 'rgba(59,130,246,0.1)' },

@@ -5,8 +5,8 @@ import MapGL, { Marker, Popup, MapRef, Source, Layer } from 'react-map-gl';
 import type { SkyLayerSpecification } from 'mapbox-gl';
 import useSupercluster from 'use-supercluster';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { X, Compass, Mountain, Share2 } from 'lucide-react';
-import type { Device } from '@/lib/graphql';
+import { X, Compass, Mountain, Share2, Wind } from 'lucide-react';
+import type { Device, WindData } from '@/lib/graphql';
 import { updateDeviceLocation } from '@/lib/graphql';
 import { DevicePin } from './DevicePin';
 
@@ -25,11 +25,50 @@ function isWebGLSupported(): boolean {
 interface DeviceMapProps {
   devices: Device[];
   ruId: string;
+  windData?: WindData | null;
   selectedDevice?: Device | null;
   onDeviceSelect?: (device: Device | null) => void;
   warningThreshold?: number;
   criticalThreshold?: number;
   onDeviceUpdate?: () => void;
+}
+
+/* ── Wind / downwind hazard cone geometry — mirrors the backend's computeWindRisk ── */
+const WIND_CONE_HALF_ANGLE_DEG = 32;
+const WIND_BASE_RADIUS_M = 200;
+const WIND_RADIUS_PER_KMH = 25;
+const WIND_MAX_RADIUS_M = 1600;
+
+function windHazardRadiusM(speedKmh: number): number {
+  return Math.min(WIND_BASE_RADIUS_M + speedKmh * WIND_RADIUS_PER_KMH, WIND_MAX_RADIUS_M);
+}
+
+/** Great-circle destination point given a start coordinate, bearing, and distance. */
+function destinationPoint(center: { lat: number; lng: number }, bearingDeg: number, distanceM: number): [number, number] {
+  const R = 6_371_000;
+  const brng = (bearingDeg * Math.PI) / 180;
+  const lat1 = (center.lat * Math.PI) / 180;
+  const lng1 = (center.lng * Math.PI) / 180;
+  const dR = distanceM / R;
+  const lat2 = Math.asin(Math.sin(lat1) * Math.cos(dR) + Math.cos(lat1) * Math.sin(dR) * Math.cos(brng));
+  const lng2 = lng1 + Math.atan2(Math.sin(brng) * Math.sin(dR) * Math.cos(lat1), Math.cos(dR) - Math.sin(lat1) * Math.sin(lat2));
+  return [(lng2 * 180) / Math.PI, (lat2 * 180) / Math.PI];
+}
+
+/** A pie-slice polygon fanning out downwind from a source device, for the hazard overlay. */
+function buildDownwindCone(center: { lat: number; lng: number }, plumeBearingDeg: number, radiusM: number, steps = 20): [number, number][] {
+  const coords: [number, number][] = [[center.lng, center.lat]];
+  for (let i = 0; i <= steps; i++) {
+    const angle = plumeBearingDeg - WIND_CONE_HALF_ANGLE_DEG + (2 * WIND_CONE_HALF_ANGLE_DEG * i) / steps;
+    coords.push(destinationPoint(center, angle, radiusM));
+  }
+  coords.push([center.lng, center.lat]);
+  return coords;
+}
+
+const COMPASS_LABELS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+function compassLabel(deg: number): string {
+  return COMPASS_LABELS[Math.round(deg / 22.5) % 16];
 }
 
 /* ── Sky atmosphere layer ───────────────────────────────────── */
@@ -72,6 +111,7 @@ function ClusterPin({ count, hasCritical, hasWarning, onClick }: {
 export function DeviceMap({
   devices,
   ruId,
+  windData,
   selectedDevice,
   onDeviceSelect,
   warningThreshold  = 0.70,
@@ -163,6 +203,20 @@ export function DeviceMap({
     }
     return { type: 'FeatureCollection', features };
   }, [devices]);
+
+  /* ── downwind hazard cones — one per sensor currently at/above warning threshold ── */
+  const windConesGeoJSON = useMemo(() => {
+    if (!windData) return { type: 'FeatureCollection' as const, features: [] };
+    const plumeBearing = (windData.directionDeg + 180) % 360;
+    const radius = windHazardRadiusM(windData.speedKmh);
+    const sources = devices.filter(d => d.type === 'SENSOR' && (d.latestConfidence ?? 0) >= warningThreshold);
+    const features = sources.map(source => ({
+      type: 'Feature' as const,
+      properties: { severity: (source.latestConfidence ?? 0) >= criticalThreshold ? 'critical' : 'warning' },
+      geometry: { type: 'Polygon' as const, coordinates: [buildDownwindCone(source.location, plumeBearing, radius)] },
+    }));
+    return { type: 'FeatureCollection' as const, features };
+  }, [devices, windData, warningThreshold, criticalThreshold]);
 
   /* ── flowing dash animation ── */
   useEffect(() => {
@@ -337,6 +391,30 @@ export function DeviceMap({
           />
         </Source>
 
+        {/* ── Downwind hazard cones ── */}
+        <Source id="wind-cones" type="geojson" data={windConesGeoJSON as any}>
+          <Layer
+            id="wind-cones-fill"
+            source="wind-cones"
+            type="fill"
+            paint={{
+              'fill-color': ['match', ['get', 'severity'], 'critical', '#ef4444', '#f59e0b'],
+              'fill-opacity': 0.14,
+            }}
+          />
+          <Layer
+            id="wind-cones-outline"
+            source="wind-cones"
+            type="line"
+            paint={{
+              'line-color': ['match', ['get', 'severity'], 'critical', '#ef4444', '#f59e0b'],
+              'line-width': 1,
+              'line-opacity': 0.5,
+              'line-dasharray': [2, 2],
+            }}
+          />
+        </Source>
+
         {/* ── Clustered markers ── */}
         {clusters.map((cluster) => {
           const [lng, lat] = cluster.geometry.coordinates;
@@ -376,7 +454,7 @@ export function DeviceMap({
               onDragEnd={(e) => handleDragEnd(device, e.lngLat)}
               onClick={() => onDeviceSelect?.(device)}
             >
-              <div style={{ marginBottom:14, cursor:'pointer' }}>
+              <div style={{ position:'relative', marginBottom:14, cursor:'pointer' }}>
                 <DevicePin
                   type={device.type}
                   healthScore={device.healthScore}
@@ -384,6 +462,14 @@ export function DeviceMap({
                   warningThreshold={warningThreshold}
                   criticalThreshold={criticalThreshold}
                 />
+                {device.windRisk && (
+                  <div
+                    title={`Downwind of ${device.windRisk.sourceDeviceName} · ${device.windRisk.distanceM}m`}
+                    style={{ position:'absolute', top:-4, right:-4, width:15, height:15, borderRadius:'50%', background:'#a855f7', border:'2px solid #0b1220', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 0 6px rgba(168,85,247,0.7)' }}
+                  >
+                    <Wind size={8} color="#fff" />
+                  </div>
+                )}
               </div>
             </Marker>
           );
@@ -439,6 +525,17 @@ export function DeviceMap({
                 );
               })()}
 
+              {selectedDevice.windRisk && (
+                <div style={{ marginBottom:12, padding:10, borderRadius:9, background:'rgba(168,85,247,0.08)', border:'1px solid rgba(168,85,247,0.25)' }}>
+                  <div style={{ fontSize:9, color:'var(--t4)', textTransform:'uppercase', letterSpacing:.5, marginBottom:3, display:'flex', alignItems:'center', gap:5 }}>
+                    <Wind size={10} /> Downwind Hazard
+                  </div>
+                  <div style={{ fontSize:11, color:'var(--t2)' }}>
+                    Downwind of <strong style={{ color:'#a855f7' }}>{selectedDevice.windRisk.sourceDeviceName}</strong> · {selectedDevice.windRisk.distanceM}m · risk {(selectedDevice.windRisk.score * 100).toFixed(0)}%
+                  </div>
+                </div>
+              )}
+
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, paddingTop:10, borderTop:'1px solid rgba(255,255,255,0.06)' }}>
                 {[
                   { label:'Battery', value:`${selectedDevice.battery.soc}%`,     color:selectedDevice.battery.soc>20?'#eef2f8':'#ef4444' },
@@ -476,6 +573,17 @@ export function DeviceMap({
       {/* ── Legend ── */}
       <div style={{ position:'absolute', bottom:14, left:14, background:'rgba(11,13,20,0.88)', backdropFilter:'blur(12px)', border:'1px solid rgba(56,189,248,0.15)', borderRadius:8, padding:'6px 12px', zIndex:10, display:'flex', alignItems:'center', gap:14 }}>
         <span style={{ fontSize:11, color:'var(--t3)', fontFamily:"'Geist Mono', monospace" }}>{devices.length} NODES · {ruId}</span>
+        {windData && (
+          <>
+            <span style={{ width:1, height:14, background:'rgba(255,255,255,0.1)' }} />
+            <div title={`Wind ${Math.round(windData.speedKmh)} km/h from ${compassLabel(windData.directionDeg)} (${Math.round(windData.directionDeg)}°)`} style={{ display:'flex', alignItems:'center', gap:5 }}>
+              <Wind size={12} color="#38bdf8" style={{ transform:`rotate(${windData.directionDeg}deg)` }} />
+              <span style={{ fontSize:10, color:'var(--t4)', fontFamily:"'Geist Mono', monospace" }}>
+                {Math.round(windData.speedKmh)} km/h {compassLabel(windData.directionDeg)}
+              </span>
+            </div>
+          </>
+        )}
         {topoVisible && (
           <>
             <span style={{ width:1, height:14, background:'rgba(255,255,255,0.1)' }} />

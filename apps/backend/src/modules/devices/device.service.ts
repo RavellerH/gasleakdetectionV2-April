@@ -1,6 +1,79 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
-import { Device, DeviceLocation, BatteryMetrics, NetworkMetrics, CreateDeviceInput, UpdateDeviceInput, GasReading, DashboardStats, RuStats, TimelineEntry, Alert, BatteryDistEntry, NetworkQualityEntry, SystemSettings, UpdateSettingsInput, User, CreateUserInput, UpdateUserInput, LoginResult, AnalyticsStats, WeeklyTrendEntry, HeatmapEntry, SiteRanking, EventLog, CreateEventLogInput, SensorTimeline, TrendPoint, RuComparisonEntry, HeatmapCell, TopSensorEntry, FleetBatteryBucket, FleetNetworkBucket, FleetHealthStats } from './device.model';
+import { Device, DeviceLocation, BatteryMetrics, NetworkMetrics, CreateDeviceInput, UpdateDeviceInput, GasReading, DashboardStats, RuStats, TimelineEntry, Alert, BatteryDistEntry, NetworkQualityEntry, SystemSettings, UpdateSettingsInput, User, CreateUserInput, UpdateUserInput, LoginResult, AnalyticsStats, WeeklyTrendEntry, HeatmapEntry, SiteRanking, EventLog, CreateEventLogInput, SensorTimeline, TrendPoint, RuComparisonEntry, HeatmapCell, TopSensorEntry, FleetBatteryBucket, FleetNetworkBucket, FleetHealthStats, WindData, DeviceWindRisk } from './device.model';
 import { PrismaService } from '../prisma/prisma.service';
+
+// --- WIND / DOWNWIND RISK GEOMETRY ---
+
+const EARTH_RADIUS_M = 6_371_000;
+const WIND_CONE_HALF_ANGLE_DEG = 32;
+const WIND_BASE_RADIUS_M = 200;
+const WIND_RADIUS_PER_KMH = 25;
+const WIND_MAX_RADIUS_M = 1600;
+
+function toRad(deg: number): number { return (deg * Math.PI) / 180; }
+function toDeg(rad: number): number { return (rad * 180) / Math.PI; }
+
+function haversineDistanceM(a: DeviceLocation, b: DeviceLocation): number {
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const lat1 = toRad(a.lat), lat2 = toRad(b.lat);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return 2 * EARTH_RADIUS_M * Math.asin(Math.sqrt(Math.min(1, h)));
+}
+
+function bearingDeg(a: DeviceLocation, b: DeviceLocation): number {
+  const dLng = toRad(b.lng - a.lng);
+  const lat1 = toRad(a.lat), lat2 = toRad(b.lat);
+  const y = Math.sin(dLng) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+  return (toDeg(Math.atan2(y, x)) + 360) % 360;
+}
+
+function angleDiffDeg(a: number, b: number): number {
+  const d = Math.abs(a - b) % 360;
+  return d > 180 ? 360 - d : d;
+}
+
+/** Downwind hazard radius for a given wind speed — stronger wind carries gas further. */
+export function windHazardRadiusM(speedKmh: number): number {
+  return Math.min(WIND_BASE_RADIUS_M + speedKmh * WIND_RADIUS_PER_KMH, WIND_MAX_RADIUS_M);
+}
+
+/**
+ * For every device whose latest confidence is at/above the warning threshold, projects a
+ * downwind hazard cone (wind direction + 180°, ±WIND_CONE_HALF_ANGLE_DEG) and scores any other
+ * device that falls inside it. Only the highest-scoring source is kept per affected device.
+ */
+export function computeWindRisk(
+  devices: Device[],
+  wind: { directionDeg: number; speedKmh: number },
+  warningThreshold: number,
+): Map<string, DeviceWindRisk> {
+  const plumeBearing = (wind.directionDeg + 180) % 360;
+  const radius = windHazardRadiusM(wind.speedKmh);
+  const sources = devices.filter(d => d.type === 'SENSOR' && (d.latestConfidence ?? 0) >= warningThreshold);
+
+  const riskMap = new Map<string, DeviceWindRisk>();
+  for (const source of sources) {
+    for (const target of devices) {
+      if (target.id === source.id) continue;
+      const distanceM = haversineDistanceM(source.location, target.location);
+      if (distanceM > radius) continue;
+      const diff = angleDiffDeg(bearingDeg(source.location, target.location), plumeBearing);
+      if (diff > WIND_CONE_HALF_ANGLE_DEG) continue;
+
+      const alignment = 1 - diff / WIND_CONE_HALF_ANGLE_DEG;
+      const proximity = 1 - distanceM / radius;
+      const score = (source.latestConfidence ?? 0) * (0.5 * alignment + 0.5 * proximity);
+
+      const existing = riskMap.get(target.id);
+      if (!existing || score > existing.score) {
+        riskMap.set(target.id, { score, sourceDeviceId: source.id, sourceDeviceName: source.name, distanceM: Math.round(distanceM) });
+      }
+    }
+  }
+  return riskMap;
+}
 
 @Injectable()
 export class DeviceService {
@@ -9,6 +82,9 @@ export class DeviceService {
   private readonly rateLimitMap = new Map<string, { count: number; resetTime: number }>();
   private readonly MAX_LOGIN_ATTEMPTS = 5;
   private readonly RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+
+  private readonly windCache = new Map<string, { data: WindData; expiresAt: number }>();
+  private readonly WIND_CACHE_TTL_MS = 10 * 60 * 1000;
 
   private checkRateLimit(key: string): boolean {
     const now = Date.now();
@@ -355,6 +431,42 @@ export class DeviceService {
     });
   }
 
+  // --- WIND ---
+
+  /** Live wind for a RU site, from the centroid of its devices. Cached to avoid hammering the weather API. */
+  async getWindData(ruId: string): Promise<WindData> {
+    if (ruId === 'ALL') throw new HttpException('windData requires a specific ruId', HttpStatus.BAD_REQUEST);
+
+    const cached = this.windCache.get(ruId);
+    if (cached && cached.expiresAt > Date.now()) return cached.data;
+
+    const devices = await this.prisma.device.findMany({ where: { ruId } });
+    if (devices.length === 0) throw new HttpException(`No devices found for RU ${ruId}`, HttpStatus.NOT_FOUND);
+
+    const coords = devices.map(d => JSON.parse(d.location || '{"lat":0,"lng":0}') as DeviceLocation);
+    const lat = coords.reduce((s, c) => s + c.lat, 0) / coords.length;
+    const lng = coords.reduce((s, c) => s + c.lng, 0) / coords.length;
+
+    try {
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=wind_speed_10m,wind_direction_10m&wind_speed_unit=kmh`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Open-Meteo responded ${res.status}`);
+      const payload = await res.json();
+
+      const data: WindData = {
+        ruId,
+        directionDeg: payload?.current?.wind_direction_10m ?? 0,
+        speedKmh: payload?.current?.wind_speed_10m ?? 0,
+        fetchedAt: new Date(),
+      };
+      this.windCache.set(ruId, { data, expiresAt: Date.now() + this.WIND_CACHE_TTL_MS });
+      return data;
+    } catch (e) {
+      if (cached) return cached.data; // serve stale data rather than fail outright
+      throw new HttpException('Failed to fetch wind data', HttpStatus.BAD_GATEWAY);
+    }
+  }
+
   // --- DASHBOARD STATS ---
 
   async getDashboardStats(): Promise<DashboardStats> {
@@ -505,6 +617,30 @@ export class DeviceService {
           }
         });
       }
+
+      try {
+        const [ruDevices, wind] = await Promise.all([this.findAll(device.ruId), this.getWindData(device.ruId)]);
+        const affected = ruDevices.filter(d => d.windRisk?.sourceDeviceId === device.id && d.windRisk!.score >= 0.5);
+        if (affected.length > 0) {
+          const recentWind = await this.prisma.eventLog.findFirst({
+            where: { deviceId: device.id, type: 'WIND_HAZARD_DOWNWIND', timestamp: { gte: new Date(Date.now() - 15 * 60 * 1000) } }
+          });
+          if (!recentWind) {
+            await this.prisma.eventLog.create({
+              data: {
+                type: 'WIND_HAZARD_DOWNWIND',
+                severity: 'WARNING',
+                deviceId: device.id,
+                ruId: device.ruId,
+                message: `${device.name} — downwind hazard: ${affected.length} device(s) may be affected (${affected.map(d => d.name).join(', ')}) — wind ${Math.round(wind.speedKmh)} km/h from ${Math.round(wind.directionDeg)}°`,
+                details: JSON.stringify({ wind, affected: affected.map(d => ({ deviceId: d.id, score: d.windRisk!.score, distanceM: d.windRisk!.distanceM })) }),
+              }
+            });
+          }
+        }
+      } catch {
+        // wind data unavailable — skip downwind alerting silently
+      }
     }
     return { id: r.id, deviceId: r.deviceId, confidence: r.confidence, aiClass: r.aiClass, riskLevel: r.riskLevel, timestamp: r.timestamp };
   }
@@ -534,7 +670,21 @@ export class DeviceService {
       where,
       include: { readings: { orderBy: { timestamp: 'desc' }, take: 1 } }
     });
-    return devices.map(d => this.mapToDevice(d));
+    const mapped = devices.map(d => this.mapToDevice(d));
+
+    if (ruId !== 'ALL') {
+      try {
+        const [settings, wind] = await Promise.all([this.getSettings(), this.getWindData(ruId)]);
+        const riskMap = computeWindRisk(mapped, wind, settings.warningThreshold);
+        for (const device of mapped) {
+          const risk = riskMap.get(device.id);
+          if (risk) device.windRisk = risk;
+        }
+      } catch {
+        // wind data unavailable — devices are still returned without windRisk
+      }
+    }
+    return mapped;
   }
 
   async deleteDevice(id: string): Promise<boolean> {

@@ -579,6 +579,37 @@ export class GasReading {
 }
 
 @ObjectType()
+export class WindData {
+  @Field()
+  ruId!: string;
+
+  /* meteorological convention: direction the wind is blowing FROM, 0=N 90=E */
+  @Field(() => Float)
+  directionDeg!: number;
+
+  @Field(() => Float)
+  speedKmh!: number;
+
+  @Field(() => Date)
+  fetchedAt!: Date;
+}
+
+@ObjectType()
+export class DeviceWindRisk {
+  @Field(() => Float)
+  score!: number;
+
+  @Field()
+  sourceDeviceId!: string;
+
+  @Field()
+  sourceDeviceName!: string;
+
+  @Field(() => Float)
+  distanceM!: number;
+}
+
+@ObjectType()
 export class Device {
   @Field(() => ID)
   id!: string;
@@ -615,5 +646,9 @@ export class Device {
 
   @Field()
   status!: string;
+
+  /* set when this device lies downwind of another sensor currently in WARNING/HIGH risk */
+  @Field(() => DeviceWindRisk, { nullable: true })
+  windRisk?: DeviceWindRisk | null;
 }
 

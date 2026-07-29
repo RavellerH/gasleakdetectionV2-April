@@ -14,9 +14,9 @@ import {
   fetchDevices, fetchDashboardStats, fetchSettings, updateSettings,
   fetchUsers, createUser, deleteUser, login,
   updateDeviceName, createDevice, deleteDevice, updateDevice,
-  fetchSensorTimeline, createEventLog,
+  fetchSensorTimeline, createEventLog, fetchWindData,
   type Device, type DashboardStats, type SystemSettings,
-  type User, type Alert, type SensorTimeline,
+  type User, type Alert, type SensorTimeline, type WindData,
 } from '@/lib/graphql';
 import { SensorListPanel } from './SensorListPanel';
 import { UnitLayoutMap } from './UnitLayoutMap';
@@ -193,6 +193,7 @@ export default function GasLeakDashboard() {
   const [localAlerts, setLocalAlerts] = useState<Alert[]>([]);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [sensorTimeline, setSensorTimeline] = useState<SensorTimeline[]>([]);
+  const [windData, setWindData] = useState<WindData | null>(null);
   const [backendReady, setBackendReady] = useState(false);
   const backendReadyRef = useRef(false);
 
@@ -272,6 +273,13 @@ export default function GasLeakDashboard() {
     } catch { /* non-critical */ }
   }, []);
 
+  const loadWindData = useCallback(async (ruId: string) => {
+    if (ruId === 'ALL') { setWindData(null); return; }
+    try {
+      setWindData(await fetchWindData(ruId));
+    } catch { setWindData(null); }
+  }, []);
+
   /* fast probe: retry every 2s until backend responds */
   useEffect(() => {
     if (!currentUser || backendReady) return;
@@ -289,6 +297,14 @@ export default function GasLeakDashboard() {
 
   useEffect(() => { if (currentUser && backendReady) loadDevices(activeRU); }, [activeRU, loadDevices, currentUser, backendReady]);
   useEffect(() => { if (currentUser && backendReady) loadSensorTimeline(activeRU); }, [activeRU, loadSensorTimeline, currentUser, backendReady]);
+  useEffect(() => { if (currentUser && backendReady) loadWindData(activeRU); }, [activeRU, loadWindData, currentUser, backendReady]);
+
+  /* wind changes slowly — refresh every 5 minutes rather than on the fast dashboard poll */
+  useEffect(() => {
+    if (!currentUser || !backendReady) return;
+    const id = setInterval(() => loadWindData(activeRU), 5 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [currentUser, backendReady, activeRU, loadWindData]);
 
   /* handlers */
   const handleLogin = async (e: React.FormEvent) => {
@@ -1008,7 +1024,7 @@ export default function GasLeakDashboard() {
               <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 20, padding: '18px 20px', boxShadow: 'var(--shadow-card)' }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--t1)', marginBottom: 4 }}>RU Map — {mapRu}</div>
                 <div style={{ fontSize: 11, color: 'var(--t3)', fontFamily: "'Geist Mono', monospace", marginBottom: 14 }}>Interactive physical positioning</div>
-                <DeviceMap devices={apiDevices} ruId={mapRu} ruCenter={RU_CENTERS[mapRu]} sensorTimeline={sensorTimeline} selectedDevice={selectedDevice} onDeviceSelect={setSelectedDevice} warningThreshold={sysSettings?.warningThreshold} criticalThreshold={sysSettings?.criticalThreshold} onDeviceUpdate={() => loadDevices(activeRU)} />
+                <DeviceMap devices={apiDevices} ruId={mapRu} ruCenter={RU_CENTERS[mapRu]} sensorTimeline={sensorTimeline} windData={windData} selectedDevice={selectedDevice} onDeviceSelect={setSelectedDevice} warningThreshold={sysSettings?.warningThreshold} criticalThreshold={sysSettings?.criticalThreshold} onDeviceUpdate={() => loadDevices(activeRU)} />
               </div>
               <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 20, padding: '18px 20px', boxShadow: 'var(--shadow-card)' }}><UnitLayoutMap devices={apiDevices} onNodeClick={d => setSelectedDevice(d)} /></div>
             </div>
