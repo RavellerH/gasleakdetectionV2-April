@@ -1,6 +1,8 @@
 import { Args, Int, Mutation, Query, Resolver, Float } from '@nestjs/graphql';
+import { UseGuards } from '@nestjs/common';
 import { CoordinatesInput, CreateDeviceInput, UpdateDeviceInput, Device, GasReading, DashboardStats, SystemSettings, UpdateSettingsInput, User, CreateUserInput, LoginResult, RuSite, SensorTimeline, WindData } from './device.model';
 import { DeviceService } from './device.service';
+import { GqlAuthGuard, AdminGuard } from '../auth/auth';
 
 @Resolver(() => Device)
 export class DeviceResolver {
@@ -19,6 +21,7 @@ export class DeviceResolver {
   }
 
   @Mutation(() => SystemSettings)
+  @UseGuards(GqlAuthGuard, AdminGuard)
   async updateSettings(
     @Args('input') input: UpdateSettingsInput
   ): Promise<SystemSettings> {
@@ -42,6 +45,7 @@ export class DeviceResolver {
   }
 
   @Mutation(() => Device)
+  @UseGuards(GqlAuthGuard, AdminGuard)
   async createDevice(
     @Args('input') input: CreateDeviceInput
   ): Promise<Device> {
@@ -49,6 +53,7 @@ export class DeviceResolver {
   }
 
   @Mutation(() => Device, { nullable: true })
+  @UseGuards(GqlAuthGuard)
   async updateDeviceLocation(
     @Args('deviceId', { type: () => String }) deviceId: string,
     @Args('location') location: CoordinatesInput
@@ -57,6 +62,7 @@ export class DeviceResolver {
   }
 
   @Mutation(() => Device, { nullable: true })
+  @UseGuards(GqlAuthGuard)
   async updateDeviceName(
     @Args('deviceId', { type: () => String }) deviceId: string,
     @Args('name', { type: () => String }) name: string
@@ -65,6 +71,7 @@ export class DeviceResolver {
   }
 
   @Mutation(() => Boolean)
+  @UseGuards(GqlAuthGuard, AdminGuard)
   async deleteDevice(
     @Args('id', { type: () => String }) id: string,
   ): Promise<boolean> {
@@ -72,6 +79,7 @@ export class DeviceResolver {
   }
 
   @Mutation(() => Device)
+  @UseGuards(GqlAuthGuard, AdminGuard)
   async updateDevice(
     @Args('id', { type: () => String }) id: string,
     @Args('input', { type: () => UpdateDeviceInput }) input: UpdateDeviceInput,

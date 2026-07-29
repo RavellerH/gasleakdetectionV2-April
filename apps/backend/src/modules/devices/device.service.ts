@@ -1,6 +1,11 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
 import { Device, DeviceLocation, BatteryMetrics, NetworkMetrics, CreateDeviceInput, UpdateDeviceInput, GasReading, DashboardStats, RuStats, TimelineEntry, Alert, BatteryDistEntry, NetworkQualityEntry, SystemSettings, UpdateSettingsInput, User, CreateUserInput, UpdateUserInput, LoginResult, AnalyticsStats, WeeklyTrendEntry, HeatmapEntry, SiteRanking, EventLog, CreateEventLogInput, SensorTimeline, TrendPoint, RuComparisonEntry, HeatmapCell, TopSensorEntry, FleetBatteryBucket, FleetNetworkBucket, FleetHealthStats, WindData, DeviceWindRisk } from './device.model';
 import { PrismaService } from '../prisma/prisma.service';
+import { signToken } from '../auth/auth';
+
+const BCRYPT_ROUNDS = 10;
+const isBcryptHash = (password: string): boolean => password.startsWith('$2');
 
 // --- WIND / DOWNWIND RISK GEOMETRY ---
 
@@ -285,8 +290,9 @@ export class DeviceService {
   }
 
   async createUser(input: CreateUserInput, creatorId: string): Promise<User> {
+    const hashedPassword = await bcrypt.hash(input.password, BCRYPT_ROUNDS);
     const u = await this.prisma.user.create({
-      data: { email: input.email, name: input.name, password: input.password, ruId: input.ruId, role: input.role }
+      data: { email: input.email, name: input.name, password: hashedPassword, ruId: input.ruId, role: input.role }
     });
     return { ...u, name: u.name || undefined };
   }
@@ -300,21 +306,37 @@ export class DeviceService {
     const data: Record<string, unknown> = {};
     if (input.email !== undefined) data.email = input.email;
     if (input.name !== undefined) data.name = input.name;
-    if (input.password !== undefined) data.password = input.password;
+    if (input.password !== undefined) data.password = await bcrypt.hash(input.password, BCRYPT_ROUNDS);
     if (input.ruId !== undefined) data.ruId = input.ruId;
     if (input.role !== undefined) data.role = input.role;
     const u = await this.prisma.user.update({ where: { id }, data });
     return { ...u, name: u.name || undefined };
   }
 
-  // DEV MODE: password check disabled
-  async login(email: string): Promise<LoginResult> {
+  async login(email: string, password: string): Promise<LoginResult> {
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) return { error: 'No account found for that email' };
+
+    let valid: boolean;
+    if (isBcryptHash(user.password)) {
+      valid = await bcrypt.compare(password, user.password);
+    } else {
+      // legacy plaintext seed password — verify directly once, then transparently upgrade to a hash
+      valid = password === user.password;
+      if (valid) {
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { password: await bcrypt.hash(password, BCRYPT_ROUNDS) }
+        });
+      }
+    }
+    if (!valid) return { error: 'Incorrect password' };
+
     await this.prisma.eventLog.create({
       data: { type: 'LOGIN', severity: 'INFO', operatorId: user.id, operatorEmail: email, message: `Operator ${email} signed in` }
     });
-    return { user: { ...user, name: user.name || undefined } };
+    const token = signToken({ sub: user.id, email: user.email, role: user.role, ruId: user.ruId });
+    return { user: { ...user, name: user.name || undefined }, token };
   }
 
   // --- EVENT LOG ---

@@ -190,6 +190,10 @@ export class LoginResult {
 
   @Field({ nullable: true })
   error?: string;
+
+  /* JWT — send back as `Authorization: Bearer <token>` on subsequent requests */
+  @Field({ nullable: true })
+  token?: string;
 }
 
 @ObjectType()

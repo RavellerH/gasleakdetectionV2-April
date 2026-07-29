@@ -13,7 +13,7 @@ import {
   fetchDevices, fetchDashboardStats, fetchSettings, updateSettings,
   fetchUsers, createUser, deleteUser, login,
   updateDeviceName, createDevice, deleteDevice, updateDevice,
-  fetchSensorTimeline, createEventLog, fetchWindData,
+  fetchSensorTimeline, createEventLog, fetchWindData, setAuthToken,
   type Device, type DashboardStats, type SystemSettings,
   type User, type Alert, type SensorTimeline, type WindData,
 } from '@/lib/graphql';
@@ -166,6 +166,7 @@ export default function GasLeakDashboard() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
@@ -214,7 +215,9 @@ export default function GasLeakDashboard() {
   /* restore session */
   useEffect(() => {
     const stored = localStorage.getItem('gld_user');
+    const storedToken = localStorage.getItem('gld_token');
     if (stored) { try { setCurrentUser(JSON.parse(stored)); } catch { localStorage.removeItem('gld_user'); } }
+    if (storedToken) setAuthToken(storedToken);
     setIsCheckingAuth(false);
   }, []);
 
@@ -313,14 +316,24 @@ export default function GasLeakDashboard() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault(); setIsLoggingIn(true); setLoginError('');
     try {
-      const res = await login(loginEmail);
-      if (res.user) { setCurrentUser(res.user); localStorage.setItem('gld_user', JSON.stringify(res.user)); }
-      else { setLoginError(res.error || 'No account found for that email'); }
+      const res = await login(loginEmail, loginPassword);
+      if (res.user) {
+        setCurrentUser(res.user);
+        localStorage.setItem('gld_user', JSON.stringify(res.user));
+        if (res.token) { setAuthToken(res.token); localStorage.setItem('gld_token', res.token); }
+      } else { setLoginError(res.error || 'No account found for that email'); }
     } catch { setLoginError('Server connection failed'); }
     finally { setIsLoggingIn(false); }
   };
 
-  const handleLogout = () => { setCurrentUser(null); localStorage.removeItem('gld_user'); setLoginEmail(''); };
+  const handleLogout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem('gld_user');
+    localStorage.removeItem('gld_token');
+    setAuthToken(null);
+    setLoginEmail('');
+    setLoginPassword('');
+  };
 
   const handleUpdateSettings = async (updates: Partial<SystemSettings>) => {
     setIsSaving(true);
@@ -475,6 +488,14 @@ export default function GasLeakDashboard() {
             <input
               type="email" placeholder="admin@gld.com" value={loginEmail} required
               onChange={e => setLoginEmail(e.target.value)}
+              style={{ width: '100%', background: 'var(--input-bg)', border: '1px solid var(--card-border)', borderRadius: 10, padding: '10px 14px', color: 'var(--t1)', fontSize: 14, outline: 'none' }}
+            />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: 11, color: 'var(--t3)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600 }}>Password</label>
+            <input
+              type="password" placeholder="••••••••" value={loginPassword} required
+              onChange={e => setLoginPassword(e.target.value)}
               style={{ width: '100%', background: 'var(--input-bg)', border: '1px solid var(--card-border)', borderRadius: 10, padding: '10px 14px', color: 'var(--t1)', fontSize: 14, outline: 'none' }}
             />
           </div>
