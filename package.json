@@ -6,12 +6,14 @@
   "workspaces": [
     "apps/backend",
     "apps/frontend",
-    "apps/ru-frontend"
+    "apps/ru-frontend",
+    "apps/gateway"
   ],
   "scripts": {
     "dev:backend": "cd apps/backend && npm run start:dev",
     "dev:frontend": "cd apps/frontend && npm run dev",
     "dev:ru-frontend": "cd apps/ru-frontend && npm run dev -- -p 3002",
+    "dev:gateway": "cd apps/gateway && npm run start:dev",
     "dev": "npm-run-all -p dev:backend dev:frontend"
   },
   "devDependencies": {

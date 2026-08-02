@@ -12,3 +12,4 @@
 - [Frontend & UI Plan](frontend_ui_plan.md) — Next.js stack, Mapbox, UI/UX roadmap, Tailwind migration tasks
 - [Edge Firmware (Legacy)](edge_firmware_legacy.md) — older ESP8266/ESP32 firmware, LLCC68 radio, struct_message format, MQTT topics
 - [Open Items](open_items.md) — unresolved decisions that block implementation
+- [Gateway Aggregator](gateway_aggregator.md) — VPS aggregation app (apps/gateway), gatewayPull sync, RuSource/GatewayUser seed, E2E results

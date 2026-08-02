@@ -579,6 +579,21 @@ export class GasReading {
 }
 
 @ObjectType()
+export class GatewayPullResult {
+  @Field(() => [Device])
+  devices!: Device[];
+
+  @Field(() => [GasReading])
+  readings!: GasReading[];
+
+  @Field(() => [EventLog])
+  eventLogs!: EventLog[];
+
+  @Field(() => String)
+  serverTime!: string;
+}
+
+@ObjectType()
 export class Device {
   @Field(() => ID)
   id!: string;

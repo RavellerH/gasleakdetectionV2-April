@@ -1,0 +1,92 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma-client"
+}
+
+// One row per RU site the VPS pulls from.
+model RuSource {
+  id         String    @id            // e.g. "RU2".."RU7"
+  baseUrl    String                   // e.g. https://ru4.example.com/graphql
+  apiKey     String                   // must match that RU's GATEWAY_SYNC_KEY
+  lastSyncAt DateTime?
+  lastError  String?
+  updatedAt  DateTime  @updatedAt
+}
+
+// Separate from RU-local users — HQ / global-admin logins only. Not synced from RUs.
+model GatewayUser {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  role      String   @default("ADMIN")
+  createdAt DateTime @default(now())
+}
+
+// Mirrors apps/backend's Device model — aggregated, read-only replica.
+model Device {
+  id            String   @id
+  macAddress    String   @unique
+  name          String
+  deviceType    String
+  ruId          String
+  location      String
+  batteryStats  String
+  networkStats  String
+  healthScore   Int      @default(100)
+  status        String   @default("ONLINE")
+  registeredBy  String
+  isDummy       Boolean  @default(false)
+  parentId      String?
+  registeredAt  DateTime
+  updatedAt     DateTime
+
+  readings      GasReading[]
+
+  @@index([ruId, status])
+}
+
+model GasReading {
+  id         String   @id
+  deviceId   String
+  confidence Float
+  aiClass    Int      @default(0)
+  riskLevel  String   @default("LOW")
+  isDummy    Boolean  @default(false)
+  timestamp  DateTime
+  device     Device   @relation(fields: [deviceId], references: [id])
+
+  @@index([deviceId, timestamp])
+}
+
+model EventLog {
+  id             String    @id
+  type           String
+  severity       String    @default("INFO")
+  deviceId       String?
+  ruId           String?
+  operatorId     String?
+  operatorEmail  String?
+  message        String
+  details        String?
+  acknowledged   Boolean   @default(false)
+  acknowledgedBy String?
+  acknowledgedAt DateTime?
+  ackNote        String?
+  timestamp      DateTime
+
+  @@index([timestamp])
+  @@index([acknowledged])
+}
+
+model SystemSettings {
+  id                Int      @id @default(1)
+  warningThreshold  Float    @default(0.70)
+  criticalThreshold Float    @default(0.80)
+  refreshInterval   Int      @default(10)
+  updatedAt         DateTime @updatedAt
+}

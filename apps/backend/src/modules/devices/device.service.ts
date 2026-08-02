@@ -1,5 +1,5 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
-import { Device, DeviceLocation, BatteryMetrics, NetworkMetrics, CreateDeviceInput, UpdateDeviceInput, GasReading, DashboardStats, RuStats, TimelineEntry, Alert, BatteryDistEntry, NetworkQualityEntry, SystemSettings, UpdateSettingsInput, User, CreateUserInput, UpdateUserInput, LoginResult, AnalyticsStats, WeeklyTrendEntry, HeatmapEntry, SiteRanking, EventLog, CreateEventLogInput, SensorTimeline, TrendPoint, RuComparisonEntry, HeatmapCell, TopSensorEntry, FleetBatteryBucket, FleetNetworkBucket, FleetHealthStats } from './device.model';
+import { Device, DeviceLocation, BatteryMetrics, NetworkMetrics, CreateDeviceInput, UpdateDeviceInput, GasReading, DashboardStats, RuStats, TimelineEntry, Alert, BatteryDistEntry, NetworkQualityEntry, SystemSettings, UpdateSettingsInput, User, CreateUserInput, UpdateUserInput, LoginResult, AnalyticsStats, WeeklyTrendEntry, HeatmapEntry, SiteRanking, EventLog, CreateEventLogInput, SensorTimeline, TrendPoint, RuComparisonEntry, HeatmapCell, TopSensorEntry, FleetBatteryBucket, FleetNetworkBucket, FleetHealthStats, GatewayPullResult } from './device.model';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -474,6 +474,28 @@ export class DeviceService {
     const devices = await this.prisma.device.findMany({ select: { ruId: true }, distinct: ['ruId'] });
     const ruIds = devices.map(d => d.ruId);
     return [...new Set([...this.RU_SITES, ...ruIds])].map(id => ({ id }));
+  }
+
+  // --- GATEWAY SYNC (VPS pull endpoint) ---
+
+  async getGatewayPull(since: Date): Promise<GatewayPullResult> {
+    const serverTime = new Date().toISOString();
+    const [devices, readings, eventLogs] = await Promise.all([
+      this.prisma.device.findMany({
+        where: { OR: [{ registeredAt: { gt: since } }, { updatedAt: { gt: since } }] },
+        include: { readings: { orderBy: { timestamp: 'desc' }, take: 1 } },
+      }),
+      this.prisma.gasReading.findMany({ where: { timestamp: { gt: since } } }),
+      this.prisma.eventLog.findMany({ where: { timestamp: { gt: since } } }),
+    ]);
+    return {
+      devices: devices.map(d => this.mapToDevice(d)),
+      readings: readings.map(r => ({
+        id: r.id, deviceId: r.deviceId, confidence: r.confidence, aiClass: r.aiClass, riskLevel: r.riskLevel, timestamp: r.timestamp,
+      })),
+      eventLogs: eventLogs.map(l => this.serializeEvent(l)),
+      serverTime,
+    };
   }
 
   async addReading(macAddress: string, confidence: number, aiClass = 0): Promise<GasReading> {

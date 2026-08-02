@@ -1,6 +1,8 @@
 import { Args, Int, Mutation, Query, Resolver, Float } from '@nestjs/graphql';
-import { CoordinatesInput, CreateDeviceInput, UpdateDeviceInput, Device, GasReading, DashboardStats, SystemSettings, UpdateSettingsInput, User, CreateUserInput, LoginResult, RuSite, SensorTimeline } from './device.model';
+import { UseGuards } from '@nestjs/common';
+import { CoordinatesInput, CreateDeviceInput, UpdateDeviceInput, Device, GasReading, DashboardStats, SystemSettings, UpdateSettingsInput, User, CreateUserInput, LoginResult, RuSite, SensorTimeline, GatewayPullResult } from './device.model';
 import { DeviceService } from './device.service';
+import { GatewayKeyGuard } from './gateway-key.guard';
 
 @Resolver(() => Device)
 export class DeviceResolver {
@@ -84,6 +86,14 @@ export class DeviceResolver {
     @Args('ruId', { type: () => String }) ruId: string,
   ): Promise<SensorTimeline[]> {
     return this.deviceService.getSensorTimeline(ruId);
+  }
+
+  @UseGuards(GatewayKeyGuard)
+  @Query(() => GatewayPullResult)
+  async gatewayPull(
+    @Args('since', { type: () => String }) since: string,
+  ): Promise<GatewayPullResult> {
+    return this.deviceService.getGatewayPull(new Date(since));
   }
 }
 
