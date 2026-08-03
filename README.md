@@ -114,6 +114,7 @@ npm install           # install all dependencies
 npm run dev           # start both servers together
 npm run dev:backend   # backend only
 npm run dev:frontend  # frontend only
+npm run verify        # generate Prisma clients, type-check, and build every app
 ```
 
 To reset demo data:

@@ -8,6 +8,7 @@ async function testLogin() {
           login(email: $email, password: $password) {
             user { id email name ruId role }
             error
+            token
           }
         }
       `,

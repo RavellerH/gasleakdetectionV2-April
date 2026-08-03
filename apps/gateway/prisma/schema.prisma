@@ -24,6 +24,7 @@ model GatewayUser {
   email     String   @unique
   name      String?
   role      String   @default("ADMIN")
+  password  String   @default("admin")
   createdAt DateTime @default(now())
 }
 

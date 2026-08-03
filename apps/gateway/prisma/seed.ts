@@ -1,6 +1,8 @@
 import { PrismaClient } from '../generated/prisma-client';
+import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
+const BCRYPT_ROUNDS = 12;
 
 // Which RU(s) this gateway deployment aggregates. Comma-separated.
 const RU_IDS = (process.env.GATEWAY_RU_IDS ?? 'RU4')
@@ -14,6 +16,7 @@ const API_KEY = process.env.GATEWAY_SYNC_KEY ?? 'change-me-per-ru-site';
 
 const ADMIN_EMAIL = process.env.GATEWAY_ADMIN_EMAIL ?? 'admin@gld.com';
 const ADMIN_NAME = process.env.GATEWAY_ADMIN_NAME ?? 'System Admin';
+const ADMIN_PASSWORD = process.env.GATEWAY_ADMIN_PASSWORD ?? 'admin';
 
 async function main() {
   for (const ruId of RU_IDS) {
@@ -27,7 +30,7 @@ async function main() {
   await prisma.gatewayUser.upsert({
     where: { email: ADMIN_EMAIL },
     update: { name: ADMIN_NAME, role: 'ADMIN' },
-    create: { email: ADMIN_EMAIL, name: ADMIN_NAME, role: 'ADMIN' },
+    create: { email: ADMIN_EMAIL, name: ADMIN_NAME, role: 'ADMIN', password: await bcrypt.hash(ADMIN_PASSWORD, BCRYPT_ROUNDS) },
   });
 
   const sources = await prisma.ruSource.findMany();

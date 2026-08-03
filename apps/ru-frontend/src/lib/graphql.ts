@@ -5,6 +5,14 @@ const endpoint =
 
 export const graphqlClient = new GraphQLClient(endpoint);
 
+export function setAuthToken(token: string | null): void {
+  graphqlClient.setHeader('Authorization', token ? `Bearer ${token}` : '');
+}
+
+if (typeof window !== 'undefined') {
+  setAuthToken(localStorage.getItem('gld_token'));
+}
+
 export interface DeviceLocation {
   lat: number;
   lng: number;
@@ -273,6 +281,7 @@ export interface User {
 export interface LoginResult {
   user?: User | null;
   error?: string | null;
+  token?: string | null;
 }
 
 const USERS_QUERY = /* GraphQL */ `
@@ -289,10 +298,11 @@ const USERS_QUERY = /* GraphQL */ `
 `;
 
 const LOGIN_QUERY = /* GraphQL */ `
-  query Login($email: String!) {
-    login(email: $email) {
+  query Login($email: String!, $password: String!) {
+    login(email: $email, password: $password) {
       user { id email name ruId role }
       error
+      token
     }
   }
 `;
@@ -344,8 +354,8 @@ export interface CreateUserInput {
   role: string;
 }
 
-export async function login(email: string): Promise<LoginResult> {
-  const data = await graphqlClient.request<{ login: LoginResult }>(LOGIN_QUERY, { email });
+export async function login(email: string, password: string): Promise<LoginResult> {
+  const data = await graphqlClient.request<{ login: LoginResult }>(LOGIN_QUERY, { email, password });
   return data.login;
 }
 

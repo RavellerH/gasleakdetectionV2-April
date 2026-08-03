@@ -1,6 +1,11 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
 import { Device, DeviceLocation, BatteryMetrics, NetworkMetrics, CreateDeviceInput, UpdateDeviceInput, GasReading, DashboardStats, RuStats, TimelineEntry, Alert, BatteryDistEntry, NetworkQualityEntry, SystemSettings, UpdateSettingsInput, User, CreateUserInput, UpdateUserInput, LoginResult, AnalyticsStats, WeeklyTrendEntry, HeatmapEntry, SiteRanking, EventLog, CreateEventLogInput, SensorTimeline, TrendPoint, RuComparisonEntry, HeatmapCell, TopSensorEntry, FleetBatteryBucket, FleetNetworkBucket, FleetHealthStats, GatewayPullResult } from './device.model';
 import { PrismaService } from '../prisma/prisma.service';
+import { signToken } from '../auth/auth';
+
+const BCRYPT_ROUNDS = 12;
+const isBcryptHash = (password: string): boolean => /^\$2[aby]\$/.test(password);
 
 @Injectable()
 export class DeviceService {
@@ -205,14 +210,15 @@ export class DeviceService {
 
   async users(): Promise<User[]> {
     const userList = await this.prisma.user.findMany({ orderBy: { createdAt: 'desc' } });
-    return userList.map(u => ({ ...u, name: u.name || undefined }));
+    return userList.map(u => this.toSafeUser(u));
   }
 
-  async createUser(input: CreateUserInput, creatorId: string): Promise<User> {
+  async createUser(input: CreateUserInput, _creatorId: string): Promise<User> {
+    const hashedPassword = await bcrypt.hash(input.password, BCRYPT_ROUNDS);
     const u = await this.prisma.user.create({
-      data: { email: input.email, name: input.name, password: input.password, ruId: input.ruId, role: input.role }
+      data: { email: input.email.trim().toLowerCase(), name: input.name, password: hashedPassword, ruId: input.ruId, role: input.role }
     });
-    return { ...u, name: u.name || undefined };
+    return this.toSafeUser(u);
   }
 
   async deleteUser(id: string): Promise<boolean> {
@@ -222,23 +228,57 @@ export class DeviceService {
 
   async updateUser(id: string, input: UpdateUserInput): Promise<User> {
     const data: Record<string, unknown> = {};
-    if (input.email !== undefined) data.email = input.email;
+    if (input.email !== undefined) data.email = input.email.trim().toLowerCase();
     if (input.name !== undefined) data.name = input.name;
-    if (input.password !== undefined) data.password = input.password;
+    if (input.password !== undefined) data.password = await bcrypt.hash(input.password, BCRYPT_ROUNDS);
     if (input.ruId !== undefined) data.ruId = input.ruId;
     if (input.role !== undefined) data.role = input.role;
     const u = await this.prisma.user.update({ where: { id }, data });
-    return { ...u, name: u.name || undefined };
+    return this.toSafeUser(u);
   }
 
-  // DEV MODE: password check disabled
-  async login(email: string): Promise<LoginResult> {
-    const user = await this.prisma.user.findUnique({ where: { email } });
-    if (!user) return { error: 'No account found for that email' };
+  async login(email: string, password: string): Promise<LoginResult> {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!this.checkRateLimit(normalizedEmail)) {
+      return { error: 'Too many login attempts. Try again in 15 minutes.' };
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
+    if (!user) return { error: 'Invalid email or password' };
+
+    let valid = false;
+    if (isBcryptHash(user.password)) {
+      valid = await bcrypt.compare(password, user.password);
+    } else {
+      valid = password === user.password;
+      if (valid) {
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { password: await bcrypt.hash(password, BCRYPT_ROUNDS) },
+        });
+      }
+    }
+    if (!valid) return { error: 'Invalid email or password' };
+
+    this.rateLimitMap.delete(normalizedEmail);
     await this.prisma.eventLog.create({
-      data: { type: 'LOGIN', severity: 'INFO', operatorId: user.id, operatorEmail: email, message: `Operator ${email} signed in` }
+      data: { type: 'LOGIN', severity: 'INFO', operatorId: user.id, operatorEmail: user.email, message: `Operator ${user.email} signed in` }
     });
-    return { user: { ...user, name: user.name || undefined } };
+    return {
+      user: this.toSafeUser(user),
+      token: signToken({ sub: user.id, email: user.email, role: user.role, ruId: user.ruId }),
+    };
+  }
+
+  private toSafeUser(user: { id: string; email: string; name: string | null; ruId: string; role: string; createdAt: Date }): User {
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name || undefined,
+      ruId: user.ruId,
+      role: user.role,
+      createdAt: user.createdAt,
+    };
   }
 
   // --- EVENT LOG ---

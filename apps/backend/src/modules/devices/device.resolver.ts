@@ -3,6 +3,7 @@ import { UseGuards } from '@nestjs/common';
 import { CoordinatesInput, CreateDeviceInput, UpdateDeviceInput, Device, GasReading, DashboardStats, SystemSettings, UpdateSettingsInput, User, CreateUserInput, LoginResult, RuSite, SensorTimeline, GatewayPullResult } from './device.model';
 import { DeviceService } from './device.service';
 import { GatewayKeyGuard } from './gateway-key.guard';
+import { AdminGuard, GqlAuthGuard, IngestKeyGuard } from '../auth/auth';
 
 @Resolver(() => Device)
 export class DeviceResolver {
@@ -11,16 +12,19 @@ export class DeviceResolver {
   // --- STATS & SETTINGS ---
 
   @Query(() => DashboardStats)
+  @UseGuards(GqlAuthGuard)
   async getDashboardStats(): Promise<DashboardStats> {
     return this.deviceService.getDashboardStats();
   }
 
   @Query(() => SystemSettings)
+  @UseGuards(GqlAuthGuard)
   async getSettings(): Promise<SystemSettings> {
     return this.deviceService.getSettings();
   }
 
   @Mutation(() => SystemSettings)
+  @UseGuards(GqlAuthGuard, AdminGuard)
   async updateSettings(
     @Args('input') input: UpdateSettingsInput
   ): Promise<SystemSettings> {
@@ -28,6 +32,7 @@ export class DeviceResolver {
   }
 
   @Mutation(() => GasReading)
+  @UseGuards(IngestKeyGuard)
   async addReading(
     @Args('macAddress', { type: () => String }) macAddress: string,
     @Args('confidence', { type: () => Float }) confidence: number,
@@ -37,6 +42,7 @@ export class DeviceResolver {
   }
 
   @Query(() => [Device])
+  @UseGuards(GqlAuthGuard)
   async devices(
     @Args('ruId', { type: () => String }) ruId: string
   ): Promise<Device[]> {
@@ -44,6 +50,7 @@ export class DeviceResolver {
   }
 
   @Mutation(() => Device)
+  @UseGuards(GqlAuthGuard, AdminGuard)
   async createDevice(
     @Args('input') input: CreateDeviceInput
   ): Promise<Device> {
@@ -51,6 +58,7 @@ export class DeviceResolver {
   }
 
   @Mutation(() => Device, { nullable: true })
+  @UseGuards(GqlAuthGuard, AdminGuard)
   async updateDeviceLocation(
     @Args('deviceId', { type: () => String }) deviceId: string,
     @Args('location') location: CoordinatesInput
@@ -59,6 +67,7 @@ export class DeviceResolver {
   }
 
   @Mutation(() => Device, { nullable: true })
+  @UseGuards(GqlAuthGuard, AdminGuard)
   async updateDeviceName(
     @Args('deviceId', { type: () => String }) deviceId: string,
     @Args('name', { type: () => String }) name: string
@@ -67,6 +76,7 @@ export class DeviceResolver {
   }
 
   @Mutation(() => Boolean)
+  @UseGuards(GqlAuthGuard, AdminGuard)
   async deleteDevice(
     @Args('id', { type: () => String }) id: string,
   ): Promise<boolean> {
@@ -74,6 +84,7 @@ export class DeviceResolver {
   }
 
   @Mutation(() => Device)
+  @UseGuards(GqlAuthGuard, AdminGuard)
   async updateDevice(
     @Args('id', { type: () => String }) id: string,
     @Args('input', { type: () => UpdateDeviceInput }) input: UpdateDeviceInput,
@@ -82,6 +93,7 @@ export class DeviceResolver {
   }
 
   @Query(() => [SensorTimeline])
+  @UseGuards(GqlAuthGuard)
   async sensorTimeline(
     @Args('ruId', { type: () => String }) ruId: string,
   ): Promise<SensorTimeline[]> {

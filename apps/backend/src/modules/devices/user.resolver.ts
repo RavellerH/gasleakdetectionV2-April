@@ -1,12 +1,16 @@
 import { Args, Mutation, Query, Resolver, Int } from '@nestjs/graphql';
 import { User, CreateUserInput, UpdateUserInput, LoginResult, AnalyticsStats, EventLog, CreateEventLogInput } from './device.model';
 import { DeviceService } from './device.service';
+import { UseGuards } from '@nestjs/common';
+import { AdminGuard, GqlAuthGuard } from '../auth/auth';
+import { RuSite } from './device.model';
 
 @Resolver(() => User)
 export class UserResolver {
   constructor(private readonly deviceService: DeviceService) {}
 
   @Query(() => AnalyticsStats)
+  @UseGuards(GqlAuthGuard)
   async getAnalytics(
     @Args('ruId', { type: () => String, nullable: true }) ruId?: string,
     @Args('hours', { type: () => Int, nullable: true }) hours?: number,
@@ -15,6 +19,7 @@ export class UserResolver {
   }
 
   @Query(() => [User])
+  @UseGuards(GqlAuthGuard, AdminGuard)
   async users(): Promise<User[]> {
     return this.deviceService.users();
   }
@@ -22,11 +27,19 @@ export class UserResolver {
   @Query(() => LoginResult)
   async login(
     @Args('email', { type: () => String }) email: string,
+    @Args('password', { type: () => String }) password: string,
   ): Promise<LoginResult> {
-    return this.deviceService.login(email);
+    return this.deviceService.login(email, password);
+  }
+
+  @Query(() => [RuSite])
+  @UseGuards(GqlAuthGuard)
+  async ruSites(): Promise<{ id: string }[]> {
+    return this.deviceService.getRuSites();
   }
 
   @Mutation(() => User)
+  @UseGuards(GqlAuthGuard, AdminGuard)
   async createUser(
     @Args('input', { type: () => CreateUserInput }) input: CreateUserInput,
     @Args('creatorId', { type: () => String }) creatorId: string
@@ -35,6 +48,7 @@ export class UserResolver {
   }
 
   @Mutation(() => Boolean)
+  @UseGuards(GqlAuthGuard, AdminGuard)
   async deleteUser(
     @Args('id', { type: () => String }) id: string
   ): Promise<boolean> {
@@ -42,6 +56,7 @@ export class UserResolver {
   }
 
   @Mutation(() => User)
+  @UseGuards(GqlAuthGuard, AdminGuard)
   async updateUser(
     @Args('id', { type: () => String }) id: string,
     @Args('input', { type: () => UpdateUserInput }) input: UpdateUserInput,
@@ -50,6 +65,7 @@ export class UserResolver {
   }
 
   @Query(() => [EventLog])
+  @UseGuards(GqlAuthGuard)
   async eventLogs(
     @Args('ruId', { type: () => String, nullable: true }) ruId?: string,
     @Args('limit', { type: () => Int, nullable: true }) limit?: number,
@@ -58,6 +74,7 @@ export class UserResolver {
   }
 
   @Mutation(() => EventLog)
+  @UseGuards(GqlAuthGuard)
   async createEventLog(
     @Args('input', { type: () => CreateEventLogInput }) input: CreateEventLogInput,
   ): Promise<EventLog> {
@@ -65,6 +82,7 @@ export class UserResolver {
   }
 
   @Mutation(() => EventLog)
+  @UseGuards(GqlAuthGuard)
   async acknowledgeEvent(
     @Args('id', { type: () => String }) id: string,
     @Args('note', { type: () => String }) note: string,
