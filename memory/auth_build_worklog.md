@@ -5,6 +5,8 @@
 > Last updated: 2026-08-03 09:17:18 +07:00  
 > State: active local work; not committed or pushed
 
+> VPS audit added: 2026-08-03 15:51:09 +07:00 — see [VPS Audit 2026-08-03](vps_audit_2026-08-03.md). No VPS changes were made.
+
 ## Purpose
 
 This log records the repository study, build-reproducibility remediation, GitHub tooling setup, and authentication/security implementation performed during the current work session. It is intended to make continuation and review possible without relying on chat history.

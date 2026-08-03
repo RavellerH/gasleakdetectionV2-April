@@ -4,6 +4,7 @@
 > Last updated: 2026-08-03
 
 - [Build and Authentication Worklog](auth_build_worklog.md) — timestamped local changes, validation state, interrupted operations, and continuation steps
+- [VPS Audit 2026-08-03](vps_audit_2026-08-03.md) — read-only server inventory, security findings, port conflicts, and deployment plan
 
 - [System Overview](system_overview.md) — full hardware+software topology, device counts, confirmed integration decisions
 - [Backend Architecture](backend_architecture.md) — NestJS/GraphQL/Prisma/SQLite internals, resolvers, schema, what doesn't exist yet
