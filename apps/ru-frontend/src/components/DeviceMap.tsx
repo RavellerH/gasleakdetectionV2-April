@@ -1,20 +1,22 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import MapGL, { Marker, MapRef, Source, Layer } from 'react-map-gl/maplibre';
-import type { StyleSpecification } from 'maplibre-gl';
+import MapGL, { Marker, MapRef, Source, Layer } from 'react-map-gl';
+import type { SkyLayerSpecification } from 'mapbox-gl';
 import useSupercluster from 'use-supercluster';
-import 'maplibre-gl/dist/maplibre-gl.css';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import { X, Compass, Mountain, Share2, BatteryMedium, Wifi, Activity, MapPin, Network, Flame, RefreshCw } from 'lucide-react';
 import type { Device, SensorTimeline } from '@/lib/graphql';
 import { updateDeviceLocation } from '@/lib/graphql';
 import { DevicePin } from './DevicePin';
 
-/* Tiles are served from the app itself when they've been downloaded with
-   `npm run tiles` (→ public/tiles). Otherwise we stream from OSM online.
-   No Mapbox token or vector style needed either way. */
-const LOCAL_TILES  = '/tiles/{z}/{x}/{y}.png';
-const ONLINE_TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? '';
+
+/* Mapbox GL v3 rejects Opera even though WebGL works fine. */
+if (typeof window !== 'undefined' && !mapboxgl.supported()) {
+  Object.defineProperty(mapboxgl, 'supported', { value: () => true, configurable: true });
+}
 
 function isWebGLSupported(): boolean {
   if (typeof window === 'undefined') return true;
@@ -48,35 +50,18 @@ function heatmapColor(conf: number | null, warning: number, critical: number): s
   return `rgba(37,99,235,${0.08 + r * 0.50})`;
 }
 
-/* ── Raster basemap style — dimmed to match the dark UI ─────── */
-function buildMapStyle(tileTemplate: string): StyleSpecification {
-  return {
-    version: 8,
-    sources: {
-      basemap: {
-        type: 'raster',
-        tiles: [tileTemplate],
-        tileSize: 256,
-        maxzoom: 16, // raster overzooms smoothly past this
-        attribution: '© OpenStreetMap contributors',
-      },
-    },
-    layers: [
-      { id: 'bg', type: 'background', paint: { 'background-color': '#0b1220' } },
-      {
-        id: 'basemap',
-        type: 'raster',
-        source: 'basemap',
-        paint: {
-          'raster-brightness-max': 0.45,
-          'raster-saturation': -0.7,
-          'raster-contrast': 0.15,
-          'raster-fade-duration': 0, // no cross-fade flicker on tile swaps
-        },
-      },
-    ],
-  };
-}
+/* ── Sky atmosphere layer ───────────────────────────────────── */
+const skyLayer: SkyLayerSpecification = {
+  id: 'sky',
+  type: 'sky',
+  paint: {
+    'sky-type': 'atmosphere',
+    'sky-atmosphere-sun': [0.0, 90.0],
+    'sky-atmosphere-sun-intensity': 15,
+    'sky-atmosphere-color': 'rgba(14, 30, 60, 1)',
+    'sky-atmosphere-halo-color': 'rgba(56, 189, 248, 0.3)',
+  },
+};
 
 /* ── Flowing dash animation frames ─────────────────────────── */
 const DASH_STEPS = [
@@ -127,21 +112,6 @@ export function DeviceMap({
   const [is3D,         setIs3D]         = useState(true);
   const [showTopology, setShowTopology] = useState(true);
   const [showTrend,    setShowTrend]    = useState(true);
-
-  /* prefer locally downloaded tiles (offline), fall back to OSM online */
-  const [tileTemplate, setTileTemplate] = useState<string | null>(null);
-  useEffect(() => {
-    let alive = true;
-    fetch('/tiles/manifest.json', { cache: 'no-store' })
-      .then(r => { if (alive) setTileTemplate(r.ok ? LOCAL_TILES : ONLINE_TILES); })
-      .catch(() => { if (alive) setTileTemplate(ONLINE_TILES); });
-    return () => { alive = false; };
-  }, []);
-
-  const mapStyle = useMemo(
-    () => (tileTemplate ? buildMapStyle(tileTemplate) : null),
-    [tileTemplate]
-  );
 
   /* viewport state — synced from refs via interval to avoid render loops */
   const [zoom,   setZoom]   = useState(initialZoom);
@@ -291,16 +261,16 @@ export function DeviceMap({
     [onDeviceUpdate]
   );
 
-  const handleMove = useCallback((evt: { viewState: { zoom: number }; target: { getBounds: () => { getWest(): number; getSouth(): number; getEast(): number; getNorth(): number } | null } }) => {
+  const handleMove = useCallback((evt: { viewState: { zoom: number }; target: mapboxgl.Map }) => {
     zoomRef.current = evt.viewState.zoom;
     const b = evt.target.getBounds();
     if (b) boundsRef.current = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
   }, []);
 
-  if (!mapStyle) {
+  if (!MAPBOX_TOKEN) {
     return (
-      <div style={{ height:500, display:'flex', alignItems:'center', justifyContent:'center', background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:12, color:'var(--t3)', fontSize:13, fontFamily:"'Geist Mono', monospace", gap:10 }}>
-        <RefreshCw size={16} style={{ animation:'spin 1s linear infinite' }} /> LOADING BASEMAP…
+      <div style={{ height:500, display:'flex', alignItems:'center', justifyContent:'center', background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:12, color:'var(--t3)', fontSize:13, fontFamily:"'Geist Mono', monospace", gap:8 }}>
+        Set <code style={{ background:'rgba(255,255,255,0.06)', padding:'2px 6px', borderRadius:4 }}>NEXT_PUBLIC_MAPBOX_TOKEN</code> in .env to show the map.
       </div>
     );
   }
@@ -331,24 +301,29 @@ export function DeviceMap({
         @keyframes gw-ring { 0% { transform:scale(1); opacity:.7; } 100% { transform:scale(2.2); opacity:0; } }
         @keyframes overlay-in { from { opacity:0; transform:translateX(-16px); } to { opacity:1; transform:translateX(0); } }
         @keyframes overlay-in-r { from { opacity:0; transform:translateX(16px); } to { opacity:1; transform:translateX(0); } }
-        .maplibregl-ctrl-group { background:rgba(11,13,20,0.85) !important; border:1px solid rgba(56,189,248,0.15) !important; backdrop-filter:blur(12px); }
-        .maplibregl-ctrl-group button { background:transparent !important; border-bottom:1px solid rgba(56,189,248,0.1) !important; }
-        .maplibregl-ctrl-group button:last-child { border-bottom:none !important; }
-        .maplibregl-ctrl-attrib { background:rgba(11,13,20,0.7) !important; }
-        .maplibregl-ctrl-attrib, .maplibregl-ctrl-attrib a { color:#64748b !important; font-size:10px !important; }
+        .mapboxgl-ctrl-group { background:rgba(11,13,20,0.85) !important; border:1px solid rgba(56,189,248,0.15) !important; backdrop-filter:blur(12px); }
+        .mapboxgl-ctrl-group button { background:transparent !important; border-bottom:1px solid rgba(56,189,248,0.1) !important; }
+        .mapboxgl-ctrl-group button:last-child { border-bottom:none !important; }
+        .mapboxgl-ctrl-icon { filter:invert(1) brightness(0.7); }
+        .mapboxgl-ctrl-attrib { display:none !important; }
+        .mapboxgl-ctrl-logo { display:none !important; }
       `}</style>
 
       <MapGL
         ref={mapRef}
+        mapboxAccessToken={MAPBOX_TOKEN}
         initialViewState={ruCenter
           ? { longitude: ruCenter.lng, latitude: ruCenter.lat, zoom: initialZoom, pitch: 55, bearing: -17 }
           : { longitude: 118.0, latitude: -2.5, zoom: initialZoom, pitch: 0, bearing: 0 }}
         style={{ width:'100%', height:'100%' }}
-        mapStyle={mapStyle}
+        mapStyle="mapbox://styles/mapbox/dark-v11"
+        antialias
         onMove={handleMove}
         onLoad={(e) => {
-          // Sync initial viewport state
           const m = e.target;
+          for (const id of ['3d-buildings', 'building', 'building-extrusion']) {
+            if (m.getLayer(id)) m.removeLayer(id);
+          }
           zoomRef.current = m.getZoom();
           const b = m.getBounds();
           if (b) boundsRef.current = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
@@ -356,6 +331,7 @@ export function DeviceMap({
           setBounds(boundsRef.current);
         }}
       >
+        <Layer {...skyLayer} />
         {/* ── Topology lines (hidden below zoom 11) ── */}
         <Source id="topology" type="geojson" data={topologyGeoJSON as any}>
           <Layer
