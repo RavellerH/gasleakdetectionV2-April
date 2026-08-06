@@ -1,0 +1,22 @@
+.git
+.github
+.claude
+node_modules
+**/node_modules
+**/.next
+**/dist
+**/generated
+**/*.db
+**/*.db-journal
+**/.env
+**/.env.local
+backups
+Documentation
+edge firmware
+md file design
+memory
+presentation
+video kasim landscape
+*.mp4
+*.png
+*.xlsx

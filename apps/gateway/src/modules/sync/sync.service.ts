@@ -52,30 +52,63 @@ interface GatewayPullResponse {
   gatewayPull: {
     serverTime: string;
     devices: Array<{
-      id: string; macAddress: string; name: string; ruId: string; type: string;
+      id: string;
+      macAddress: string;
+      name: string;
+      ruId: string;
+      type: string;
       parentMac?: string | null;
       location: { lat: number; lng: number };
       battery: { voltage: number; soc: number; cycles?: number | null; estimatedHours?: number | null };
-      network: { rssi: number; rssiMesh?: number; rssiStar?: number; peersCount?: number | null; hopsToGateway?: number | null; qualityScore?: string | null; parentMac?: string | null };
+      network: {
+        rssi: number;
+        rssiMesh?: number;
+        rssiStar?: number;
+        peersCount?: number | null;
+        hopsToGateway?: number | null;
+        qualityScore?: string | null;
+        parentMac?: string | null;
+      };
       healthScore: number;
       status: string;
     }>;
-    readings: Array<{ id: string; deviceId: string; confidence: number; aiClass: number; riskLevel: string; timestamp: string }>;
+    readings: Array<{
+      id: string;
+      deviceId: string;
+      confidence: number;
+      aiClass: number;
+      riskLevel: string;
+      timestamp: string;
+    }>;
     eventLogs: Array<{
-      id: string; type: string; severity: string; deviceId?: string | null; ruId?: string | null;
-      operatorId?: string | null; operatorEmail?: string | null; message: string; details?: string | null;
-      acknowledged: boolean; acknowledgedBy?: string | null; acknowledgedAt?: string | null; ackNote?: string | null;
+      id: string;
+      type: string;
+      severity: string;
+      deviceId?: string | null;
+      ruId?: string | null;
+      operatorId?: string | null;
+      operatorEmail?: string | null;
+      message: string;
+      details?: string | null;
+      acknowledged: boolean;
+      acknowledgedBy?: string | null;
+      acknowledgedAt?: string | null;
+      ackNote?: string | null;
       timestamp: string;
     }>;
   };
 }
 
 const EPOCH = new Date(0).toISOString();
+const REQUEST_TIMEOUT_MS = Number(process.env.SYNC_REQUEST_TIMEOUT_MS ?? 20_000);
+
+function scopedId(ruId: string, sourceId: string): string {
+  return `${ruId}:${sourceId}`;
+}
 
 @Injectable()
 export class SyncService {
   private readonly logger = new Logger(SyncService.name);
-
   private running = false;
 
   constructor(private readonly prisma: PrismaService) {}
@@ -88,7 +121,7 @@ export class SyncService {
     }
     this.running = true;
     try {
-      const sources = await this.prisma.ruSource.findMany();
+      const sources = await this.prisma.ruSource.findMany({ orderBy: { id: 'asc' } });
       for (const source of sources) {
         await this.pullOne(source.id, source.baseUrl, source.apiKey, source.lastSyncAt);
       }
@@ -100,89 +133,116 @@ export class SyncService {
   private async pullOne(ruId: string, baseUrl: string, apiKey: string, lastSyncAt: Date | null): Promise<void> {
     const since = (lastSyncAt ?? new Date(EPOCH)).toISOString();
     try {
-      const client = new GraphQLClient(baseUrl, { headers: { 'x-gateway-key': apiKey } });
+      const parsedUrl = new URL(baseUrl);
+      if (!['http:', 'https:'].includes(parsedUrl.protocol)) throw new Error('RU source URL must use HTTP or HTTPS');
+      const client = new GraphQLClient(baseUrl, {
+        headers: { 'x-gateway-key': apiKey },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
       const result = await client.request<GatewayPullResponse>(GATEWAY_PULL_QUERY, { since });
       const { devices, readings, eventLogs, serverTime } = result.gatewayPull;
+      const syncTime = new Date(serverTime);
+      if (!Number.isFinite(syncTime.getTime())) throw new Error('RU returned an invalid serverTime');
+      if (devices.some(device => device.ruId !== ruId)) {
+        throw new Error(`RU source ${ruId} returned a device belonging to another RU`);
+      }
 
-      for (const d of devices) {
-        await this.prisma.device.upsert({
-          where: { macAddress: d.macAddress },
-          create: {
-            id: d.id,
-            macAddress: d.macAddress,
-            name: d.name,
-            deviceType: d.type,
-            ruId: d.ruId,
-            location: JSON.stringify(d.location),
-            batteryStats: JSON.stringify(d.battery),
-            networkStats: JSON.stringify(d.network),
-            healthScore: d.healthScore,
-            status: d.status,
-            registeredBy: 'sync',
-            registeredAt: new Date(),
-            updatedAt: new Date(),
-          },
-          update: {
-            name: d.name,
-            deviceType: d.type,
-            ruId: d.ruId,
-            location: JSON.stringify(d.location),
-            batteryStats: JSON.stringify(d.battery),
-            networkStats: JSON.stringify(d.network),
-            healthScore: d.healthScore,
-            status: d.status,
-            updatedAt: new Date(),
-          },
+      await this.prisma.$transaction(async tx => {
+        for (const device of devices) {
+          await tx.device.upsert({
+            where: { ruId_sourceId: { ruId, sourceId: device.id } },
+            create: {
+              id: scopedId(ruId, device.id),
+              sourceId: device.id,
+              macAddress: device.macAddress,
+              name: device.name,
+              deviceType: device.type,
+              ruId,
+              location: JSON.stringify(device.location),
+              batteryStats: JSON.stringify(device.battery),
+              networkStats: JSON.stringify(device.network),
+              healthScore: device.healthScore,
+              status: device.status,
+              registeredBy: 'sync',
+              registeredAt: syncTime,
+              updatedAt: syncTime,
+            },
+            update: {
+              macAddress: device.macAddress,
+              name: device.name,
+              deviceType: device.type,
+              location: JSON.stringify(device.location),
+              batteryStats: JSON.stringify(device.battery),
+              networkStats: JSON.stringify(device.network),
+              healthScore: device.healthScore,
+              status: device.status,
+              updatedAt: syncTime,
+            },
+          });
+        }
+
+        const referencedSourceIds = [...new Set([
+          ...readings.map(reading => reading.deviceId),
+          ...eventLogs.flatMap(event => event.deviceId ? [event.deviceId] : []),
+        ])];
+        const mappedDevices = referencedSourceIds.length === 0 ? [] : await tx.device.findMany({
+          where: { ruId, sourceId: { in: referencedSourceIds } },
+          select: { id: true, sourceId: true },
         });
-      }
+        const deviceIds = new Map(mappedDevices.map(device => [device.sourceId, device.id]));
 
-      // Fast path: createMany in one shot (no skipDuplicates on SQLite, but
-      // the common case — a fresh pull with no id overlap — just works).
-      // Fall back to per-row upsert only if that fails (re-run after a
-      // partial sync, or an overlapping window).
-      if (readings.length > 0) {
-        const data = readings.map(r => ({
-          id: r.id, deviceId: r.deviceId, confidence: r.confidence, aiClass: r.aiClass,
-          riskLevel: r.riskLevel, timestamp: new Date(r.timestamp),
-        }));
-        try {
-          await this.prisma.gasReading.createMany({ data });
-        } catch {
-          for (const row of data) {
-            await this.prisma.gasReading.upsert({ where: { id: row.id }, create: row, update: {} });
-          }
+        if (readings.length > 0) {
+          const data = readings.map(reading => {
+            const deviceId = deviceIds.get(reading.deviceId);
+            if (!deviceId) throw new Error(`Reading ${reading.id} references unknown RU device ${reading.deviceId}`);
+            return {
+              id: scopedId(ruId, reading.id),
+              sourceId: reading.id,
+              ruId,
+              deviceId,
+              confidence: reading.confidence,
+              aiClass: reading.aiClass,
+              riskLevel: reading.riskLevel,
+              timestamp: new Date(reading.timestamp),
+            };
+          });
+          await tx.gasReading.createMany({ data, skipDuplicates: true });
         }
-      }
 
-      if (eventLogs.length > 0) {
-        const data = eventLogs.map(l => ({
-          id: l.id, type: l.type, severity: l.severity, deviceId: l.deviceId ?? undefined,
-          ruId: l.ruId ?? undefined, operatorId: l.operatorId ?? undefined, operatorEmail: l.operatorEmail ?? undefined,
-          message: l.message, details: l.details ?? undefined, acknowledged: l.acknowledged,
-          acknowledgedBy: l.acknowledgedBy ?? undefined,
-          acknowledgedAt: l.acknowledgedAt ? new Date(l.acknowledgedAt) : undefined,
-          ackNote: l.ackNote ?? undefined, timestamp: new Date(l.timestamp),
-        }));
-        try {
-          await this.prisma.eventLog.createMany({ data });
-        } catch {
-          for (const row of data) {
-            const { id, ...update } = row;
-            await this.prisma.eventLog.upsert({ where: { id }, create: row, update });
-          }
+        for (const event of eventLogs) {
+          const id = scopedId(ruId, event.id);
+          const data = {
+            sourceId: event.id,
+            type: event.type,
+            severity: event.severity,
+            deviceId: event.deviceId ? deviceIds.get(event.deviceId) ?? scopedId(ruId, event.deviceId) : undefined,
+            ruId,
+            operatorId: event.operatorId ?? undefined,
+            operatorEmail: event.operatorEmail ?? undefined,
+            message: event.message,
+            details: event.details ?? undefined,
+            acknowledged: event.acknowledged,
+            acknowledgedBy: event.acknowledgedBy ?? undefined,
+            acknowledgedAt: event.acknowledgedAt ? new Date(event.acknowledgedAt) : undefined,
+            ackNote: event.ackNote ?? undefined,
+            timestamp: new Date(event.timestamp),
+          };
+          await tx.eventLog.upsert({ where: { id }, create: { id, ...data }, update: data });
         }
-      }
 
-      await this.prisma.ruSource.update({
-        where: { id: ruId },
-        data: { lastSyncAt: new Date(serverTime), lastError: null },
+        await tx.ruSource.update({
+          where: { id: ruId },
+          data: { lastSyncAt: syncTime, lastError: null },
+        });
       });
+
       this.logger.log(`Synced ${ruId}: ${devices.length} devices, ${readings.length} readings, ${eventLogs.length} event logs`);
-    } catch (err: any) {
-      this.logger.error(`Sync failed for ${ruId}: ${err.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Sync failed for ${ruId}: ${message}`);
       await this.prisma.ruSource.update({
         where: { id: ruId },
-        data: { lastError: err.message?.slice(0, 500) ?? 'Unknown error' },
+        data: { lastError: message.slice(0, 500) },
       }).catch(() => undefined);
     }
   }

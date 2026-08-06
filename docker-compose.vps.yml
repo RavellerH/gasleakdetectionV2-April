@@ -1,0 +1,75 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    cpus: 1.0
+    mem_limit: 1g
+    environment:
+      POSTGRES_DB: gasguard
+      POSTGRES_USER: gasguard
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - gasguard_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gasguard -d gasguard"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [gasguard_internal]
+
+  gateway:
+    build:
+      context: .
+      dockerfile: apps/gateway/Dockerfile
+    restart: unless-stopped
+    cpus: 0.75
+    mem_limit: 768m
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 4100
+      DATABASE_URL: postgresql://gasguard:${POSTGRES_PASSWORD}@postgres:5432/gasguard?schema=public
+      JWT_SECRET: ${JWT_SECRET}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      SYNC_CRON_EXPRESSION: ${SYNC_CRON_EXPRESSION:-*/30 * * * * *}
+      SYNC_REQUEST_TIMEOUT_MS: ${SYNC_REQUEST_TIMEOUT_MS:-20000}
+      READING_RETENTION_DAYS: ${READING_RETENTION_DAYS:-7}
+      EVENT_RETENTION_DAYS: ${EVENT_RETENTION_DAYS:-7}
+      CRITICAL_EVENT_RETENTION_DAYS: ${CRITICAL_EVENT_RETENTION_DAYS:-90}
+      GATEWAY_RU_IDS: RU2,RU3,RU4,RU5,RU6,RU7
+      GATEWAY_RU2_BASE_URL: ${GATEWAY_RU2_BASE_URL}
+      GATEWAY_RU2_SYNC_KEY: ${GATEWAY_RU2_SYNC_KEY}
+      GATEWAY_RU3_BASE_URL: ${GATEWAY_RU3_BASE_URL}
+      GATEWAY_RU3_SYNC_KEY: ${GATEWAY_RU3_SYNC_KEY}
+      GATEWAY_RU4_BASE_URL: ${GATEWAY_RU4_BASE_URL}
+      GATEWAY_RU4_SYNC_KEY: ${GATEWAY_RU4_SYNC_KEY}
+      GATEWAY_RU5_BASE_URL: ${GATEWAY_RU5_BASE_URL}
+      GATEWAY_RU5_SYNC_KEY: ${GATEWAY_RU5_SYNC_KEY}
+      GATEWAY_RU6_BASE_URL: ${GATEWAY_RU6_BASE_URL}
+      GATEWAY_RU6_SYNC_KEY: ${GATEWAY_RU6_SYNC_KEY}
+      GATEWAY_RU7_BASE_URL: ${GATEWAY_RU7_BASE_URL}
+      GATEWAY_RU7_SYNC_KEY: ${GATEWAY_RU7_SYNC_KEY}
+      GATEWAY_ADMIN_EMAIL: ${GATEWAY_ADMIN_EMAIL:-admin@gld.com}
+      GATEWAY_ADMIN_NAME: ${GATEWAY_ADMIN_NAME:-System Admin}
+      GATEWAY_ADMIN_PASSWORD: ${GATEWAY_ADMIN_PASSWORD}
+    ports:
+      - "127.0.0.1:4100:4100"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4100/health >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks: [gasguard_internal]
+
+volumes:
+  gasguard_postgres:
+
+networks:
+  gasguard_internal:
+    driver: bridge

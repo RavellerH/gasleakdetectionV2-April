@@ -88,6 +88,8 @@ Password: admin
 apps/
   backend/         NestJS GraphQL API       (port 4000)
   frontend/        Next.js dashboard        (port 3000)
+  ru-frontend/     RU-local dashboard       (port 3002 in development)
+  gateway/         VPS multi-RU aggregator  (port 4100)
 edge firmware/
   src/             C++ firmware for ESP32 edge nodes
 Documentation/     Design docs and study notes
@@ -116,6 +118,25 @@ npm run dev:backend   # backend only
 npm run dev:frontend  # frontend only
 npm run verify        # generate Prisma clients, type-check, and build every app
 ```
+
+## Prepared RU/VPS/HQ Topology
+
+The production target is six independent RU sites (RU2-RU7), one minimal VPS
+aggregator, and a read-only HQ frontend:
+
+```text
+PertaminaGLD hardware -> RU MQTT/Node-RED -> apps/backend (one per RU)
+    -> VPN gatewayPull -> apps/gateway + PostgreSQL on VPS
+    -> VPN GraphQL -> apps/frontend on the HQ Windows computer
+```
+
+The VPS and HQ deployment files are preparation only; no production install has
+been performed. Start with
+[`memory/PRE_INSTALLATION_HANDOFF_2026-08-05.md`](./memory/PRE_INSTALLATION_HANDOFF_2026-08-05.md),
+which records the authoritative architecture, completed work, validation, risks,
+and remaining installation prerequisites. Use `docker-compose.vps.yml` for the
+VPS. `docker-compose.dev.yml` is retained only as a historical artifact and is
+not deployable in its current form.
 
 To reset demo data:
 ```bash

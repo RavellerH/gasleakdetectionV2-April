@@ -10,6 +10,7 @@ import { fetchEventLogs, acknowledgeEvent, createEventLog, type EventLog, type U
 interface Props {
   currentUser: User;
   activeRU: string;
+  readOnly?: boolean;
 }
 
 const TYPE_META: Record<string, { label: string; color: string; bg: string }> = {
@@ -151,7 +152,7 @@ function generateReportHTML(events: EventLog[], user: User, ruId: string): strin
 </html>`;
 }
 
-export function EventsTab({ currentUser, activeRU }: Props) {
+export function EventsTab({ currentUser, activeRU, readOnly = false }: Props) {
   const [events, setEvents] = useState<EventLog[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -376,7 +377,7 @@ export function EventsTab({ currentUser, activeRU }: Props) {
                       )}
                     </td>
                     <td style={{ padding: '11px 14px' }}>
-                      {!ev.acknowledged && ev.type !== 'ACK' && ev.type !== 'LOGIN' && ev.type !== 'LOGOUT' && (
+                      {!readOnly && !ev.acknowledged && ev.type !== 'ACK' && ev.type !== 'LOGIN' && ev.type !== 'LOGOUT' && (
                         <button
                           onClick={() => { setAckTarget(ev); setAckNote(''); setAckError(''); }}
                           style={{ fontSize: 11, fontWeight: 600, color: '#38bdf8', background: 'rgba(56,189,248,0.08)', border: '1px solid rgba(56,189,248,0.2)', borderRadius: 7, padding: '4px 10px', cursor: 'pointer', whiteSpace: 'nowrap' }}
@@ -395,7 +396,7 @@ export function EventsTab({ currentUser, activeRU }: Props) {
       </div>
 
       {/* Ack modal */}
-      {ackTarget && (
+      {!readOnly && ackTarget && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}>
           <div style={{ background: 'var(--sidebar-bg)', border: '1px solid var(--card-border)', borderRadius: 18, padding: 28, width: '100%', maxWidth: 440 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 }}>

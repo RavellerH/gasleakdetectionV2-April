@@ -33,6 +33,7 @@ const DeviceMap = dynamic(() => import('./DeviceMap').then((m) => m.DeviceMap), 
 });
 
 const RU_LIST = ['ALL', 'RU2', 'RU3', 'RU4', 'RU5', 'RU6', 'RU7'];
+const HQ_READ_ONLY = process.env.NEXT_PUBLIC_READ_ONLY === 'true';
 
 const NAV_GROUPS = [
   {
@@ -54,7 +55,7 @@ const NAV_GROUPS = [
   },
   {
     label: 'SYSTEM',
-    items: [
+    items: HQ_READ_ONLY ? [] : [
       { icon: Settings,        label: 'Settings',     key: 'settings' },
     ],
   },
@@ -228,7 +229,7 @@ export default function GasLeakDashboard() {
       const [s, settings, uList] = await Promise.all([
         fetchDashboardStats(),
         fetchSettings(),
-        currentUser?.role === 'ADMIN' ? fetchUsers() : Promise.resolve([]),
+        currentUser?.role === 'ADMIN' && !HQ_READ_ONLY ? fetchUsers() : Promise.resolve([]),
       ]);
       setStats(s); setSysSettings(settings); setUsers(uList);
       if (s.recentAlerts) setLocalAlerts(s.recentAlerts);
@@ -258,7 +259,7 @@ export default function GasLeakDashboard() {
             const prevStatus = prev[d.id];
             if (prevStatus && prevStatus !== d.status) {
               const isOffline = d.status === 'OFFLINE';
-              createEventLog({
+              if (!HQ_READ_ONLY) createEventLog({
                 type: isOffline ? 'DEVICE_OFFLINE' : 'DEVICE_ONLINE',
                 severity: isOffline ? 'WARNING' : 'INFO',
                 deviceId: d.id,
@@ -590,7 +591,7 @@ export default function GasLeakDashboard() {
               </div>
             )}
           </div>
-          {currentUser.role === 'ADMIN' && (
+          {currentUser.role === 'ADMIN' && !HQ_READ_ONLY && (
             <a
               href="/admin"
               style={{ display: 'flex', alignItems: 'center', gap: 10, padding: sidebarCollapsed ? '8px 0' : '8px 12px', justifyContent: sidebarCollapsed ? 'center' : 'flex-start', borderRadius: 9, cursor: 'pointer', color: 'var(--accent)', marginTop: 2, textDecoration: 'none' }}
@@ -995,9 +996,11 @@ export default function GasLeakDashboard() {
                       {type}
                     </button>
                   ))}
-                  <button onClick={openCreateDevice} style={{ padding:'5px 14px',borderRadius:20,fontSize:11,fontWeight:600,cursor:'pointer',background:'linear-gradient(135deg,#1d4ed8,#2563eb)',border:'none',color:'#fff',fontFamily:"'Geist Mono', monospace",marginLeft:8 }}>
-                    + Register
-                  </button>
+                  {!HQ_READ_ONLY && (
+                    <button onClick={openCreateDevice} style={{ padding:'5px 14px',borderRadius:20,fontSize:11,fontWeight:600,cursor:'pointer',background:'linear-gradient(135deg,#1d4ed8,#2563eb)',border:'none',color:'#fff',fontFamily:"'Geist Mono', monospace",marginLeft:8 }}>
+                      + Register
+                    </button>
+                  )}
                 </div>
               </div>
               <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 18, boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
@@ -1005,7 +1008,7 @@ export default function GasLeakDashboard() {
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead style={{ position: 'sticky', top: 0, background: 'var(--sidebar-bg)', zIndex: 10 }}>
                       <tr>
-                        {[{l:'Device',k:'id'},{l:'Type',k:'type'},{l:'Site',k:'ru'},{l:'Battery',k:'battery'},{l:'Signal',k:'rssi'},{l:'Health',k:'health'},{l:'Status',k:'status'},{l:'',k:'actions'}].map(col => (
+                        {[{l:'Device',k:'id'},{l:'Type',k:'type'},{l:'Site',k:'ru'},{l:'Battery',k:'battery'},{l:'Signal',k:'rssi'},{l:'Health',k:'health'},{l:'Status',k:'status'}, ...(!HQ_READ_ONLY ? [{l:'',k:'actions'}] : [])].map(col => (
                           <th key={col.k} onClick={() => { if (col.k !== 'actions' && col.k !== 'id' && col.k !== 'type' && col.k !== 'ru') { setSortDir(sortCol === col.k && sortDir === 'asc' ? 'desc' : 'asc'); setSortCol(col.k); } }}
                             style={{ textAlign: 'left', padding: '12px 16px', fontSize: 10, color: 'var(--t4)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, fontFamily: "'Geist Mono', monospace", borderBottom: '1px solid var(--card-border)', cursor: col.k !== 'actions' ? 'pointer' : 'default' }}>
                             {col.l}
@@ -1053,18 +1056,20 @@ export default function GasLeakDashboard() {
                                 <span style={{ fontSize: 11, fontWeight: 600, color: statusColor(d.status), fontFamily: "'Geist Mono', monospace" }}>{d.status}</span>
                               </div>
                             </td>
-                            <td style={{ padding: '11px 16px' }}>
-                              <div style={{ display: 'flex', gap: 6 }}>
-                                <button onClick={e => { e.stopPropagation(); openEditDevice(d); }}
-                                  style={{ fontSize: 11, color: '#38bdf8', background: 'rgba(56,189,248,0.12)', border: '1px solid rgba(56,189,248,0.3)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontWeight: 600 }}>
-                                  Edit
-                                </button>
-                                <button onClick={e => { e.stopPropagation(); handleDeleteDevice(d); }}
-                                  style={{ fontSize: 11, color: '#ef4444', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontWeight: 600 }}>
-                                  Delete
-                                </button>
-                              </div>
-                            </td>
+                            {!HQ_READ_ONLY && (
+                              <td style={{ padding: '11px 16px' }}>
+                                <div style={{ display: 'flex', gap: 6 }}>
+                                  <button onClick={e => { e.stopPropagation(); openEditDevice(d); }}
+                                    style={{ fontSize: 11, color: '#38bdf8', background: 'rgba(56,189,248,0.12)', border: '1px solid rgba(56,189,248,0.3)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontWeight: 600 }}>
+                                    Edit
+                                  </button>
+                                  <button onClick={e => { e.stopPropagation(); handleDeleteDevice(d); }}
+                                    style={{ fontSize: 11, color: '#ef4444', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontWeight: 600 }}>
+                                    Delete
+                                  </button>
+                                </div>
+                              </td>
+                            )}
                           </tr>
                         );
                       })}
@@ -1149,7 +1154,7 @@ export default function GasLeakDashboard() {
 
           {/* ══ EVENTS ══ */}
           {tab === 'events' && currentUser && (
-            <EventsTab currentUser={currentUser} activeRU={activeRU} />
+            <EventsTab currentUser={currentUser} activeRU={activeRU} readOnly={HQ_READ_ONLY} />
           )}
 
           {/* ══ ANALYTICS ══ */}

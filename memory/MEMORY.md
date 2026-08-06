@@ -1,7 +1,10 @@
 # Project Memory Index
 
 > Notes compiled from all design docs, architecture files, and session research.
-> Last updated: 2026-08-03
+> Last updated: 2026-08-05
+
+- **[Authoritative Pre-installation Handoff](PRE_INSTALLATION_HANDOFF_2026-08-05.md)** - read this first; current architecture, implemented preparation, validation evidence, security findings, blockers, deployment order, and timestamped work log
+- [RU Backend Study: PertaminaGLD](ru_backend_pertaminagld_study_2026-08-05.md) - timestamped source study, verified MQTT/Node-RED contract, compatibility gaps, validation results, and recommended ingestion work
 
 - [Build and Authentication Worklog](auth_build_worklog.md) — timestamped local changes, validation state, interrupted operations, and continuation steps
 - [VPS Audit 2026-08-03](vps_audit_2026-08-03.md) — read-only server inventory, security findings, port conflicts, and deployment plan
@@ -16,3 +19,9 @@
 - [Edge Firmware (Legacy)](edge_firmware_legacy.md) — older ESP8266/ESP32 firmware, LLCC68 radio, struct_message format, MQTT topics
 - [Open Items](open_items.md) — unresolved decisions that block implementation
 - [Gateway Aggregator](gateway_aggregator.md) — VPS aggregation app (apps/gateway), gatewayPull sync, RuSource/GatewayUser seed, E2E results
+
+> Older design notes are research/history, not deployment authority. Where they
+> conflict with the pre-installation handoff or current source code, follow the
+> handoff and current source. In particular, old PPM, MySQL staging, Keycloak,
+> unauthenticated API, shared RU key, and public-web deployment assumptions are
+> not the accepted production design.

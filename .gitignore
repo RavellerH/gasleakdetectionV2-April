@@ -22,6 +22,7 @@ build/
 .env.test.local
 .env.production.local
 .env.sample
+deploy/vps/.env
 backend-log.txt
 
 # OS

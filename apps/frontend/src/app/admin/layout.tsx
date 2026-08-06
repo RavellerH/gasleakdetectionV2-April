@@ -9,6 +9,7 @@ const NAV = [
   { href: '/admin/users', label: 'User Management', icon: '👤' },
   { href: '/admin/devices', label: 'Device Management', icon: '📡' },
 ];
+const HQ_READ_ONLY = process.env.NEXT_PUBLIC_READ_ONLY === 'true';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -16,6 +17,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
+    if (HQ_READ_ONLY) {
+      router.replace('/');
+      return;
+    }
     try {
       const stored = localStorage.getItem('gld_user');
       const storedToken = localStorage.getItem('gld_token');

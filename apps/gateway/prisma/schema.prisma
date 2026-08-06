@@ -1,6 +1,6 @@
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 generator client {
@@ -10,9 +10,9 @@ generator client {
 
 // One row per RU site the VPS pulls from.
 model RuSource {
-  id         String    @id            // e.g. "RU2".."RU7"
-  baseUrl    String                   // e.g. https://ru4.example.com/graphql
-  apiKey     String                   // must match that RU's GATEWAY_SYNC_KEY
+  id         String    @id // e.g. "RU2".."RU7"
+  baseUrl    String // e.g. https://ru4.example.com/graphql
+  apiKey     String // must match that RU's GATEWAY_SYNC_KEY
   lastSyncAt DateTime?
   lastError  String?
   updatedAt  DateTime  @updatedAt
@@ -24,35 +24,40 @@ model GatewayUser {
   email     String   @unique
   name      String?
   role      String   @default("ADMIN")
-  password  String   @default("admin")
+  password  String
   createdAt DateTime @default(now())
 }
 
 // Mirrors apps/backend's Device model — aggregated, read-only replica.
 model Device {
-  id            String   @id
-  macAddress    String   @unique
-  name          String
-  deviceType    String
-  ruId          String
-  location      String
-  batteryStats  String
-  networkStats  String
-  healthScore   Int      @default(100)
-  status        String   @default("ONLINE")
-  registeredBy  String
-  isDummy       Boolean  @default(false)
-  parentId      String?
-  registeredAt  DateTime
-  updatedAt     DateTime
+  id           String   @id // VPS id: <ruId>:<sourceId>
+  sourceId     String // original RU-local Device.id
+  macAddress   String
+  name         String
+  deviceType   String
+  ruId         String
+  location     String
+  batteryStats String
+  networkStats String
+  healthScore  Int      @default(100)
+  status       String   @default("ONLINE")
+  registeredBy String
+  isDummy      Boolean  @default(false)
+  parentId     String?
+  registeredAt DateTime
+  updatedAt    DateTime
 
-  readings      GasReading[]
+  readings GasReading[]
 
+  @@unique([ruId, sourceId])
+  @@unique([ruId, macAddress])
   @@index([ruId, status])
 }
 
 model GasReading {
-  id         String   @id
+  id         String   @id // VPS id: <ruId>:<sourceId>
+  sourceId   String // original RU-local GasReading.id
+  ruId       String
   deviceId   String
   confidence Float
   aiClass    Int      @default(0)
@@ -61,11 +66,14 @@ model GasReading {
   timestamp  DateTime
   device     Device   @relation(fields: [deviceId], references: [id])
 
+  @@unique([ruId, sourceId])
   @@index([deviceId, timestamp])
+  @@index([ruId, timestamp])
 }
 
 model EventLog {
-  id             String    @id
+  id             String    @id // VPS id: <ruId>:<sourceId>
+  sourceId       String // original RU-local EventLog.id
   type           String
   severity       String    @default("INFO")
   deviceId       String?
@@ -80,7 +88,9 @@ model EventLog {
   ackNote        String?
   timestamp      DateTime
 
+  @@unique([ruId, sourceId])
   @@index([timestamp])
+  @@index([ruId, timestamp])
   @@index([acknowledged])
 }
 

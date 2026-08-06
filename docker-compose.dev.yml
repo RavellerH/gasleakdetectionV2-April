@@ -1,5 +1,10 @@
 version: '3.8'
 
+# HISTORICAL/UNSUPPORTED: this file predates the current ports, environment
+# names, and SQLite RU-backend design. Do not use it for VPS deployment.
+# Use docker-compose.vps.yml for the central PostgreSQL gateway. The RU stack
+# still needs a dedicated Compose definition after MQTT ingestion is built.
+
 services:
   backend:
     build:
