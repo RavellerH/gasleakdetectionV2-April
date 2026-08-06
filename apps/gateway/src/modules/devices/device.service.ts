@@ -1,6 +1,11 @@
 import { Injectable } from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
 import { Device, DeviceLocation, BatteryMetrics, NetworkMetrics, GasReading, DashboardStats, RuStats, TimelineEntry, Alert, BatteryDistEntry, NetworkQualityEntry, SystemSettings, User, LoginResult, AnalyticsStats, WeeklyTrendEntry, SiteRanking, EventLog, SensorTimeline, TrendPoint, RuComparisonEntry, HeatmapCell, TopSensorEntry, FleetBatteryBucket, FleetNetworkBucket, FleetHealthStats, RuSite } from './device.model';
 import { PrismaService } from '../prisma/prisma.service';
+import { signToken } from '../auth/auth';
+
+const BCRYPT_ROUNDS = 12;
+const isBcryptHash = (password: string): boolean => /^\$2[aby]\$/.test(password);
 
 /**
  * Read-only mirror of apps/backend's DeviceService, adapted to read from the
@@ -11,6 +16,8 @@ import { PrismaService } from '../prisma/prisma.service';
 @Injectable()
 export class DeviceService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private readonly loginAttempts = new Map<string, { count: number; resetTime: number }>();
 
   private readonly RU_SITES = ['RU2', 'RU3', 'RU4', 'RU5', 'RU6', 'RU7'];
 
@@ -187,14 +194,44 @@ export class DeviceService {
 
   async users(): Promise<User[]> {
     const userList = await this.prisma.gatewayUser.findMany({ orderBy: { createdAt: 'desc' } });
-    return userList.map(u => ({ ...u, name: u.name || undefined, ruId: 'ALL' }));
+    return userList.map(u => this.toSafeUser(u));
   }
 
-  // DEV MODE: password check disabled, matches apps/backend behavior
-  async login(email: string): Promise<LoginResult> {
-    const user = await this.prisma.gatewayUser.findUnique({ where: { email } });
-    if (!user) return { error: 'No account found for that email' };
-    return { user: { ...user, name: user.name || undefined, ruId: 'ALL' } };
+  async login(email: string, password: string): Promise<LoginResult> {
+    const normalizedEmail = email.trim().toLowerCase();
+    const now = Date.now();
+    const attempt = this.loginAttempts.get(normalizedEmail);
+    if (attempt && attempt.resetTime > now && attempt.count >= 5) {
+      return { error: 'Too many login attempts. Try again in 15 minutes.' };
+    }
+    this.loginAttempts.set(normalizedEmail, {
+      count: attempt && attempt.resetTime > now ? attempt.count + 1 : 1,
+      resetTime: attempt && attempt.resetTime > now ? attempt.resetTime : now + 15 * 60 * 1000,
+    });
+
+    const user = await this.prisma.gatewayUser.findUnique({ where: { email: normalizedEmail } });
+    if (!user) return { error: 'Invalid email or password' };
+
+    const valid = isBcryptHash(user.password)
+      ? await bcrypt.compare(password, user.password)
+      : password === user.password;
+    if (!valid) return { error: 'Invalid email or password' };
+    if (!isBcryptHash(user.password)) {
+      await this.prisma.gatewayUser.update({
+        where: { id: user.id },
+        data: { password: await bcrypt.hash(password, BCRYPT_ROUNDS) },
+      });
+    }
+
+    this.loginAttempts.delete(normalizedEmail);
+    return {
+      user: this.toSafeUser(user),
+      token: signToken({ sub: user.id, email: user.email, role: user.role, ruId: 'ALL' }),
+    };
+  }
+
+  private toSafeUser(user: { id: string; email: string; name: string | null; role: string; createdAt: Date }): User {
+    return { id: user.id, email: user.email, name: user.name || undefined, role: user.role, ruId: 'ALL', createdAt: user.createdAt };
   }
 
   // --- EVENT LOG ---

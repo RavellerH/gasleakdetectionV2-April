@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import MapGL, { Marker, MapRef, Source, Layer } from 'react-map-gl';
+import type { MarkerDragEvent } from 'react-map-gl/maplibre';
 import type { SkyLayerSpecification } from 'mapbox-gl';
+import type { StyleSpecification } from 'maplibre-gl';
+
 import useSupercluster from 'use-supercluster';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -398,7 +401,7 @@ export function DeviceMap({
               latitude={device.location.lat}
               anchor="bottom"
               draggable
-              onDragEnd={(e) => handleDragEnd(device, e.lngLat)}
+              onDragEnd={(e: MarkerDragEvent) => handleDragEnd(device, e.lngLat)}
               onClick={() => onDeviceSelect?.(device)}
             >
               <div style={{ marginBottom:14, cursor:'pointer' }}>

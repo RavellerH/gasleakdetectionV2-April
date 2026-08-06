@@ -1,6 +1,8 @@
 import { Args, Int, Query, Resolver } from '@nestjs/graphql';
 import { Device, DashboardStats, SystemSettings, RuSite, SensorTimeline, AnalyticsStats, User, LoginResult, EventLog } from './device.model';
 import { DeviceService } from './device.service';
+import { UseGuards } from '@nestjs/common';
+import { AdminGuard, GqlAuthGuard } from '../auth/auth';
 
 /**
  * Read-only GraphQL API — deliberately mirrors apps/backend's query shapes
@@ -14,16 +16,19 @@ export class DeviceResolver {
   constructor(private readonly deviceService: DeviceService) {}
 
   @Query(() => DashboardStats)
+  @UseGuards(GqlAuthGuard)
   async getDashboardStats(): Promise<DashboardStats> {
     return this.deviceService.getDashboardStats();
   }
 
   @Query(() => SystemSettings)
+  @UseGuards(GqlAuthGuard)
   async getSettings(): Promise<SystemSettings> {
     return this.deviceService.getSettings();
   }
 
   @Query(() => [Device])
+  @UseGuards(GqlAuthGuard)
   async devices(
     @Args('ruId', { type: () => String }) ruId: string
   ): Promise<Device[]> {
@@ -31,6 +36,7 @@ export class DeviceResolver {
   }
 
   @Query(() => [SensorTimeline])
+  @UseGuards(GqlAuthGuard)
   async sensorTimeline(
     @Args('ruId', { type: () => String }) ruId: string,
   ): Promise<SensorTimeline[]> {
@@ -38,11 +44,13 @@ export class DeviceResolver {
   }
 
   @Query(() => [RuSite])
+  @UseGuards(GqlAuthGuard)
   async ruSites(): Promise<{ id: string }[]> {
     return this.deviceService.getRuSites();
   }
 
   @Query(() => AnalyticsStats)
+  @UseGuards(GqlAuthGuard)
   async getAnalytics(
     @Args('ruId', { type: () => String, nullable: true }) ruId?: string,
     @Args('hours', { type: () => Int, nullable: true }) hours?: number,
@@ -51,6 +59,7 @@ export class DeviceResolver {
   }
 
   @Query(() => [User])
+  @UseGuards(GqlAuthGuard, AdminGuard)
   async users(): Promise<User[]> {
     return this.deviceService.users();
   }
@@ -58,11 +67,13 @@ export class DeviceResolver {
   @Query(() => LoginResult)
   async login(
     @Args('email', { type: () => String }) email: string,
+    @Args('password', { type: () => String }) password: string,
   ): Promise<LoginResult> {
-    return this.deviceService.login(email);
+    return this.deviceService.login(email, password);
   }
 
   @Query(() => [EventLog])
+  @UseGuards(GqlAuthGuard)
   async eventLogs(
     @Args('ruId', { type: () => String, nullable: true }) ruId?: string,
     @Args('limit', { type: () => Int, nullable: true }) limit?: number,

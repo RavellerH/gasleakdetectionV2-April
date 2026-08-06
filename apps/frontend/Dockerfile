@@ -2,7 +2,10 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
+COPY apps/backend/package.json ./apps/backend/
 COPY apps/frontend/package.json ./apps/frontend/
+COPY apps/ru-frontend/package.json ./apps/ru-frontend/
+COPY apps/gateway/package.json ./apps/gateway/
 
 RUN npm install
 

@@ -190,6 +190,9 @@ export class LoginResult {
 
   @Field({ nullable: true })
   error?: string;
+
+  @Field({ nullable: true })
+  token?: string;
 }
 
 @ObjectType()

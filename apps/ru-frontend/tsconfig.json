@@ -40,6 +40,8 @@
     "src/types/**/*.d.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "**/*.backup.ts",
+    "**/*.backup.tsx"
   ]
 }

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import type { User } from '@/lib/graphql';
+import { setAuthToken, type User } from '@/lib/graphql';
 
 const NAV = [
   { href: '/admin/users', label: 'User Management', icon: '👤' },
@@ -18,12 +18,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     try {
       const stored = localStorage.getItem('gld_user');
-      if (stored) {
+      const storedToken = localStorage.getItem('gld_token');
+      if (stored && storedToken) {
         const u: User = JSON.parse(stored);
         if (u.role !== 'ADMIN') {
           router.replace('/');
           return;
         }
+        setAuthToken(storedToken);
         setUser(u);
       } else {
         router.replace('/');

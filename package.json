@@ -10,6 +10,10 @@
     "apps/gateway"
   ],
   "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "prisma:generate": "npm run prisma:generate --workspace @gas-leak/backend && npm run prisma:generate --workspace @gas-leak/gateway",
+    "verify": "npm run prisma:generate && npm run typecheck && npm run build",
     "dev:backend": "cd apps/backend && npm run start:dev",
     "dev:frontend": "cd apps/frontend && npm run dev",
     "dev:ru-frontend": "cd apps/ru-frontend && npm run dev -- -p 3002",
