@@ -221,13 +221,25 @@ export function DeviceMap({
       return;
     }
     if (devices.length > 0) {
-      const target = devices.find(d => d.ruId === ruId);
-      if (target && lastCenteredRu.current !== ruId) {
+      const ruDevices = devices.filter(d => d.ruId === ruId);
+      if (ruDevices.length > 0 && lastCenteredRu.current !== ruId) {
         lastCenteredRu.current = ruId;
-        mapRef.current.flyTo({
-          center:[target.location.lng, target.location.lat],
-          zoom:14, pitch:is3D?55:0, bearing:is3D?-17:0, duration:1800, essential:true,
-        });
+        if (ruDevices.length === 1) {
+          mapRef.current.flyTo({
+            center:[ruDevices[0].location.lng, ruDevices[0].location.lat],
+            zoom:14, pitch:is3D?55:0, bearing:is3D?-17:0, duration:1800, essential:true,
+          });
+        } else {
+          /* fit all of the RU's devices in view instead of centering on
+             whichever one happens to be first — a gateway sitting apart
+             from the sensor cluster otherwise pushes the rest off-screen */
+          const lngs = ruDevices.map(d => d.location.lng);
+          const lats = ruDevices.map(d => d.location.lat);
+          mapRef.current.fitBounds(
+            [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+            { padding: 100, pitch: is3D?55:0, bearing: is3D?-17:0, duration: 1800, essential: true, maxZoom: 16 }
+          );
+        }
       }
     }
   }, [ruId, devices, is3D]);

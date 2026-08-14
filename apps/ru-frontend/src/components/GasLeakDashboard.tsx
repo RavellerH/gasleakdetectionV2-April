@@ -69,7 +69,7 @@ const SENSOR_COLORS = ['#38bdf8','#3b82f6','#34d399','#f59e0b','#f472b6','#60a5f
 const RU_CENTERS: Record<string, { lat: number; lng: number }> = {
   RU2: { lat: 1.6785, lng: 101.4725 },  // Dumai, Riau
   RU3: { lat: -2.9782, lng: 104.7994 }, // Plaju, Palembang
-  RU4: { lat: -7.7196, lng: 108.9887 }, // Cilacap, Central Java
+  RU4: { lat: -7.7026, lng: 108.9972 }, // Cilacap, Central Java (site centroid)
   RU5: { lat: -1.2627, lng: 116.8162 }, // Balikpapan, East Kalimantan
   RU6: { lat: -6.3717, lng: 108.3881 }, // Balongan, Indramayu
   RU7: { lat: -1.3157, lng: 131.0332 }, // Kasim, Sorong
