@@ -93,11 +93,17 @@ export function DeviceMap({
   const [bounds, setBounds] = useState<[number, number, number, number]>([95, -11, 141, 6]);
 
   useEffect(() => {
-    const id = setInterval(() => {
+    let frame = 0;
+    const tick = () => {
       setZoom(z => { if (Math.abs(z - zoomRef.current) > 0.01) return zoomRef.current; return z; });
-      setBounds(boundsRef.current);
-    }, 200);
-    return () => clearInterval(id);
+      setBounds(b => {
+        const nb = boundsRef.current;
+        return (b[0] === nb[0] && b[1] === nb[1] && b[2] === nb[2] && b[3] === nb[3]) ? b : nb;
+      });
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
   }, []);
 
   /* ── supercluster points ── */
