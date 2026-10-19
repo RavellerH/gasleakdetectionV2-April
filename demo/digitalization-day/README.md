@@ -38,6 +38,22 @@ Backend: `DEVICE_OFFLINE_AFTER_SEC=20` agar efek CH mati terlihat cepat.
 `reset-db.js` juga mengisi **riwayat simulasi 7 hari** (udara bersih tiap 10 menit per GLD
 + 3 kejadian lampau yang sudah diselesaikan) supaya Analytics, heatmap, dan log kejadian terisi.
 
+### Peta
+
 Peta memakai MapLibre tanpa token: tile lokal `apps/ru-frontend/public/tiles` (diunduh
 otomatis oleh launcher bila ada internet, `npm run tiles -- RU4`), atau OSM online, atau latar
-polos bila offline total.
+polos bila offline total. Tile yang diunduh **setelah** build baru terlihat sesudah build ulang
+(launcher sudah mengunduh dulu baru build).
+
+Tombol **PETA / SATELIT** di Map View mengganti basemap ke citra satelit Esri World Imagery.
+Satelit hanya online (tidak boleh diunduh/di-cache) dan tampil dengan atribusi Esri; untuk
+pemakaian produksi, cek dulu ketentuan lisensi Esri.
+
+### Menaruh sensor di lokasi yang benar
+
+Koordinat bawaan adalah contoh di sekitar titik tengah RU4. Untuk demo:
+
+1. Buka Map View, **geser pin** tiap perangkat ke posisinya (tersimpan ke database demo).
+2. Jalankan `node save-positions.js` (atau `npm run save-positions`) di folder ini. Posisi, nama,
+   dan area ditulis ke `deploy/ru4/devices.ru4.json` (tidak masuk Git).
+3. Reset/start berikutnya memakai file itu, jadi posisi tidak hilang.

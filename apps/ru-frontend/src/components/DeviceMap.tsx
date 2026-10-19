@@ -17,18 +17,23 @@ import { DevicePin } from './DevicePin';
    Without either, the themed background still shows devices and topology. */
 const LOCAL_TILES  = '/tiles/{z}/{x}/{y}.png';
 const ONLINE_TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+/* Satellite imagery is online only (no bulk download/caching allowed). */
+const SATELLITE_TILES = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 
-function buildMapStyle(tileTemplate: string, dark: boolean): StyleSpecification {
+function buildMapStyle(tileTemplate: string, dark: boolean, satellite = false): StyleSpecification {
   return {
     version: 8,
     sources: {
-      basemap: {
-        type: 'raster',
-        tiles: [tileTemplate],
-        tileSize: 256,
-        maxzoom: 16, // raster overzooms smoothly past this
-        attribution: '© OpenStreetMap contributors',
-      },
+      basemap: satellite
+        ? { type: 'raster', tiles: [SATELLITE_TILES], tileSize: 256, maxzoom: 19,
+            attribution: 'Imagery © Esri — Source: Esri, Maxar, Earthstar Geographics' }
+        : {
+            type: 'raster',
+            tiles: [tileTemplate],
+            tileSize: 256,
+            maxzoom: 16, // raster overzooms smoothly past this
+            attribution: '© OpenStreetMap contributors',
+          },
     },
     layers: [
       { id: 'bg', type: 'background', paint: { 'background-color': dark ? '#0B1322' : '#E6ECF4' } },
@@ -36,7 +41,9 @@ function buildMapStyle(tileTemplate: string, dark: boolean): StyleSpecification 
         id: 'basemap',
         type: 'raster',
         source: 'basemap',
-        paint: dark
+        paint: satellite
+          ? { 'raster-fade-duration': 0, ...(dark ? { 'raster-brightness-max': 0.8 } : {}) }
+          : dark
           ? { 'raster-brightness-max': 0.45, 'raster-saturation': -0.7, 'raster-contrast': 0.15, 'raster-fade-duration': 0 }
           : { 'raster-saturation': -0.35, 'raster-fade-duration': 0 },
       },
@@ -148,7 +155,8 @@ export function DeviceMap({
       .catch(() => { if (alive) setTileTemplate(ONLINE_TILES); });
     return () => { alive = false; };
   }, []);
-  const mapStyle = useMemo(() => (tileTemplate ? buildMapStyle(tileTemplate, dark) : null), [tileTemplate, dark]);
+  const [satellite, setSatellite] = useState(false);
+  const mapStyle = useMemo(() => (tileTemplate ? buildMapStyle(tileTemplate, dark, satellite) : null), [tileTemplate, dark, satellite]);
 
   /* viewport state — synced from refs via interval to avoid render loops */
   const [zoom,   setZoom]   = useState(initialZoom);
@@ -679,6 +687,9 @@ export function DeviceMap({
       <div style={{ position:'absolute', top:14, right: showTrend ? 342 : 14, display:'flex', flexDirection:'column', gap:8, zIndex:10, transition:'right 0.25s ease' }}>
         <button onClick={() => setShowTrend(v => !v)} title={showTrend?'Hide gas trend':'Show gas trend'} style={ctrlBtn(showTrend)}>
           <Flame size={13} /> TREND
+        </button>
+        <button onClick={() => setSatellite(v => !v)} title={satellite ? 'Tampilkan peta jalan' : 'Tampilkan citra satelit (butuh internet)'} style={ctrlBtn(satellite)}>
+          <MapPin size={13} /> {satellite ? 'SATELIT' : 'PETA'}
         </button>
         <button onClick={() => setShowTopology(v => !v)} title={showTopology?'Hide topology':'Show topology'} style={ctrlBtn(showTopology)}>
           <Share2 size={13} /> TOPO

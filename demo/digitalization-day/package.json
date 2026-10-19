@@ -7,7 +7,8 @@
     "broker": "node broker.js",
     "scenario": "node scenario.js",
     "scenario:auto": "node scenario.js --auto",
-    "reset": "node reset-db.js"
+    "reset": "node reset-db.js",
+    "save-positions": "node save-positions.js"
   },
   "dependencies": {
     "aedes": "^0.51.3",

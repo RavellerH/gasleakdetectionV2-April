@@ -28,7 +28,10 @@ if (await backendRunning()) {
 for (const f of [db, `${db}-journal`]) if (fs.existsSync(f)) fs.rmSync(f);
 const run = (cmd, env = {}) => execSync(cmd, { cwd: backend, stdio: 'inherit', env: { ...process.env, ...env } });
 run('npx prisma migrate deploy');
-run('node prisma/seed-ru4-cilacap.js ../../deploy/ru4/devices.ru4.example.json', {
+// devices.ru4.json (saved positions, see save-positions.js) wins over the example register
+const register = fs.existsSync(path.resolve(backend, '../../deploy/ru4/devices.ru4.json'))
+  ? '../../deploy/ru4/devices.ru4.json' : '../../deploy/ru4/devices.ru4.example.json';
+run(`node prisma/seed-ru4-cilacap.js ${register}`, {
   GLD_ADMIN_EMAIL: process.env.DEMO_ADMIN_EMAIL || 'demo@gld.local',
   GLD_ADMIN_PASSWORD: process.env.DEMO_ADMIN_PASSWORD || 'demo-gld-2026',
 });
