@@ -7,7 +7,7 @@ import {
   Clock, Flame, HardDrive, LayoutDashboard, Map as MapIcon, Moon,
   RefreshCw, Search, Settings, Shield, Sun,
   TrendingUp, Wifi, Network, Radio, LogOut, Filter,
-  MoreHorizontal, Download, RotateCcw,
+  MoreHorizontal, Download, RotateCcw, MapPin,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import {
@@ -20,6 +20,7 @@ import {
 } from '@/lib/graphql';
 import { gasAlertConfidence } from '@/lib/gasClass';
 import { SensorListPanel } from './SensorListPanel';
+import { MiniLocationMap, locationText } from './MiniLocationMap';
 import { UnitLayoutMap } from './UnitLayoutMap';
 import { EventsTab } from './EventsTab';
 import { AnalyticsTab } from './AnalyticsTab';
@@ -405,6 +406,12 @@ export default function GasLeakDashboard() {
     ? Math.round(displayDevices.reduce((s, d) => s + d.battery.soc, 0) / displayDevices.length)
     : 78;
   const filteredAlerts  = localAlerts.filter(a => a.ru === activeRU);
+  /* alarms carry the device MAC; join with the fleet to show where it is */
+  const deviceByMac = (mac: string) => apiDevices.find(d => d.macAddress === mac);
+  const showOnMap = (mac: string) => { const d = deviceByMac(mac); if (d) setSelectedDevice(d); setTab('map'); };
+  const agoText = (iso: string) => { const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000); if (m < 1 || isNaN(m)) return 'baru saja'; if (m < 60) return `${m} mnt lalu`; const h = Math.floor(m / 60); return h < 24 ? `${h} jam lalu` : `${Math.floor(h / 24)} hari lalu`; };
+  const activeAlarms = filteredAlerts.filter(a => a.status === 'ACTIVE');
+  const topAlarm = activeAlarms.find(a => a.severity === 'CRITICAL') ?? activeAlarms[0];
   const totalAlerts     = filteredAlerts.filter(a => a.status === 'ACTIVE').length; // open, not yet acknowledged
   const ruData          = (stats?.ruData || []).filter(r => r.ru === activeRU);
   const timelineData    = stats?.timelineData   || [];
@@ -693,6 +700,34 @@ export default function GasLeakDashboard() {
           </span>
         </div>
 
+        {/* ── ACTIVE ALARM BANNER: what, where, and a jump to the map ── */}
+        {topAlarm && (() => {
+          const d = deviceByMac(topAlarm.device);
+          const crit = topAlarm.severity === 'CRITICAL';
+          const col = crit ? '#E3242B' : '#F2A50C';
+          return (
+            <div role="alert" style={{ margin: '14px 24px 0', display: 'flex', alignItems: 'center', gap: 16, padding: '12px 16px', borderRadius: 14, border: `1.5px solid ${col}`, background: crit ? 'rgba(227,36,43,0.10)' : 'rgba(242,165,12,0.10)', flexWrap: 'wrap' }}>
+              <MiniLocationMap devices={apiDevices} focusMac={topAlarm.device} width={170} height={96} />
+              <div style={{ flex: 1, minWidth: 240 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, color: '#fff', background: col, padding: '3px 9px', borderRadius: 6, fontFamily: "'Geist Mono', monospace" }}>{crit ? 'ALARM' : 'PERINGATAN'}</span>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--t1)' }}>{d?.name ?? topAlarm.device}</span>
+                  <span style={{ fontSize: 12, color: 'var(--t3)', fontFamily: "'Geist Mono', monospace" }}>{topAlarm.device} · {topAlarm.ru} · {agoText(topAlarm.time)}</span>
+                  {activeAlarms.length > 1 && <span style={{ fontSize: 11, color: 'var(--t3)' }}>+{activeAlarms.length - 1} alarm aktif lain</span>}
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--t2)', marginTop: 4 }}>{topAlarm.message}</div>
+                <div style={{ fontSize: 13, color: 'var(--t1)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
+                  <MapPin size={14} color={col} /> {locationText(d)}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => showOnMap(topAlarm.device)} style={{ background: col, color: '#fff', padding: '8px 14px', border: 'none', borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}><MapPin size={14} /> Lihat lokasi</button>
+                <button onClick={() => handleUpdateAlertStatus(topAlarm.id, 'ACKNOWLEDGED')} style={{ background: 'var(--card-bg)', color: 'var(--t1)', padding: '8px 14px', border: '1px solid var(--card-border)', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Acknowledge</button>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* ── CONTENT ── */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
@@ -758,6 +793,64 @@ export default function GasLeakDashboard() {
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+
+              {/* Row 1b: per-sensor status + latest alarms with location */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 16 }}>
+                <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 20, padding: '18px 20px', boxShadow: 'var(--shadow-card)', minWidth: 0 }}>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--t1)', marginBottom: 10 }}>Status Tiap Sensor</div>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                      <thead><tr>{['Sensor', 'Lokasi', 'Status', 'Hasil AI', 'Keyakinan', 'Level'].map(h => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: 10, color: 'var(--t4)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, borderBottom: '1px solid var(--card-border)', fontFamily: "'Geist Mono', monospace" }}>{h}</th>)}</tr></thead>
+                      <tbody>
+                        {apiDevices.filter(d => d.type === 'SENSOR').map(d => {
+                          const conf = gasAlertConfidence(d);
+                          const lvl = conf >= (sysSettings?.criticalThreshold ?? 0.8) ? 2 : conf >= (sysSettings?.warningThreshold ?? 0.7) ? 1 : 0;
+                          const lvlCol = lvl === 2 ? '#E3242B' : lvl === 1 ? '#F2A50C' : 'var(--green)';
+                          return (
+                            <tr key={d.id} onClick={() => showOnMap(d.macAddress)} style={{ cursor: 'pointer', borderBottom: '1px solid var(--divider)', background: lvl === 2 ? 'rgba(227,36,43,0.06)' : 'transparent' }}>
+                              <td style={{ padding: '8px' }}><div style={{ fontWeight: 600, color: 'var(--t1)' }}>{d.name}</div><div style={{ fontSize: 10, color: 'var(--t4)', fontFamily: "'Geist Mono', monospace" }}>{d.macAddress}</div></td>
+                              <td style={{ padding: '8px', color: 'var(--t2)' }}>{d.area || '—'}</td>
+                              <td style={{ padding: '8px' }}><span style={{ fontSize: 11, fontWeight: 700, color: d.status === 'ONLINE' ? 'var(--green)' : 'var(--t4)', fontFamily: "'Geist Mono', monospace" }}>● {d.status}</span></td>
+                              <td style={{ padding: '8px', color: 'var(--t1)' }}>{d.latestGasName ?? '—'}</td>
+                              <td style={{ padding: '8px', color: 'var(--t2)', fontFamily: "'Geist Mono', monospace" }}>{d.latestGasClass != null ? `${Math.round((d.latestConfidence ?? 0) * 100)}%` : '—'}</td>
+                              <td style={{ padding: '8px' }}><span style={{ fontSize: 11, fontWeight: 800, color: '#fff', background: lvlCol, padding: '2px 8px', borderRadius: 6, fontFamily: "'Geist Mono', monospace" }}>{lvl}</span></td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--t4)', marginTop: 8, fontFamily: "'Geist Mono', monospace" }}>Level: 0 = Normal · 1 = Peringatan (≥{sysSettings?.warningThreshold ?? 0.7}) · 2 = Alarm (≥{sysSettings?.criticalThreshold ?? 0.8}) · klik baris untuk lihat di peta</div>
+                </div>
+                <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 20, padding: '18px 20px', boxShadow: 'var(--shadow-card)', minWidth: 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--t1)' }}>Alarm Timeline (terbaru)</div>
+                    <button onClick={() => setTab('alerts')} style={{ fontSize: 12, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Semua alarm →</button>
+                  </div>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                      <thead><tr>{['Waktu', 'Sensor', 'Lokasi', 'Level', 'Status'].map(h => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: 10, color: 'var(--t4)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, borderBottom: '1px solid var(--card-border)', fontFamily: "'Geist Mono', monospace" }}>{h}</th>)}</tr></thead>
+                      <tbody>
+                        {filteredAlerts.slice(0, 6).map(a => {
+                          const d = deviceByMac(a.device);
+                          const crit = a.severity === 'CRITICAL';
+                          const stCol = a.status === 'ACTIVE' ? '#E3242B' : a.status === 'ACKNOWLEDGED' ? 'var(--accent)' : 'var(--green)';
+                          return (
+                            <tr key={a.id} onClick={() => showOnMap(a.device)} style={{ cursor: 'pointer', borderBottom: '1px solid var(--divider)' }}>
+                              <td style={{ padding: '8px', color: 'var(--t3)', fontFamily: "'Geist Mono', monospace", whiteSpace: 'nowrap' }}>{new Date(a.time).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</td>
+                              <td style={{ padding: '8px' }}><div style={{ fontWeight: 600, color: 'var(--t1)' }}>{d?.name ?? a.device}</div><div style={{ fontSize: 10, color: 'var(--t4)', fontFamily: "'Geist Mono', monospace" }}>{a.device}</div></td>
+                              <td style={{ padding: '8px', color: 'var(--t2)' }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><MapPin size={11} color={crit ? '#E3242B' : '#F2A50C'} />{d?.area || '—'}</span></td>
+                              <td style={{ padding: '8px' }}><span style={{ fontSize: 10, fontWeight: 800, color: crit ? '#E3242B' : '#F2A50C', border: `1px solid ${crit ? '#E3242B' : '#F2A50C'}`, padding: '1px 6px', borderRadius: 5, fontFamily: "'Geist Mono', monospace" }}>{crit ? 'ALARM' : 'WARNING'}</span></td>
+                              <td style={{ padding: '8px', color: stCol, fontWeight: 700, fontSize: 11, fontFamily: "'Geist Mono', monospace" }}>{a.status}</td>
+                            </tr>
+                          );
+                        })}
+                        {filteredAlerts.length === 0 && <tr><td colSpan={5} style={{ padding: 16, textAlign: 'center', color: 'var(--t4)' }}>Belum ada alarm.</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
 
@@ -1083,9 +1176,14 @@ export default function GasLeakDashboard() {
                         </span>
                       </div>
                       <div style={{ fontSize: 13, color: 'var(--t3)' }}>{a.message}</div>
+                      <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <MapPin size={12} color={severityColor(a.severity)} /> {locationText(deviceByMac(a.device))}
+                      </div>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                  <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>
+                    {a.status !== 'RESOLVED' && <MiniLocationMap devices={apiDevices} focusMac={a.device} width={150} height={84} />}
+                    <button onClick={() => showOnMap(a.device)} style={{ background: 'var(--card-bg)', color: 'var(--t1)', padding: '5px 12px', border: '1px solid var(--card-border)', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}><MapPin size={12} /> Peta</button>
                     {a.status === 'ACTIVE' && <button onClick={() => handleUpdateAlertStatus(a.id, 'ACKNOWLEDGED')} style={{ background: 'rgba(0,85,184,0.08)', color: '#2E7AE0', padding: '5px 12px', border: '1px solid rgba(46,122,224,0.2)', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Acknowledge</button>}
                     {a.status === 'RESOLVED' && <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--green)', fontFamily: "'Geist Mono', monospace", padding: '5px 4px' }}>RESOLVED{a.notes ? ` · ${a.notes.replace(/^Resolved by /, '')}` : ''}</span>}
                     {a.status !== 'RESOLVED' && <button onClick={() => handleUpdateAlertStatus(a.id, 'RESOLVED')} style={{ background: 'rgba(0,85,184,0.08)', color: 'var(--green)', padding: '5px 12px', border: '1px solid rgba(46,122,224,0.2)', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Resolve</button>}

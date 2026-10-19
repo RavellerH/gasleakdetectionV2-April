@@ -252,8 +252,10 @@ export function DeviceMap({
   }, []);
 
   /* ── fly to RU on change ── */
+  /* the map only exists once it has loaded; camera effects wait for it */
+  const [mapReady, setMapReady] = useState(false);
   useEffect(() => {
-    if (!mapRef.current) return;
+    if (!mapReady || !mapRef.current) return;
     if (ruId === 'ALL') {
       if (lastCenteredRu.current !== 'ALL') {
         lastCenteredRu.current = 'ALL';
@@ -261,6 +263,8 @@ export function DeviceMap({
       }
       return;
     }
+    /* opened from an alarm ("Lihat lokasi"): the selected device wins over fit-all */
+    if (selectedDevice) { lastCenteredRu.current = ruId; return; }
     if (devices.length > 0) {
       const ruDevices = devices.filter(d => d.ruId === ruId);
       if (ruDevices.length > 0 && lastCenteredRu.current !== ruId) {
@@ -283,17 +287,17 @@ export function DeviceMap({
         }
       }
     }
-  }, [ruId, devices, is3D]);
+  }, [ruId, devices, is3D, mapReady, selectedDevice]);
 
   /* ── fly to selected device ── */
   useEffect(() => {
-    if (selectedDevice && mapRef.current) {
+    if (mapReady && selectedDevice && mapRef.current) {
       mapRef.current.flyTo({
         center:[selectedDevice.location.lng, selectedDevice.location.lat],
         zoom:17, pitch:is3D?60:0, bearing:is3D?-20:0, duration:2000, essential:true,
       });
     }
-  }, [selectedDevice, is3D]);
+  }, [selectedDevice, is3D, mapReady]);
 
   const toggle3D = () => {
     const next = !is3D;
@@ -378,6 +382,7 @@ export function DeviceMap({
           if (b) boundsRef.current = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
           setZoom(zoomRef.current);
           setBounds(boundsRef.current);
+          setMapReady(true);
         }}
       >
         {/* ── Topology lines (hidden below zoom 11) ── */}
@@ -449,7 +454,21 @@ export function DeviceMap({
               onDragEnd={(e) => handleDragEnd(device, e.lngLat)}
               onClick={() => onDeviceSelect?.(device)}
             >
-              <div style={{ marginBottom:14, cursor:'pointer' }}>
+              <div style={{ marginBottom:14, cursor:'pointer', position:'relative' }}>
+                {/* alarm callout: name, gas and confidence right at the device position */}
+                {(() => {
+                  const conf = gasAlertConfidence(device);
+                  if (conf < warningThreshold) return null;
+                  const crit = conf >= criticalThreshold;
+                  const col = crit ? '#E3242B' : '#F2A50C';
+                  return (
+                    <div style={{ position:'absolute', bottom:'100%', left:'50%', transform:'translate(-50%, -8px)', whiteSpace:'nowrap', background:col, color:'#fff', borderRadius:8, padding:'5px 9px', boxShadow:`0 4px 16px ${col}80`, fontFamily:"'Geist Mono', monospace", pointerEvents:'none', zIndex:5, textAlign:'center' }}>
+                      <div style={{ fontSize:11, fontWeight:800, letterSpacing:0.5 }}>{crit ? 'ALARM' : 'WARNING'} · {device.name}</div>
+                      <div style={{ fontSize:10, opacity:0.95 }}>{device.latestGasName ?? 'Gas'} {Math.round(conf * 100)}% · {device.area || device.macAddress}</div>
+                      <div style={{ position:'absolute', left:'50%', bottom:-5, width:10, height:10, background:col, transform:'translateX(-50%) rotate(45deg)' }} />
+                    </div>
+                  );
+                })()}
                 <DevicePin
                   type={device.type}
                   healthScore={device.healthScore}
