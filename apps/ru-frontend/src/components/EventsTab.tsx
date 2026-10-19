@@ -13,22 +13,22 @@ interface Props {
 }
 
 const TYPE_META: Record<string, { label: string; color: string; bg: string }> = {
-  THRESHOLD_BREACH: { label: 'Threshold Breach', color: '#ef4444', bg: 'rgba(239,68,68,0.1)' },
-  GAS_ALARM:        { label: 'GLD Alarm',        color: '#ef4444', bg: 'rgba(239,68,68,0.15)' },
+  THRESHOLD_BREACH: { label: 'Threshold Breach', color: '#E3242B', bg: 'rgba(227,36,43,0.1)' },
+  GAS_ALARM:        { label: 'GLD Alarm',        color: '#E3242B', bg: 'rgba(227,36,43,0.15)' },
   SECURITY:         { label: 'Security',         color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
   UNKNOWN_DEVICE:   { label: 'Unknown Device',   color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
   DIAGNOSTIC:       { label: 'Diagnostic',       color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' },
   DEVICE_OFFLINE:   { label: 'Device Offline',   color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
-  DEVICE_ONLINE:    { label: 'Device Online',     color: '#38bdf8', bg: 'rgba(56,189,248,0.1)' },
-  LOGIN:            { label: 'Login',              color: '#3b82f6', bg: 'rgba(59,130,246,0.1)' },
+  DEVICE_ONLINE:    { label: 'Device Online',     color: '#2E7AE0', bg: 'rgba(46,122,224,0.1)' },
+  LOGIN:            { label: 'Login',              color: '#2E7AE0', bg: 'rgba(46,122,224,0.1)' },
   LOGOUT:           { label: 'Logout',             color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' },
-  ACK:              { label: 'Acknowledgement',    color: '#34d399', bg: 'rgba(52,211,153,0.1)' },
+  ACK:              { label: 'Acknowledgement',    color: '#6E9E1F', bg: 'rgba(110,158,31,0.1)' },
 };
 
 const SEV_META: Record<string, { color: string }> = {
-  CRITICAL: { color: '#ef4444' },
+  CRITICAL: { color: '#E3242B' },
   WARNING:  { color: '#f59e0b' },
-  INFO:     { color: '#38bdf8' },
+  INFO:     { color: '#2E7AE0' },
 };
 
 function TypeBadge({ type }: { type: string }) {
@@ -76,7 +76,7 @@ function generateReportHTML(events: EventLog[], user: User, ruId: string): strin
       <td style="color:${(SEV_META[e.severity] || SEV_META['INFO']).color};font-weight:700">${e.severity}</td>
       <td>${e.ruId || '—'}</td>
       <td style="max-width:260px;word-wrap:break-word">${e.message}</td>
-      <td style="color:${e.acknowledged ? '#16a34a' : '#94a3b8'};font-weight:700">${e.acknowledged ? '✓ YES' : '—'}</td>
+      <td style="color:${e.acknowledged ? '#5E8A12' : '#94a3b8'};font-weight:700">${e.acknowledged ? '✓ YES' : '—'}</td>
       <td>${e.acknowledgedBy || '—'}</td>
       <td style="max-width:180px;word-wrap:break-word;font-style:italic;color:#64748b">${e.ackNote || '—'}</td>
     </tr>
@@ -94,8 +94,8 @@ function generateReportHTML(events: EventLog[], user: User, ruId: string): strin
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; padding: 32px; font-size: 12px; background: #fff; }
-    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 3px solid #0284c7; }
-    .header h1 { font-size: 20px; color: #0284c7; letter-spacing: -0.5px; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 3px solid #0055B8; }
+    .header h1 { font-size: 20px; color: #0055B8; letter-spacing: -0.5px; }
     .header .sub { font-size: 11px; color: #64748b; margin-top: 4px; }
     .meta-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 20px; }
     .meta-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; }
@@ -104,14 +104,14 @@ function generateReportHTML(events: EventLog[], user: User, ruId: string): strin
     .summary { margin-bottom: 18px; display: flex; flex-wrap: wrap; gap: 8px; }
     .chip { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 20px; padding: 3px 10px; font-size: 11px; color: #334155; }
     table { width: 100%; border-collapse: collapse; font-size: 11px; }
-    thead th { background: #0284c7; color: #fff; padding: 9px 10px; text-align: left; font-size: 10px; letter-spacing: 0.5px; text-transform: uppercase; }
+    thead th { background: #0055B8; color: #fff; padding: 9px 10px; text-align: left; font-size: 10px; letter-spacing: 0.5px; text-transform: uppercase; }
     tbody td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
     tbody tr:nth-child(even) td { background: #f8fafc; }
     .badge { padding: 2px 7px; border-radius: 20px; font-size: 10px; font-weight: 700; background: #e2e8f0; color: #334155; }
     .badge.threshold_breach { background: #fee2e2; color: #dc2626; }
     .badge.device_offline   { background: #fef3c7; color: #d97706; }
-    .badge.device_online    { background: #dbeafe; color: #1d4ed8; }
-    .badge.login            { background: #dbeafe; color: #2563eb; }
+    .badge.device_online    { background: #dbeafe; color: #00479A; }
+    .badge.login            { background: #dbeafe; color: #0055B8; }
     .badge.ack              { background: #d1fae5; color: #059669; }
     .footer { margin-top: 24px; font-size: 10px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 12px; text-align: center; }
     @media print { body { padding: 16px; } }
@@ -128,8 +128,8 @@ function generateReportHTML(events: EventLog[], user: User, ruId: string): strin
 
   <div class="meta-grid">
     <div class="meta-card"><div class="val">${events.length}</div><div class="lbl">Total Events</div></div>
-    <div class="meta-card"><div class="val" style="color:#ef4444">${unacked}</div><div class="lbl">Unacknowledged</div></div>
-    <div class="meta-card"><div class="val" style="color:#16a34a">${events.length - unacked}</div><div class="lbl">Acknowledged</div></div>
+    <div class="meta-card"><div class="val" style="color:#E3242B">${unacked}</div><div class="lbl">Unacknowledged</div></div>
+    <div class="meta-card"><div class="val" style="color:#5E8A12">${events.length - unacked}</div><div class="lbl">Acknowledged</div></div>
   </div>
 
   <div class="summary">${summary}</div>
@@ -265,7 +265,7 @@ export function EventsTab({ currentUser, activeRU }: Props) {
           </button>
           <button
             onClick={exportPDF}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: 'rgba(56,189,248,0.08)', border: '1px solid rgba(56,189,248,0.25)', borderRadius: 9, cursor: 'pointer', color: '#38bdf8', fontSize: 12, fontWeight: 600 }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: 'rgba(46,122,224,0.08)', border: '1px solid rgba(46,122,224,0.25)', borderRadius: 9, cursor: 'pointer', color: '#2E7AE0', fontSize: 12, fontWeight: 600 }}
           >
             <FileText size={13} /> Export PDF
           </button>
@@ -280,7 +280,7 @@ export function EventsTab({ currentUser, activeRU }: Props) {
         {['ALL', ...Object.keys(TYPE_META)].map(t => (
           <button key={t}
             onClick={() => setFilterType(t)}
-            style={{ padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: filterType === t ? 700 : 400, cursor: 'pointer', background: filterType === t ? 'rgba(56,189,248,0.12)' : 'transparent', border: filterType === t ? '1px solid rgba(56,189,248,0.3)' : '1px solid var(--card-border)', color: filterType === t ? '#38bdf8' : 'var(--t3)', fontFamily: "'Geist Mono', monospace", transition: 'all 0.12s' }}>
+            style={{ padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: filterType === t ? 700 : 400, cursor: 'pointer', background: filterType === t ? 'rgba(46,122,224,0.12)' : 'transparent', border: filterType === t ? '1px solid rgba(46,122,224,0.3)' : '1px solid var(--card-border)', color: filterType === t ? '#2E7AE0' : 'var(--t3)', fontFamily: "'Geist Mono', monospace", transition: 'all 0.12s' }}>
             {t === 'ALL' ? 'All Types' : (TYPE_META[t]?.label || t)}
           </button>
         ))}
@@ -291,7 +291,7 @@ export function EventsTab({ currentUser, activeRU }: Props) {
         {(['all', 'unacked', 'acked'] as const).map(v => (
           <button key={v}
             onClick={() => setFilterAck(v)}
-            style={{ padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: filterAck === v ? 700 : 400, cursor: 'pointer', background: filterAck === v ? 'rgba(56,189,248,0.12)' : 'transparent', border: filterAck === v ? '1px solid rgba(56,189,248,0.3)' : '1px solid var(--card-border)', color: filterAck === v ? '#38bdf8' : 'var(--t3)', fontFamily: "'Geist Mono', monospace" }}>
+            style={{ padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: filterAck === v ? 700 : 400, cursor: 'pointer', background: filterAck === v ? 'rgba(46,122,224,0.12)' : 'transparent', border: filterAck === v ? '1px solid rgba(46,122,224,0.3)' : '1px solid var(--card-border)', color: filterAck === v ? '#2E7AE0' : 'var(--t3)', fontFamily: "'Geist Mono', monospace" }}>
             {v === 'all' ? 'All Status' : v === 'unacked' ? 'Unacked' : 'Acked'}
           </button>
         ))}
@@ -333,7 +333,7 @@ export function EventsTab({ currentUser, activeRU }: Props) {
                 {filtered.map((ev, i) => (
                   <tr key={ev.id}
                     style={{ borderBottom: '1px solid var(--divider)', background: ev.acknowledged ? 'transparent' : 'rgba(245,158,11,0.015)' }}
-                    onMouseEnter={e => (e.currentTarget as HTMLTableRowElement).style.background = 'rgba(56,189,248,0.03)'}
+                    onMouseEnter={e => (e.currentTarget as HTMLTableRowElement).style.background = 'rgba(46,122,224,0.03)'}
                     onMouseLeave={e => (e.currentTarget as HTMLTableRowElement).style.background = ev.acknowledged ? 'transparent' : 'rgba(245,158,11,0.015)'}
                   >
                     <td style={{ padding: '11px 14px', whiteSpace: 'nowrap' }}>
@@ -353,7 +353,7 @@ export function EventsTab({ currentUser, activeRU }: Props) {
                       </div>
                     </td>
                     <td style={{ padding: '11px 14px' }}>
-                      <span style={{ fontSize: 11, color: '#38bdf8', fontFamily: "'Geist Mono', monospace", fontWeight: 700 }}>{ev.ruId || '—'}</span>
+                      <span style={{ fontSize: 11, color: '#2E7AE0', fontFamily: "'Geist Mono', monospace", fontWeight: 700 }}>{ev.ruId || '—'}</span>
                     </td>
                     <td style={{ padding: '11px 14px', maxWidth: 320 }}>
                       <div style={{ fontSize: 13, color: 'var(--t1)', lineHeight: 1.4 }}>{ev.message}</div>
@@ -370,7 +370,7 @@ export function EventsTab({ currentUser, activeRU }: Props) {
                     </td>
                     <td style={{ padding: '11px 14px' }}>
                       {ev.acknowledged ? (
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: '#34d399', fontWeight: 700, fontFamily: "'Geist Mono', monospace" }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: '#6E9E1F', fontWeight: 700, fontFamily: "'Geist Mono', monospace" }}>
                           <CheckCircle2 size={12} /> ACKED
                         </span>
                       ) : (
@@ -383,7 +383,7 @@ export function EventsTab({ currentUser, activeRU }: Props) {
                       {!ev.acknowledged && ev.type !== 'ACK' && ev.type !== 'LOGIN' && ev.type !== 'LOGOUT' && (
                         <button
                           onClick={() => { setAckTarget(ev); setAckNote(''); setAckError(''); }}
-                          style={{ fontSize: 11, fontWeight: 600, color: '#38bdf8', background: 'rgba(56,189,248,0.08)', border: '1px solid rgba(56,189,248,0.2)', borderRadius: 7, padding: '4px 10px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                          style={{ fontSize: 11, fontWeight: 600, color: '#2E7AE0', background: 'rgba(46,122,224,0.08)', border: '1px solid rgba(46,122,224,0.2)', borderRadius: 7, padding: '4px 10px', cursor: 'pointer', whiteSpace: 'nowrap' }}
                         >
                           <ClipboardCheck size={11} style={{ marginRight: 4, verticalAlign: 'middle' }} />
                           Acknowledge
@@ -425,7 +425,7 @@ export function EventsTab({ currentUser, activeRU }: Props) {
             <form onSubmit={handleAckSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div>
                 <label style={{ display: 'block', fontSize: 11, color: 'var(--t3)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600 }}>
-                  Operator Note <span style={{ color: '#ef4444' }}>*</span>
+                  Operator Note <span style={{ color: '#E3242B' }}>*</span>
                 </label>
                 <textarea
                   autoFocus
@@ -433,12 +433,12 @@ export function EventsTab({ currentUser, activeRU }: Props) {
                   value={ackNote}
                   onChange={e => setAckNote(e.target.value)}
                   rows={4}
-                  style={{ width: '100%', background: 'var(--input-bg)', border: `1px solid ${ackError ? '#ef4444' : 'var(--card-border)'}`, borderRadius: 10, padding: '10px 14px', color: 'var(--t1)', fontSize: 13, outline: 'none', resize: 'vertical', fontFamily: "'DM Sans', sans-serif" }}
+                  style={{ width: '100%', background: 'var(--input-bg)', border: `1px solid ${ackError ? '#E3242B' : 'var(--card-border)'}`, borderRadius: 10, padding: '10px 14px', color: 'var(--t1)', fontSize: 13, outline: 'none', resize: 'vertical', fontFamily: "'DM Sans', sans-serif" }}
                 />
-                {ackError && <div style={{ fontSize: 11, color: '#ef4444', marginTop: 4 }}>{ackError}</div>}
+                {ackError && <div style={{ fontSize: 11, color: '#E3242B', marginTop: 4 }}>{ackError}</div>}
               </div>
               <div style={{ fontSize: 11, color: 'var(--t4)', fontFamily: "'Geist Mono', monospace" }}>
-                Acknowledging as: <span style={{ color: '#38bdf8' }}>{currentUser.email}</span>
+                Acknowledging as: <span style={{ color: '#2E7AE0' }}>{currentUser.email}</span>
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button type="button" onClick={() => setAckTarget(null)}
@@ -446,7 +446,7 @@ export function EventsTab({ currentUser, activeRU }: Props) {
                   Cancel
                 </button>
                 <button type="submit" disabled={ackSubmitting}
-                  style={{ flex: 1, background: 'linear-gradient(135deg,#0369a1,#0284c7)', border: 'none', color: '#fff', borderRadius: 10, padding: '10px', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: ackSubmitting ? 0.7 : 1 }}>
+                  style={{ flex: 1, background: 'linear-gradient(135deg,#0369a1,#0055B8)', border: 'none', color: '#fff', borderRadius: 10, padding: '10px', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: ackSubmitting ? 0.7 : 1 }}>
                   {ackSubmitting ? 'Saving…' : 'Confirm Acknowledgement'}
                 </button>
               </div>

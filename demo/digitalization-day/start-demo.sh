@@ -8,6 +8,11 @@ LOG="$DEMO/logs"; mkdir -p "$LOG"
 [ -d "$ROOT/node_modules" ] || (cd "$ROOT" && npm install)
 [ -d "$DEMO/node_modules" ] || (cd "$DEMO" && npm install)
 
+if [ ! -f "$ROOT/apps/ru-frontend/public/tiles/manifest.json" ]; then
+  echo "[0] Unduh tile peta RU4 untuk mode offline (sekali, butuh internet)..."
+  (cd "$ROOT/apps/ru-frontend" && npm run tiles -- RU4) || echo "    Gagal unduh tile - peta tetap jalan dengan latar polos atau OSM online."
+fi
+
 echo "[1/4] Build backend + dashboard RU..."
 (cd "$ROOT/apps/backend" && npx prisma generate >/dev/null && npm run build >/dev/null)
 (cd "$ROOT/apps/ru-frontend" && NEXT_PUBLIC_DEMO_MODE=true NEXT_PUBLIC_POLL_MS=3000 NEXT_PUBLIC_RU_ID=RU4 \

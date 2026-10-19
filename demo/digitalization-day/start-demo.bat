@@ -18,6 +18,12 @@ if not exist "%DEMO%node_modules" (
   pushd "%DEMO%" && call npm install && popd
 )
 
+if not exist "%ROOT%apps\ru-frontend\public\tiles\manifest.json" (
+  echo [1b] Unduh tile peta RU4 untuk mode offline (sekali, butuh internet)...
+  pushd "%ROOT%apps\ru-frontend" && call npm run tiles -- RU4 && popd
+  if errorlevel 1 echo      Gagal unduh tile - peta tetap jalan dengan latar polos atau OSM online.
+)
+
 echo [2/6] Build backend dan dashboard RU (sekali, 1-3 menit)...
 pushd "%ROOT%apps\backend" && call npx prisma generate && call npm run build && popd
 set "NEXT_PUBLIC_DEMO_MODE=true"

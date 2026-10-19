@@ -12,8 +12,8 @@ import { fetchAnalytics, type AnalyticsStats } from '@/lib/graphql';
 interface Props { activeRU: string; warningThreshold?: number; criticalThreshold?: number; }
 
 const RU_COLORS: Record<string, string> = {
-  RU2: '#38bdf8', RU3: '#34d399', RU4: '#f59e0b',
-  RU5: '#3b82f6', RU6: '#fb7185', RU7: '#22d3ee',
+  RU2: '#2E7AE0', RU3: '#6E9E1F', RU4: '#f59e0b',
+  RU5: '#2E7AE0', RU6: '#EF5A5F', RU7: '#2E7AE0',
 };
 
 const CHART_TOOLTIP_STYLE = {
@@ -47,23 +47,23 @@ function SectionCard({ title, sub, children }: { title: string; sub?: string; ch
 }
 
 function detectionColor(count: number, maxCount: number): string {
-  if (count === 0) return 'rgba(56,189,248,0.06)';
+  if (count === 0) return 'rgba(46,122,224,0.06)';
   const r = Math.min(count / Math.max(maxCount, 1), 1);
-  if (r >= 0.75) return 'rgba(239,68,68,0.80)';
+  if (r >= 0.75) return 'rgba(227,36,43,0.80)';
   if (r >= 0.40) return 'rgba(245,158,11,0.70)';
-  return `rgba(56,189,248,${0.15 + r * 0.55})`;
+  return `rgba(46,122,224,${0.15 + r * 0.55})`;
 }
 
 function confidenceColor(conf: number, warning: number, critical: number): string {
-  if (conf === 0) return 'rgba(56,189,248,0.06)';
-  if (conf >= critical) return 'rgba(239,68,68,0.75)';
+  if (conf === 0) return 'rgba(46,122,224,0.06)';
+  if (conf >= critical) return 'rgba(227,36,43,0.75)';
   if (conf >= warning) return 'rgba(245,158,11,0.65)';
   const r = conf / warning;
-  return `rgba(56,189,248,${0.1 + r * 0.45})`;
+  return `rgba(46,122,224,${0.1 + r * 0.45})`;
 }
 
 function confidenceTextColor(conf: number, warning: number, critical: number): string {
-  if (conf >= critical) return '#ef4444';
+  if (conf >= critical) return '#E3242B';
   if (conf >= warning) return '#f59e0b';
   return 'var(--t4)';
 }
@@ -120,7 +120,7 @@ export function AnalyticsTab({ activeRU, warningThreshold = 0.70, criticalThresh
             {([24, 168] as const).map(h => (
               <button key={h}
                 onClick={() => setHours(h)}
-                style={{ padding: '6px 14px', fontSize: 12, fontWeight: hours === h ? 700 : 400, cursor: 'pointer', border: 'none', background: hours === h ? 'rgba(56,189,248,0.15)' : 'transparent', color: hours === h ? '#38bdf8' : 'var(--t3)', fontFamily: "'Geist Mono', monospace", transition: 'all 0.12s' }}>
+                style={{ padding: '6px 14px', fontSize: 12, fontWeight: hours === h ? 700 : 400, cursor: 'pointer', border: 'none', background: hours === h ? 'rgba(46,122,224,0.15)' : 'transparent', color: hours === h ? '#2E7AE0' : 'var(--t3)', fontFamily: "'Geist Mono', monospace", transition: 'all 0.12s' }}>
                 {h === 24 ? '24H' : '7D'}
               </button>
             ))}
@@ -133,13 +133,13 @@ export function AnalyticsTab({ activeRU, warningThreshold = 0.70, criticalThresh
 
       {/* Row 1: Trend charts */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        <SectionCard title="Gas Detection Trend" sub={`Avg AI confidence across sensors · ${hours === 24 ? 'hourly' : 'daily'}`}>
+        <SectionCard title="Gas Detection Trend" sub={`Avg gas confidence across sensors (Clean Air = 0) · ${hours === 24 ? 'hourly' : 'daily'}`}>
           <ResponsiveContainer width="100%" height={180}>
             <AreaChart data={data?.trendData || []}>
               <defs>
                 <linearGradient id="aGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.22} />
-                  <stop offset="95%" stopColor="#38bdf8" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#2E7AE0" stopOpacity={0.22} />
+                  <stop offset="95%" stopColor="#2E7AE0" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
@@ -147,16 +147,16 @@ export function AnalyticsTab({ activeRU, warningThreshold = 0.70, criticalThresh
               <YAxis domain={[0, 1]} tick={{ fill: 'var(--t4)', fontSize: 10, fontFamily: "'Geist Mono', monospace" }} axisLine={false} tickLine={false} tickFormatter={v => v.toFixed(1)} />
               <Tooltip content={<ChartTooltip />} />
               <ReferenceLine y={warningThreshold} stroke="#f59e0b" strokeDasharray="4 3" strokeWidth={1} />
-              <ReferenceLine y={criticalThreshold} stroke="#ef4444" strokeDasharray="4 3" strokeWidth={1} />
-              <Area type="monotone" dataKey="avgConfidence" stroke="#38bdf8" strokeWidth={2} fill="url(#aGrad)" name="Avg Confidence" dot={false} />
+              <ReferenceLine y={criticalThreshold} stroke="#E3242B" strokeDasharray="4 3" strokeWidth={1} />
+              <Area type="monotone" dataKey="avgConfidence" stroke="#2E7AE0" strokeWidth={2} fill="url(#aGrad)" name="Avg Confidence" dot={false} />
             </AreaChart>
           </ResponsiveContainer>
           <div style={{ display: 'flex', gap: 14, marginTop: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: '#f59e0b', fontFamily: "'Geist Mono', monospace" }}>
               <div style={{ width: 16, height: 1, borderTop: '1px dashed #f59e0b' }} /> MIDDLE ≥{warningThreshold}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: '#ef4444', fontFamily: "'Geist Mono', monospace" }}>
-              <div style={{ width: 16, height: 1, borderTop: '1px dashed #ef4444' }} /> HIGH ≥{criticalThreshold}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: '#E3242B', fontFamily: "'Geist Mono', monospace" }}>
+              <div style={{ width: 16, height: 1, borderTop: '1px dashed #E3242B' }} /> HIGH ≥{criticalThreshold}
             </div>
           </div>
         </SectionCard>
@@ -170,7 +170,7 @@ export function AnalyticsTab({ activeRU, warningThreshold = 0.70, criticalThresh
               <Tooltip content={<ChartTooltip />} />
               <Bar dataKey="breachCount" radius={[4, 4, 0, 0]} name="Breaches">
                 {(data?.trendData || []).map((d, i) => (
-                  <Cell key={i} fill={d.breachCount > 0 ? '#f59e0b' : 'rgba(56,189,248,0.2)'} />
+                  <Cell key={i} fill={d.breachCount > 0 ? '#f59e0b' : 'rgba(46,122,224,0.2)'} />
                 ))}
               </Bar>
             </BarChart>
@@ -183,7 +183,7 @@ export function AnalyticsTab({ activeRU, warningThreshold = 0.70, criticalThresh
 
       {/* Row 2: RU Comparison */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        <SectionCard title="Avg Confidence per RU" sub={`Mean AI confidence per refinery unit · ${hours === 24 ? '24h' : '7d'}`}>
+        <SectionCard title="Avg Confidence per RU" sub={`Mean gas confidence per refinery unit (Clean Air = 0) · ${hours === 24 ? '24h' : '7d'}`}>
           <ResponsiveContainer width="100%" height={170}>
             <BarChart data={data?.ruComparison || []} layout="vertical" margin={{ left: 8, right: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" horizontal={false} />
@@ -194,9 +194,9 @@ export function AnalyticsTab({ activeRU, warningThreshold = 0.70, criticalThresh
               <Bar dataKey="avgConfidence" radius={[0, 4, 4, 0]} name="Avg Confidence" maxBarSize={18}>
                 {(data?.ruComparison || []).map((r) => (
                   <Cell key={r.ruId} fill={
-                    r.avgConfidence >= criticalThreshold ? '#ef4444' :
+                    r.avgConfidence >= criticalThreshold ? '#E3242B' :
                     r.avgConfidence >= warningThreshold ? '#f59e0b' :
-                    (RU_COLORS[r.ruId] || '#38bdf8')
+                    (RU_COLORS[r.ruId] || '#2E7AE0')
                   } />
                 ))}
               </Bar>
@@ -213,7 +213,7 @@ export function AnalyticsTab({ activeRU, warningThreshold = 0.70, criticalThresh
               <Tooltip content={<ChartTooltip />} />
               <Bar dataKey="breachCount" radius={[0, 4, 4, 0]} name="Breaches" maxBarSize={18}>
                 {(data?.ruComparison || []).map((r, i) => (
-                  <Cell key={r.ruId} fill={r.breachCount > 0 ? '#f59e0b' : 'rgba(56,189,248,0.2)'} />
+                  <Cell key={r.ruId} fill={r.breachCount > 0 ? '#f59e0b' : 'rgba(46,122,224,0.2)'} />
                 ))}
               </Bar>
             </BarChart>
@@ -240,7 +240,7 @@ export function AnalyticsTab({ activeRU, warningThreshold = 0.70, criticalThresh
             const isActive = activeRU === 'ALL' || activeRU === ru;
             return (
               <div key={ru} style={{ display: 'grid', gridTemplateColumns: '40px repeat(24, 1fr)', gap: 2, marginBottom: 2, opacity: isActive ? 1 : 0.35 }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: RU_COLORS[ru] || '#38bdf8', fontFamily: "'Geist Mono', monospace", display: 'flex', alignItems: 'center', paddingRight: 4 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: RU_COLORS[ru] || '#2E7AE0', fontFamily: "'Geist Mono', monospace", display: 'flex', alignItems: 'center', paddingRight: 4 }}>
                   {ru}
                 </div>
                 {cells.map((count, h) => (
@@ -269,7 +269,7 @@ export function AnalyticsTab({ activeRU, warningThreshold = 0.70, criticalThresh
             <span>High</span>
             <div style={{ marginLeft: 8, display: 'flex', gap: 10 }}>
               <span style={{ color: '#f59e0b' }}>▪ MIDDLE ≥{warningThreshold}</span>
-              <span style={{ color: '#ef4444' }}>▪ HIGH ≥{criticalThreshold}</span>
+              <span style={{ color: '#E3242B' }}>▪ HIGH ≥{criticalThreshold}</span>
             </div>
           </div>
         </div>
@@ -296,7 +296,7 @@ export function AnalyticsTab({ activeRU, warningThreshold = 0.70, criticalThresh
                 <div key={s.deviceId} style={{ display: 'grid', gridTemplateColumns: '1fr 70px 70px 50px', gap: 6, padding: '7px 0', borderBottom: '1px solid var(--divider)', alignItems: 'center' }}>
                   <div>
                     <div style={{ fontSize: 12, color: 'var(--t1)', fontWeight: i < 3 ? 700 : 400 }}>{s.deviceName}</div>
-                    <div style={{ fontSize: 10, color: RU_COLORS[s.ruId] || '#38bdf8', fontFamily: "'Geist Mono', monospace" }}>{s.ruId}</div>
+                    <div style={{ fontSize: 10, color: RU_COLORS[s.ruId] || '#2E7AE0', fontFamily: "'Geist Mono', monospace" }}>{s.ruId}</div>
                   </div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: confidenceTextColor(s.avgConfidence, warningThreshold, criticalThreshold), fontFamily: "'Geist Mono', monospace" }}>
                     {s.avgConfidence.toFixed(2)}
@@ -326,16 +326,16 @@ export function AnalyticsTab({ activeRU, warningThreshold = 0.70, criticalThresh
 
               {/* Online/Offline row */}
               <div style={{ display: 'flex', gap: 16 }}>
-                <div style={{ flex: 1, background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.2)', borderRadius: 10, padding: '12px 14px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 22, fontWeight: 700, color: '#34d399' }}>{data.fleetHealth.online}</div>
+                <div style={{ flex: 1, background: 'rgba(110,158,31,0.08)', border: '1px solid rgba(110,158,31,0.2)', borderRadius: 10, padding: '12px 14px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: '#6E9E1F' }}>{data.fleetHealth.online}</div>
                   <div style={{ fontSize: 10, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: 1, fontFamily: "'Geist Mono', monospace", marginTop: 2 }}>Online</div>
                 </div>
-                <div style={{ flex: 1, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.18)', borderRadius: 10, padding: '12px 14px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 22, fontWeight: 700, color: '#ef4444' }}>{data.fleetHealth.offline}</div>
+                <div style={{ flex: 1, background: 'rgba(227,36,43,0.06)', border: '1px solid rgba(227,36,43,0.18)', borderRadius: 10, padding: '12px 14px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: '#E3242B' }}>{data.fleetHealth.offline}</div>
                   <div style={{ fontSize: 10, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: 1, fontFamily: "'Geist Mono', monospace", marginTop: 2 }}>Offline</div>
                 </div>
-                <div style={{ flex: 1, background: 'rgba(56,189,248,0.06)', border: '1px solid rgba(56,189,248,0.15)', borderRadius: 10, padding: '12px 14px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 22, fontWeight: 700, color: '#38bdf8' }}>{data.fleetHealth.total}</div>
+                <div style={{ flex: 1, background: 'rgba(46,122,224,0.06)', border: '1px solid rgba(46,122,224,0.15)', borderRadius: 10, padding: '12px 14px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: '#2E7AE0' }}>{data.fleetHealth.total}</div>
                   <div style={{ fontSize: 10, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: 1, fontFamily: "'Geist Mono', monospace", marginTop: 2 }}>Total</div>
                 </div>
               </div>
@@ -349,7 +349,7 @@ export function AnalyticsTab({ activeRU, warningThreshold = 0.70, criticalThresh
                   <div key={b.range} style={{ display: 'grid', gridTemplateColumns: '64px 1fr 28px', gap: 8, alignItems: 'center', marginBottom: 5 }}>
                     <span style={{ fontSize: 10, color: 'var(--t3)', fontFamily: "'Geist Mono', monospace" }}>{b.range}</span>
                     <div style={{ height: 5, background: 'var(--card-border)', borderRadius: 3, overflow: 'hidden' }}>
-                      <div style={{ width: `${maxBattery > 0 ? (b.count / maxBattery) * 100 : 0}%`, height: '100%', background: b.range.startsWith('75') ? '#34d399' : b.range.startsWith('50') ? '#38bdf8' : b.range.startsWith('25') ? '#f59e0b' : '#ef4444', borderRadius: 3, transition: 'width 0.4s ease' }} />
+                      <div style={{ width: `${maxBattery > 0 ? (b.count / maxBattery) * 100 : 0}%`, height: '100%', background: b.range.startsWith('75') ? '#6E9E1F' : b.range.startsWith('50') ? '#2E7AE0' : b.range.startsWith('25') ? '#f59e0b' : '#E3242B', borderRadius: 3, transition: 'width 0.4s ease' }} />
                     </div>
                     <span style={{ fontSize: 10, color: 'var(--t3)', fontFamily: "'Geist Mono', monospace", textAlign: 'right' }}>{b.count}</span>
                   </div>
@@ -359,11 +359,11 @@ export function AnalyticsTab({ activeRU, warningThreshold = 0.70, criticalThresh
               {/* Network quality */}
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, fontSize: 11, fontWeight: 600, color: 'var(--t2)' }}>
-                  <Wifi size={12} color="#38bdf8" /> Network Quality
+                  <Wifi size={12} color="#2E7AE0" /> Network Quality
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
                   {data.fleetHealth.networkDist.map(n => {
-                    const gradeColor = { A: '#34d399', B: '#38bdf8', C: '#f59e0b', D: '#ef4444' }[n.grade] || '#94a3b8';
+                    const gradeColor = { A: '#6E9E1F', B: '#2E7AE0', C: '#f59e0b', D: '#E3242B' }[n.grade] || '#94a3b8';
                     return (
                       <div key={n.grade} style={{ flex: 1, background: `${gradeColor}12`, border: `1px solid ${gradeColor}30`, borderRadius: 8, padding: '8px 6px', textAlign: 'center' }}>
                         <div style={{ fontSize: 16, fontWeight: 700, color: gradeColor, fontFamily: "'Geist Mono', monospace" }}>{n.grade}</div>

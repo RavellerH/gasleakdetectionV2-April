@@ -17,7 +17,7 @@ const ANIM = `
 `;
 
 function HealthBar({ pct, w }: { pct: number; w: number }) {
-  const bg = pct >= 70 ? '#22c55e' : pct >= 40 ? '#f59e0b' : '#ef4444';
+  const bg = pct >= 70 ? '#6E9E1F' : pct >= 40 ? '#f59e0b' : '#E3242B';
   return (
     <div style={{ position:'absolute', bottom:-6, left:'50%', transform:'translateX(-50%)', width:w, height:2.5, background:'rgba(0,0,0,0.55)', borderRadius:2, overflow:'hidden', zIndex:5 }}>
       <div style={{ width:`${pct}%`, height:'100%', background:bg }} />
@@ -37,12 +37,12 @@ export function DevicePin({
   const isCritical = confidence >= criticalThreshold;
   const isWarning  = !isCritical && confidence >= warningThreshold;
   const isAlert    = isCritical || isWarning;
-  const alertColor = isCritical ? '#ef4444' : '#f59e0b';
+  const alertColor = isCritical ? '#E3242B' : '#f59e0b';
 
   /* ── GATEWAY: large circle with expanding sonar ring ─────────── */
   if (t === 'GATEWAY') {
     const s = Math.round(size * 1.9);
-    const color = isAlert ? alertColor : '#38bdf8';
+    const color = isAlert ? alertColor : '#2E7AE0';
     return (
       <div style={{ position:'relative', width:s, height:s, cursor:'pointer' }}>
         <style>{ANIM}</style>
@@ -60,7 +60,7 @@ export function DevicePin({
   /* ── CLUSTER HEAD: diamond (rotated square) ──────────────────── */
   if (t === 'CLUSTER') {
     const s = Math.round(size * 1.4);
-    const color = isAlert ? alertColor : '#3b82f6';
+    const color = isAlert ? alertColor : '#2E7AE0';
     return (
       <div style={{ position:'relative', width:s, height:s, cursor:'pointer' }}>
         <style>{ANIM}</style>
@@ -78,7 +78,7 @@ export function DevicePin({
   }
 
   /* ── SENSOR: small circle ────────────────────────────────────── */
-  const color = isAlert ? alertColor : healthScore >= 70 ? '#22d3ee' : healthScore >= 40 ? '#f59e0b' : '#64748b';
+  const color = isAlert ? alertColor : healthScore >= 70 ? '#2E7AE0' : healthScore >= 40 ? '#f59e0b' : '#64748b';
   return (
     <div style={{ position:'relative', width:size, height:size, cursor:'pointer' }}>
       <style>{ANIM}</style>

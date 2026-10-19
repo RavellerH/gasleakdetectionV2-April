@@ -25,7 +25,7 @@ export function UnitLayoutMap({ devices, onNodeClick }: UnitLayoutMapProps) {
         className="relative w-full rounded-xl border border-[var(--border)] overflow-hidden p-12 min-h-[700px] flex flex-col items-center justify-center"
         style={{ 
           background: 'var(--card)',
-          backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(56, 189, 248, 0.05) 1px, transparent 0)',
+          backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(46,122,224, 0.05) 1px, transparent 0)',
           backgroundSize: '32px 32px' 
         }}
       >
@@ -39,7 +39,7 @@ export function UnitLayoutMap({ devices, onNodeClick }: UnitLayoutMapProps) {
             >
               <div className="absolute -inset-12 bg-emerald-500/10 rounded-full blur-3xl animate-pulse group-hover:bg-emerald-500/20 transition-all" />
               <div 
-                className="relative w-24 h-24 rounded-3xl border-2 border-emerald-500 shadow-[0_0_40px_rgba(16,185,129,0.4)] flex items-center justify-center transition-all group-hover:scale-105 group-hover:border-white" 
+                className="relative w-24 h-24 rounded-3xl border-2 border-emerald-500 shadow-[0_0_40px_rgba(110,158,31,0.4)] flex items-center justify-center transition-all group-hover:scale-105 group-hover:border-white"
                 style={{ background: 'var(--input-bg)' }}
               >
                 <Zap size={40} className="text-emerald-400" />
@@ -53,8 +53,8 @@ export function UnitLayoutMap({ devices, onNodeClick }: UnitLayoutMapProps) {
 
         {/* 2. MESH CONNECTIONS SVG */}
         <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-20">
-           <circle cx="50%" cy="30%" r="200" fill="none" stroke="rgba(56, 189, 248, 0.1)" strokeWidth="1" strokeDasharray="10 10" />
-           <circle cx="50%" cy="30%" r="350" fill="none" stroke="rgba(56, 189, 248, 0.05)" strokeWidth="1" strokeDasharray="5 5" />
+           <circle cx="50%" cy="30%" r="200" fill="none" stroke="rgba(46,122,224, 0.1)" strokeWidth="1" strokeDasharray="10 10" />
+           <circle cx="50%" cy="30%" r="350" fill="none" stroke="rgba(46,122,224, 0.05)" strokeWidth="1" strokeDasharray="5 5" />
         </svg>
 
         {/* 3. CLUSTER LAYER */}
@@ -73,7 +73,7 @@ export function UnitLayoutMap({ devices, onNodeClick }: UnitLayoutMapProps) {
                   <div className="absolute -inset-6 bg-blue-500/10 rounded-full blur-2xl group-hover:bg-blue-500/20 transition-all" />
                   <div className="relative flex flex-col items-center">
                     <div 
-                      className="w-16 h-16 rounded-2xl border-2 border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.3)] flex items-center justify-center mb-2 transition-all group-hover:scale-110 group-hover:border-white" 
+                      className="w-16 h-16 rounded-2xl border-2 border-blue-500 shadow-[0_0_20px_rgba(46,122,224,0.3)] flex items-center justify-center mb-2 transition-all group-hover:scale-110 group-hover:border-white"
                       style={{ background: 'var(--input-bg)' }}
                     >
                       <Network size={28} className="text-blue-400" />
@@ -112,8 +112,8 @@ export function UnitLayoutMap({ devices, onNodeClick }: UnitLayoutMapProps) {
                             )}
                             <div 
                               className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all group-hover/sensor:scale-110 group-hover/sensor:border-white ${
-                                isAlert ? 'border-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.6)]' :
-                                s.status === 'ONLINE' ? 'border-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.2)]' : 
+                                isAlert ? 'border-rose-500 shadow-[0_0_15px_rgba(227,36,43,0.6)]' :
+                                s.status === 'ONLINE' ? 'border-emerald-500 shadow-[0_0_10px_rgba(110,158,31,0.2)]' :
                                 'border-rose-500'
                               }`}
                               style={{ background: 'var(--input-bg)' }}
@@ -156,15 +156,15 @@ export function UnitLayoutMap({ devices, onNodeClick }: UnitLayoutMapProps) {
           style={{ background: 'var(--card-bg-alt)' }}
         >
            <div className="flex items-center gap-3">
-              <div className="w-3 h-3 rounded bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
+              <div className="w-3 h-3 rounded bg-blue-500 shadow-[0_0_8px_rgba(46,122,224,0.5)]" />
               <span className="text-[var(--t3)] uppercase tracking-wider">Cluster Head Node</span>
            </div>
            <div className="flex items-center gap-3">
-              <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+              <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(110,158,31,0.5)]" />
               <span className="text-[var(--t3)] uppercase tracking-wider">Active Star Node (Sensor)</span>
            </div>
            <div className="flex items-center gap-3">
-              <div className="w-3 h-3 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]" />
+              <div className="w-3 h-3 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(227,36,43,0.5)]" />
               <span className="text-[var(--t3)] uppercase tracking-wider">Connection Terminated</span>
            </div>
         </div>

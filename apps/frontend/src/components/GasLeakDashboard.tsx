@@ -407,14 +407,14 @@ export default function GasLeakDashboard() {
     ? Math.round(displayDevices.reduce((s, d) => s + d.battery.soc, 0) / displayDevices.length)
     : 78;
   const filteredAlerts  = localAlerts.filter(a => activeRU === 'ALL' || a.ru === activeRU);
-  const totalAlerts     = filteredAlerts.length;
+  const totalAlerts     = filteredAlerts.filter(a => a.status === 'ACTIVE').length; // open, not yet acknowledged
   const ruData          = (stats?.ruData || []).filter(r => activeRU === 'ALL' || r.ru === activeRU);
   const timelineData    = stats?.timelineData   || [];
   const recentAlerts    = filteredAlerts;
   const networkQuality  = stats?.networkQuality || [];
   const mapRu           = activeRU;
   // sidebar notification badge still shows global count
-  const globalAlertCount = localAlerts.length;
+  const globalAlertCount = localAlerts.filter(a => a.status === 'ACTIVE').length;
 
   const filteredDevices = apiDevices
     .filter(d => {
@@ -1100,7 +1100,7 @@ export default function GasLeakDashboard() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                 <div>
                   <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--t1)' }}>Alarm Console</div>
-                  <div style={{ fontSize: 12, color: 'var(--t3)', fontFamily: "'Geist Mono', monospace" }}>Active: {localAlerts.filter(a => a.status !== 'RESOLVED').length}</div>
+                  <div style={{ fontSize: 12, color: 'var(--t3)', fontFamily: "'Geist Mono', monospace" }}>Active: {localAlerts.filter(a => a.status === 'ACTIVE').length}</div>
                 </div>
               </div>
               {localAlerts.filter(a => activeRU === 'ALL' || a.ru === activeRU).map(a => (

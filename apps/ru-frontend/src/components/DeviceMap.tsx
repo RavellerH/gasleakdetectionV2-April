@@ -1,24 +1,58 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import MapGL, { Marker, MapRef, Source, Layer } from 'react-map-gl';
-import type { SkyLayerSpecification } from 'mapbox-gl';
-import type { StyleSpecification } from 'maplibre-gl';
+import MapGL, { Marker, MapRef, Source, Layer } from 'react-map-gl/maplibre';
+import type { Map as MaplibreMap, StyleSpecification } from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 
 import useSupercluster from 'use-supercluster';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
 import { X, Compass, Mountain, Share2, BatteryMedium, Wifi, Activity, MapPin, Network, Flame, RefreshCw } from 'lucide-react';
 import type { Device, SensorTimeline } from '@/lib/graphql';
 import { gasAlertConfidence } from '@/lib/gasClass';
 import { updateDeviceLocation } from '@/lib/graphql';
 import { DevicePin } from './DevicePin';
 
-const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? '';
+/* No map token needed. Tiles come from the app itself when downloaded with
+   `npm run tiles` (-> public/tiles, works offline), otherwise from OSM online.
+   Without either, the themed background still shows devices and topology. */
+const LOCAL_TILES  = '/tiles/{z}/{x}/{y}.png';
+const ONLINE_TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
-/* Mapbox GL v3 rejects Opera even though WebGL works fine. */
-if (typeof window !== 'undefined' && !mapboxgl.supported()) {
-  Object.defineProperty(mapboxgl, 'supported', { value: () => true, configurable: true });
+function buildMapStyle(tileTemplate: string, dark: boolean): StyleSpecification {
+  return {
+    version: 8,
+    sources: {
+      basemap: {
+        type: 'raster',
+        tiles: [tileTemplate],
+        tileSize: 256,
+        maxzoom: 16, // raster overzooms smoothly past this
+        attribution: '© OpenStreetMap contributors',
+      },
+    },
+    layers: [
+      { id: 'bg', type: 'background', paint: { 'background-color': dark ? '#0B1322' : '#E6ECF4' } },
+      {
+        id: 'basemap',
+        type: 'raster',
+        source: 'basemap',
+        paint: dark
+          ? { 'raster-brightness-max': 0.45, 'raster-saturation': -0.7, 'raster-contrast': 0.15, 'raster-fade-duration': 0 }
+          : { 'raster-saturation': -0.35, 'raster-fade-duration': 0 },
+      },
+    ],
+  };
+}
+
+function useDarkTheme(): boolean {
+  const read = () => typeof document === 'undefined' || document.documentElement.getAttribute('data-theme') !== 'light';
+  const [dark, setDark] = useState(read);
+  useEffect(() => {
+    const obs = new MutationObserver(() => setDark(read()));
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => obs.disconnect();
+  }, []);
+  return dark;
 }
 
 function isWebGLSupported(): boolean {
@@ -46,25 +80,13 @@ interface DeviceMapProps {
 
 /* same scale as the Overview heatmap */
 function heatmapColor(conf: number | null, warning: number, critical: number): string {
-  if (conf === null) return 'rgba(37,99,235,0.06)';
-  if (conf >= critical) return 'rgba(239,68,68,0.75)';
+  if (conf === null) return 'rgba(0,85,184,0.06)';
+  if (conf >= critical) return 'rgba(227,36,43,0.75)';
   if (conf >= warning) return 'rgba(245,158,11,0.65)';
   const r = Math.min(conf / Math.max(warning, 0.01), 1);
-  return `rgba(37,99,235,${0.08 + r * 0.50})`;
+  return `rgba(0,85,184,${0.08 + r * 0.50})`;
 }
 
-/* ── Sky atmosphere layer ───────────────────────────────────── */
-const skyLayer: SkyLayerSpecification = {
-  id: 'sky',
-  type: 'sky',
-  paint: {
-    'sky-type': 'atmosphere',
-    'sky-atmosphere-sun': [0.0, 90.0],
-    'sky-atmosphere-sun-intensity': 15,
-    'sky-atmosphere-color': 'rgba(14, 30, 60, 1)',
-    'sky-atmosphere-halo-color': 'rgba(56, 189, 248, 0.3)',
-  },
-};
 
 /* ── Flowing dash animation frames ─────────────────────────── */
 const DASH_STEPS = [
@@ -76,7 +98,7 @@ const DASH_STEPS = [
 function ClusterPin({ count, hasCritical, hasWarning, onClick }: {
   count: number; hasCritical: boolean; hasWarning: boolean; onClick: () => void;
 }) {
-  const color  = hasCritical ? '#ef4444' : hasWarning ? '#f59e0b' : '#38bdf8';
+  const color  = hasCritical ? '#E3242B' : hasWarning ? '#f59e0b' : '#2E7AE0';
   const size   = Math.min(20 + Math.log2(count) * 8, 56);
   return (
     <div
@@ -115,6 +137,18 @@ export function DeviceMap({
   const [is3D,         setIs3D]         = useState(true);
   const [showTopology, setShowTopology] = useState(true);
   const [showTrend,    setShowTrend]    = useState(true);
+
+  /* prefer locally downloaded tiles (offline), fall back to OSM online */
+  const dark = useDarkTheme();
+  const [tileTemplate, setTileTemplate] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    fetch('/tiles/manifest.json', { cache: 'no-store' })
+      .then(r => { if (alive) setTileTemplate(r.ok ? LOCAL_TILES : ONLINE_TILES); })
+      .catch(() => { if (alive) setTileTemplate(ONLINE_TILES); });
+    return () => { alive = false; };
+  }, []);
+  const mapStyle = useMemo(() => (tileTemplate ? buildMapStyle(tileTemplate, dark) : null), [tileTemplate, dark]);
 
   /* viewport state — synced from refs via interval to avoid render loops */
   const [zoom,   setZoom]   = useState(initialZoom);
@@ -282,18 +316,14 @@ export function DeviceMap({
     [onDeviceUpdate]
   );
 
-  const handleMove = useCallback((evt: { viewState: { zoom: number }; target: mapboxgl.Map }) => {
+  const handleMove = useCallback((evt: { viewState: { zoom: number }; target: MaplibreMap }) => {
     zoomRef.current = evt.viewState.zoom;
     const b = evt.target.getBounds();
     if (b) boundsRef.current = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
   }, []);
 
-  if (!MAPBOX_TOKEN) {
-    return (
-      <div style={{ height:500, display:'flex', alignItems:'center', justifyContent:'center', background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:12, color:'var(--t3)', fontSize:13, fontFamily:"'Geist Mono', monospace", gap:8 }}>
-        Set <code style={{ background:'rgba(255,255,255,0.06)', padding:'2px 6px', borderRadius:4 }}>NEXT_PUBLIC_MAPBOX_TOKEN</code> in .env to show the map.
-      </div>
-    );
+  if (!mapStyle) {
+    return <div style={{ height:500, background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:12 }} />;
   }
 
   if (!isWebGLSupported()) {
@@ -309,9 +339,9 @@ export function DeviceMap({
   const topoVisible = showTopology && zoom >= 11;
   const ctrlBtn = (active?: boolean): React.CSSProperties => ({
     display:'flex', alignItems:'center', gap:6, padding:'6px 12px',
-    background: active ? 'rgba(56,189,248,0.15)' : 'rgba(11,13,20,0.85)',
-    border:`1px solid ${active ? 'rgba(56,189,248,0.4)' : 'rgba(56,189,248,0.15)'}`,
-    borderRadius:8, cursor:'pointer', color:active?'#38bdf8':'var(--t3)',
+    background: active ? 'rgba(46,122,224,0.15)' : 'color-mix(in srgb, var(--sidebar-bg) 85%, transparent)',
+    border:`1px solid ${active ? 'rgba(46,122,224,0.4)' : 'rgba(46,122,224,0.15)'}`,
+    borderRadius:8, cursor:'pointer', color:active?'#2E7AE0':'var(--t3)',
     fontSize:12, fontWeight:700, backdropFilter:'blur(12px)',
     fontFamily:"'Geist Mono', monospace",
   });
@@ -322,23 +352,21 @@ export function DeviceMap({
         @keyframes gw-ring { 0% { transform:scale(1); opacity:.7; } 100% { transform:scale(2.2); opacity:0; } }
         @keyframes overlay-in { from { opacity:0; transform:translateX(-16px); } to { opacity:1; transform:translateX(0); } }
         @keyframes overlay-in-r { from { opacity:0; transform:translateX(16px); } to { opacity:1; transform:translateX(0); } }
-        .mapboxgl-ctrl-group { background:rgba(11,13,20,0.85) !important; border:1px solid rgba(56,189,248,0.15) !important; backdrop-filter:blur(12px); }
-        .mapboxgl-ctrl-group button { background:transparent !important; border-bottom:1px solid rgba(56,189,248,0.1) !important; }
-        .mapboxgl-ctrl-group button:last-child { border-bottom:none !important; }
-        .mapboxgl-ctrl-icon { filter:invert(1) brightness(0.7); }
-        .mapboxgl-ctrl-attrib { display:none !important; }
-        .mapboxgl-ctrl-logo { display:none !important; }
+        .maplibregl-ctrl-group { background:color-mix(in srgb, var(--sidebar-bg) 85%, transparent) !important; border:1px solid rgba(46,122,224,0.15) !important; backdrop-filter:blur(12px); }
+        .maplibregl-ctrl-group button { background:transparent !important; border-bottom:1px solid rgba(46,122,224,0.1) !important; }
+        .maplibregl-ctrl-group button:last-child { border-bottom:none !important; }
+        :root:not([data-theme="light"]) .maplibregl-ctrl-icon { filter:invert(1) brightness(0.7); }
+        .maplibregl-ctrl-attrib { background:color-mix(in srgb, var(--sidebar-bg) 60%, transparent) !important; }
+        .maplibregl-ctrl-attrib, .maplibregl-ctrl-attrib a { color:#8a9aae !important; font-size:10px !important; }
       `}</style>
 
       <MapGL
         ref={mapRef}
-        mapboxAccessToken={MAPBOX_TOKEN}
         initialViewState={ruCenter
           ? { longitude: ruCenter.lng, latitude: ruCenter.lat, zoom: initialZoom, pitch: 55, bearing: -17 }
           : { longitude: 118.0, latitude: -2.5, zoom: initialZoom, pitch: 0, bearing: 0 }}
         style={{ width:'100%', height:'100%' }}
-        mapStyle="mapbox://styles/mapbox/dark-v11"
-        antialias
+        mapStyle={mapStyle}
         onMove={handleMove}
         onLoad={(e) => {
           const m = e.target;
@@ -352,7 +380,6 @@ export function DeviceMap({
           setBounds(boundsRef.current);
         }}
       >
-        <Layer {...skyLayer} />
         {/* ── Topology lines (hidden below zoom 11) ── */}
         <Source id="topology" type="geojson" data={topologyGeoJSON as any}>
           <Layer
@@ -362,7 +389,7 @@ export function DeviceMap({
             filter={['==', ['get', 'lineType'], 'gw-ch']}
             layout={{ 'line-cap':'round', 'line-join':'round' }}
             paint={{
-              'line-color':   ['step', ['get', 'health'], '#64748b', 40, '#f59e0b', 70, '#22c55e'],
+              'line-color':   ['step', ['get', 'health'], '#64748b', 40, '#f59e0b', 70, '#6E9E1F'],
               'line-width':   2.5,
               'line-opacity': topoVisible ? 0.85 : 0,
               'line-blur':    0.5,
@@ -375,7 +402,7 @@ export function DeviceMap({
             filter={['==', ['get', 'lineType'], 'ch-sns']}
             layout={{ 'line-cap':'round', 'line-join':'round' }}
             paint={{
-              'line-color':   ['step', ['get', 'health'], '#64748b', 40, '#f59e0b', 70, '#22c55e'],
+              'line-color':   ['step', ['get', 'health'], '#64748b', 40, '#f59e0b', 70, '#6E9E1F'],
               'line-width':   1.5,
               'line-opacity': topoVisible ? 0.65 : 0,
               'line-blur':    0.3,
@@ -426,7 +453,7 @@ export function DeviceMap({
                 <DevicePin
                   type={device.type}
                   healthScore={device.healthScore}
-                  confidence={device.latestConfidence}
+                  confidence={gasAlertConfidence(device)}
                   warningThreshold={warningThreshold}
                   criticalThreshold={criticalThreshold}
                 />
@@ -444,11 +471,11 @@ export function DeviceMap({
         const isHigh = conf >= criticalThreshold;
         const isMid  = !isHigh && conf >= warningThreshold;
         const riskLabel = (isHigh ? 'HIGH RISK' : isMid ? 'MIDDLE RISK' : 'SAFE') + ((isHigh || isMid) && d.latestGasName ? ` · ${d.latestGasName}` : '');
-        const riskColor = isHigh ? '#ef4444' : isMid ? '#f59e0b' : '#38bdf8';
-        const statusCol = d.status === 'ONLINE' ? '#38bdf8' : d.status === 'OFFLINE' ? '#ef4444' : '#f59e0b';
-        const battCol   = d.battery.soc >= 60 ? '#38bdf8' : d.battery.soc >= 30 ? '#f59e0b' : '#ef4444';
-        const healthCol = d.healthScore >= 80 ? '#38bdf8' : d.healthScore >= 50 ? '#f59e0b' : '#ef4444';
-        const rssiCol   = d.network.rssi > -60 ? '#38bdf8' : d.network.rssi > -75 ? '#f59e0b' : '#ef4444';
+        const riskColor = isHigh ? '#E3242B' : isMid ? '#f59e0b' : '#2E7AE0';
+        const statusCol = d.status === 'ONLINE' ? '#2E7AE0' : d.status === 'OFFLINE' ? '#E3242B' : '#f59e0b';
+        const battCol   = d.battery.soc >= 60 ? '#2E7AE0' : d.battery.soc >= 30 ? '#f59e0b' : '#E3242B';
+        const healthCol = d.healthScore >= 80 ? '#2E7AE0' : d.healthScore >= 50 ? '#f59e0b' : '#E3242B';
+        const rssiCol   = d.network.rssi > -60 ? '#2E7AE0' : d.network.rssi > -75 ? '#f59e0b' : '#E3242B';
         const sectionLabel: React.CSSProperties = { fontSize:9, fontWeight:700, color:'var(--t4)', textTransform:'uppercase', letterSpacing:1.2, fontFamily:"'Geist Mono', monospace", display:'flex', alignItems:'center', gap:5 };
         const row = (label: string, value: React.ReactNode) => (
           <div key={label} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'5px 0', borderBottom:'1px solid rgba(255,255,255,0.05)' }}>
@@ -457,22 +484,22 @@ export function DeviceMap({
           </div>
         );
         return (
-          <div style={{ position:'absolute', top:14, left:14, bottom:14, width:310, zIndex:20, background:'rgba(7,9,14,0.92)', backdropFilter:'blur(20px)', border:'1px solid rgba(56,189,248,0.2)', borderRadius:14, padding:'16px 18px', color:'var(--t1)', boxShadow:'0 16px 40px -8px rgba(0,0,0,0.65)', overflowY:'auto', display:'flex', flexDirection:'column', gap:14, animation:'overlay-in 0.25s ease' }}>
+          <div style={{ position:'absolute', top:14, left:14, bottom:14, width:310, zIndex:20, background:'color-mix(in srgb, var(--sidebar-bg) 92%, transparent)', backdropFilter:'blur(20px)', border:'1px solid rgba(46,122,224,0.2)', borderRadius:14, padding:'16px 18px', color:'var(--t1)', boxShadow:'0 16px 40px -8px rgba(0,0,0,0.65)', overflowY:'auto', display:'flex', flexDirection:'column', gap:14, animation:'overlay-in 0.25s ease' }}>
             {/* header */}
             <div style={{ display:'flex', alignItems:'flex-start', gap:8 }}>
               <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:6 }}>
                   <span style={{ width:7, height:7, borderRadius:'50%', background:statusCol, boxShadow:`0 0 6px ${statusCol}`, flexShrink:0 }} />
-                  <span style={{ fontSize:10, fontWeight:700, color:'#38bdf8', textTransform:'uppercase', letterSpacing:1, fontFamily:"'Geist Mono', monospace" }}>{d.type}</span>
+                  <span style={{ fontSize:10, fontWeight:700, color:'#2E7AE0', textTransform:'uppercase', letterSpacing:1, fontFamily:"'Geist Mono', monospace" }}>{d.type}</span>
                   <span style={{ fontSize:10, fontWeight:700, color:statusCol, fontFamily:"'Geist Mono', monospace", marginLeft:'auto' }}>{d.status}</span>
                 </div>
-                <div style={{ fontSize:16, fontWeight:700, color:'#eef2f8', lineHeight:1.2 }}>{d.name}</div>
+                <div style={{ fontSize:16, fontWeight:700, color:'var(--t1)', lineHeight:1.2 }}>{d.name}</div>
                 <div style={{ fontSize:10, color:'var(--t4)', fontFamily:"'Geist Mono', monospace", marginTop:3 }}>{d.macAddress}</div>
               </div>
               <button
                 onClick={e => { e.stopPropagation(); onDeviceSelect?.(null); }}
                 style={{ background:'rgba(255,255,255,0.06)', border:'none', borderRadius:6, padding:5, cursor:'pointer', color:'#94a3b8', display:'flex', flexShrink:0 }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background='rgba(239,68,68,0.18)'; (e.currentTarget as HTMLButtonElement).style.color='#fff'; }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background='rgba(227,36,43,0.18)'; (e.currentTarget as HTMLButtonElement).style.color='#fff'; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background='rgba(255,255,255,0.06)'; (e.currentTarget as HTMLButtonElement).style.color='#94a3b8'; }}
               >
                 <X size={14} />
@@ -481,7 +508,7 @@ export function DeviceMap({
 
             {/* AI risk (sensors only) */}
             {d.type === 'SENSOR' && (
-              <div style={{ padding:12, borderRadius:10, background:isHigh?'rgba(239,68,68,0.1)':isMid?'rgba(245,158,11,0.1)':'rgba(56,189,248,0.05)', border:`1px solid ${isHigh?'rgba(239,68,68,0.25)':isMid?'rgba(245,158,11,0.25)':'rgba(56,189,248,0.12)'}` }}>
+              <div style={{ padding:12, borderRadius:10, background:isHigh?'rgba(227,36,43,0.1)':isMid?'rgba(245,158,11,0.1)':'rgba(46,122,224,0.05)', border:`1px solid ${isHigh?'rgba(227,36,43,0.25)':isMid?'rgba(245,158,11,0.25)':'rgba(46,122,224,0.12)'}` }}>
                 <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
                   <span style={{ fontSize:9, color:'var(--t4)', textTransform:'uppercase', letterSpacing:.5 }}>AI Gas Detection Confidence</span>
                   <span style={{ fontSize:9, fontWeight:800, color:riskColor, textTransform:'uppercase' }}>{isHigh || isMid ? '⚠ ' : '● '}{riskLabel}</span>
@@ -492,10 +519,10 @@ export function DeviceMap({
                 <div style={{ position:'relative', height:5, background:'rgba(255,255,255,0.08)', borderRadius:3 }}>
                   <div style={{ height:'100%', width:`${Math.min(conf * 100, 100)}%`, background:riskColor, borderRadius:3, transition:'width 0.6s ease' }} />
                   <div style={{ position:'absolute', top:-2, bottom:-2, left:`${warningThreshold * 100}%`, width:1.5, background:'#f59e0b' }} title={`MIDDLE ≥ ${warningThreshold}`} />
-                  <div style={{ position:'absolute', top:-2, bottom:-2, left:`${criticalThreshold * 100}%`, width:1.5, background:'#ef4444' }} title={`HIGH ≥ ${criticalThreshold}`} />
+                  <div style={{ position:'absolute', top:-2, bottom:-2, left:`${criticalThreshold * 100}%`, width:1.5, background:'#E3242B' }} title={`HIGH ≥ ${criticalThreshold}`} />
                 </div>
                 <div style={{ display:'flex', justifyContent:'space-between', marginTop:5, fontSize:8.5, color:'var(--t4)', fontFamily:"'Geist Mono', monospace" }}>
-                  <span>0</span><span style={{ color:'#f59e0b' }}>MID {warningThreshold}</span><span style={{ color:'#ef4444' }}>HIGH {criticalThreshold}</span>
+                  <span>0</span><span style={{ color:'#f59e0b' }}>MID {warningThreshold}</span><span style={{ color:'#E3242B' }}>HIGH {criticalThreshold}</span>
                 </div>
               </div>
             )}
@@ -543,7 +570,7 @@ export function DeviceMap({
             </div>
 
             {updating === d.id && (
-              <div style={{ fontSize:10, color:'#38bdf8', textAlign:'center', fontFamily:"'Geist Mono', monospace" }}>● Syncing location…</div>
+              <div style={{ fontSize:10, color:'#2E7AE0', textAlign:'center', fontFamily:"'Geist Mono', monospace" }}>● Syncing location…</div>
             )}
           </div>
         );
@@ -551,10 +578,10 @@ export function DeviceMap({
 
       {/* ── Gas / Environment Trend overlay — 24h per-sensor heatmap ── */}
       {showTrend && (
-        <div style={{ position:'absolute', top:14, right:14, bottom:14, width:320, zIndex:15, background:'rgba(7,9,14,0.9)', backdropFilter:'blur(20px)', border:'1px solid rgba(56,189,248,0.2)', borderRadius:14, padding:'14px 16px', color:'var(--t1)', boxShadow:'0 16px 40px -8px rgba(0,0,0,0.65)', display:'flex', flexDirection:'column', gap:10, animation:'overlay-in-r 0.25s ease' }}>
+        <div style={{ position:'absolute', top:14, right:14, bottom:14, width:320, zIndex:15, background:'color-mix(in srgb, var(--sidebar-bg) 90%, transparent)', backdropFilter:'blur(20px)', border:'1px solid rgba(46,122,224,0.2)', borderRadius:14, padding:'14px 16px', color:'var(--t1)', boxShadow:'0 16px 40px -8px rgba(0,0,0,0.65)', display:'flex', flexDirection:'column', gap:10, animation:'overlay-in-r 0.25s ease' }}>
           <div style={{ display:'flex', alignItems:'flex-start', gap:8 }}>
             <div style={{ flex:1 }}>
-              <div style={{ fontSize:13, fontWeight:700, color:'#eef2f8' }}>Gas / Environment Trend</div>
+              <div style={{ fontSize:13, fontWeight:700, color:'var(--t1)' }}>Gas / Environment Trend</div>
               <div style={{ fontSize:9.5, color:'var(--t4)', fontFamily:"'Geist Mono', monospace", marginTop:2 }}>
                 24H · PER SENSOR · {sensorTimeline.length} SENSOR{sensorTimeline.length !== 1 ? 'S' : ''}
               </div>
@@ -562,7 +589,7 @@ export function DeviceMap({
             <button
               onClick={() => setShowTrend(false)}
               style={{ background:'rgba(255,255,255,0.06)', border:'none', borderRadius:6, padding:5, cursor:'pointer', color:'#94a3b8', display:'flex', flexShrink:0 }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background='rgba(239,68,68,0.18)'; (e.currentTarget as HTMLButtonElement).style.color='#fff'; }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background='rgba(227,36,43,0.18)'; (e.currentTarget as HTMLButtonElement).style.color='#fff'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background='rgba(255,255,255,0.06)'; (e.currentTarget as HTMLButtonElement).style.color='#94a3b8'; }}
             >
               <X size={14} />
@@ -572,7 +599,7 @@ export function DeviceMap({
           {sensorTimeline.length > 0 ? (
             <div style={{ flex:1, overflowY:'auto', minHeight:0 }}>
               {/* hour axis — label every 6h to fit the narrow panel */}
-              <div style={{ display:'grid', gridTemplateColumns:'76px repeat(24, 1fr)', gap:1.5, position:'sticky', top:0, background:'rgba(7,9,14,0.95)', zIndex:2, paddingBottom:3 }}>
+              <div style={{ display:'grid', gridTemplateColumns:'76px repeat(24, 1fr)', gap:1.5, position:'sticky', top:0, background:'color-mix(in srgb, var(--sidebar-bg) 95%, transparent)', zIndex:2, paddingBottom:3 }}>
                 <div style={{ fontSize:8, color:'var(--t4)', fontFamily:"'Geist Mono', monospace", display:'flex', alignItems:'flex-end', paddingLeft:2 }}>SENSOR</div>
                 {Array.from({ length: 24 }, (_, h) => (
                   <div key={h} style={{ fontSize:8, color:'var(--t4)', fontFamily:"'Geist Mono', monospace", textAlign:'left', overflow:'visible', whiteSpace:'nowrap' }}>
@@ -589,9 +616,9 @@ export function DeviceMap({
                     key={s.deviceId}
                     onClick={() => { if (dev) onDeviceSelect?.(isSel ? null : dev); }}
                     title={dev ? `Click to ${isSel ? 'deselect' : 'locate'} ${s.deviceName}` : s.deviceName}
-                    style={{ display:'grid', gridTemplateColumns:'76px repeat(24, 1fr)', gap:1.5, marginBottom:2, cursor:dev?'pointer':'default', background:isSel?'rgba(56,189,248,0.08)':'transparent', borderRadius:4, padding:'1px 0' }}
+                    style={{ display:'grid', gridTemplateColumns:'76px repeat(24, 1fr)', gap:1.5, marginBottom:2, cursor:dev?'pointer':'default', background:isSel?'rgba(46,122,224,0.08)':'transparent', borderRadius:4, padding:'1px 0' }}
                   >
-                    <div style={{ fontSize:9, color:isSel?'#38bdf8':'var(--t2)', fontWeight:isSel?700:400, fontFamily:"'Geist Mono', monospace", display:'flex', alignItems:'center', paddingLeft:2, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                    <div style={{ fontSize:9, color:isSel?'#2E7AE0':'var(--t2)', fontWeight:isSel?700:400, fontFamily:"'Geist Mono', monospace", display:'flex', alignItems:'center', paddingLeft:2, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
                       {s.deviceName}
                     </div>
                     {Array.from({ length: 24 }, (_, h) => {
@@ -624,7 +651,7 @@ export function DeviceMap({
             </div>
             <span>High</span>
             <span style={{ color:'#f59e0b', marginLeft:6 }}>▪ MID ≥{warningThreshold}</span>
-            <span style={{ color:'#ef4444' }}>▪ HIGH ≥{criticalThreshold}</span>
+            <span style={{ color:'#E3242B' }}>▪ HIGH ≥{criticalThreshold}</span>
           </div>
         </div>
       )}
@@ -640,18 +667,18 @@ export function DeviceMap({
         <button onClick={toggle3D} title={is3D?'Switch to 2D':'Switch to 3D'} style={ctrlBtn(is3D)}>
           <Mountain size={13} /> {is3D?'3D':'2D'}
         </button>
-        <button onClick={resetNorth} title="Reset north" style={{ display:'flex', alignItems:'center', justifyContent:'center', width:34, height:34, background:'rgba(11,13,20,0.85)', border:'1px solid rgba(56,189,248,0.15)', borderRadius:8, cursor:'pointer', color:'var(--t3)', backdropFilter:'blur(12px)' }}>
+        <button onClick={resetNorth} title="Reset north" style={{ display:'flex', alignItems:'center', justifyContent:'center', width:34, height:34, background:'color-mix(in srgb, var(--sidebar-bg) 85%, transparent)', border:'1px solid rgba(46,122,224,0.15)', borderRadius:8, cursor:'pointer', color:'var(--t3)', backdropFilter:'blur(12px)' }}>
           <Compass size={15} />
         </button>
       </div>
 
       {/* ── Legend ── */}
-      <div style={{ position:'absolute', bottom:14, left:14, background:'rgba(11,13,20,0.88)', backdropFilter:'blur(12px)', border:'1px solid rgba(56,189,248,0.15)', borderRadius:8, padding:'6px 12px', zIndex:10, display:'flex', alignItems:'center', gap:14 }}>
+      <div style={{ position:'absolute', bottom:14, left:14, background:'color-mix(in srgb, var(--sidebar-bg) 88%, transparent)', backdropFilter:'blur(12px)', border:'1px solid rgba(46,122,224,0.15)', borderRadius:8, padding:'6px 12px', zIndex:10, display:'flex', alignItems:'center', gap:14 }}>
         <span style={{ fontSize:11, color:'var(--t3)', fontFamily:"'Geist Mono', monospace" }}>{devices.length} NODES · {ruId}</span>
         {topoVisible && (
           <>
             <span style={{ width:1, height:14, background:'rgba(255,255,255,0.1)' }} />
-            {([['#22c55e','Good'],['#f59e0b','Warn'],['#64748b','Poor']] as [string,string][]).map(([c,l]) => (
+            {([['#6E9E1F','Good'],['#f59e0b','Warn'],['#64748b','Poor']] as [string,string][]).map(([c,l]) => (
               <div key={l} style={{ display:'flex', alignItems:'center', gap:4 }}>
                 <span style={{ width:16, height:2.5, background:c, borderRadius:2, display:'block' }} />
                 <span style={{ fontSize:10, color:'var(--t4)', fontFamily:"'Geist Mono', monospace" }}>{l}</span>

@@ -399,7 +399,7 @@ export function DeviceMap({
                 <DevicePin
                   type={device.type}
                   healthScore={device.healthScore}
-                  confidence={device.latestConfidence}
+                  confidence={gasAlertConfidence(device)}
                   warningThreshold={warningThreshold}
                   criticalThreshold={criticalThreshold}
                 />

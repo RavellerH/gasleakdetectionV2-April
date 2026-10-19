@@ -33,10 +33,11 @@ export class DeviceService {
     const cutoff7d = new Date(now - 7 * 24 * 3600000);
 
     const allDevices = await this.prisma.device.findMany();
-    const allReadings7d = await this.prisma.gasReading.findMany({
+    // Analytics chart gas confidence only: a confident Clean Air result (class 0) is not a gas level.
+    const allReadings7d = (await this.prisma.gasReading.findMany({
       where: { timestamp: { gte: cutoff7d } },
       orderBy: { timestamp: 'asc' },
-    });
+    })).map(r => (r.aiClass === 0 ? { ...r, confidence: 0 } : r));
 
     const scopedDevices = ruId && ruId !== 'ALL'
       ? allDevices.filter(d => d.ruId === ruId)

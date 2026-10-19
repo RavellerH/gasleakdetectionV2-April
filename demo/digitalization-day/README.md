@@ -35,4 +35,9 @@ Di jendela skenario: **Enter** = langkah berikutnya, **1–5** = loncat, **q** =
 Mode demo frontend: `NEXT_PUBLIC_DEMO_MODE=true` (label simulasi), `NEXT_PUBLIC_POLL_MS=3000`.
 Backend: `DEVICE_OFFLINE_AFTER_SEC=20` agar efek CH mati terlihat cepat.
 
-Catatan: tab **Map View** butuh `NEXT_PUBLIC_MAPBOX_TOKEN` dan internet; tab lain berjalan offline.
+`reset-db.js` juga mengisi **riwayat simulasi 7 hari** (udara bersih tiap 10 menit per GLD
++ 3 kejadian lampau yang sudah diselesaikan) supaya Analytics, heatmap, dan log kejadian terisi.
+
+Peta memakai MapLibre tanpa token: tile lokal `apps/ru-frontend/public/tiles` (diunduh
+otomatis oleh launcher bila ada internet, `npm run tiles -- RU4`), atau OSM online, atau latar
+polos bila offline total.
