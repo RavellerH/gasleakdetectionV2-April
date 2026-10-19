@@ -1,7 +1,7 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { Device, DeviceLocation, BatteryMetrics, NetworkMetrics, CreateDeviceInput, UpdateDeviceInput, GasReading, DashboardStats, RuStats, TimelineEntry, Alert, BatteryDistEntry, NetworkQualityEntry, SystemSettings, UpdateSettingsInput, User, CreateUserInput, UpdateUserInput, LoginResult, AnalyticsStats, WeeklyTrendEntry, HeatmapEntry, SiteRanking, EventLog, CreateEventLogInput, SensorTimeline, TrendPoint, RuComparisonEntry, HeatmapCell, TopSensorEntry, FleetBatteryBucket, FleetNetworkBucket, FleetHealthStats, GatewayPullResult } from './device.model';
-import { gasClassName } from './gas-class';
+import { gasClassName, riskLevelFor } from './gas-class';
 import { PrismaService } from '../prisma/prisma.service';
 import { signToken } from '../auth/auth';
 
@@ -546,9 +546,7 @@ export class DeviceService {
     const device = await this.prisma.device.findUnique({ where: { macAddress } });
     if (!device) throw new HttpException(`Device with MAC ${macAddress} not found`, HttpStatus.NOT_FOUND);
     const settings = await this.getSettings();
-    const riskLevel = (aiClass !== 0 && confidence >= settings.criticalThreshold) ? 'HIGH'
-      : (aiClass !== 0 && confidence >= settings.warningThreshold) ? 'MIDDLE'
-      : 'LOW';
+    const riskLevel = riskLevelFor(aiClass, confidence, settings);
     const r = await this.prisma.gasReading.create({
       data: { deviceId: device.id, confidence, aiClass, riskLevel, isDummy: device.isDummy }
     });

@@ -4,14 +4,15 @@ Things that are unresolved and will block specific implementation steps.
 
 ## 🔴 Re-checked 2026-10-19
 
-### MQTT -> backend ingestion adapter still missing
-- `apps/backend/src` has no MQTT client and no handler for `gld/server/decoded` / `gld/server/alarm`.
-- Upstream `fadlurrahmanf/PertaminaGLD` at `1bc4004` (2026-10-15) was checked: Node-RED decodes and
-  republishes to `gld/server/*` MQTT topics only; nothing in that repo writes to a database or calls
-  this backend's GraphQL API.
-- Gas class codes come from that decoder (`GAS_CLASS`, 0..7); mirrored in
-  `apps/backend/src/modules/devices/gas-class.ts`. Confidence there is 0..100 -> divide by 100.
-- Until this adapter exists, field telemetry cannot reach the RU dashboard.
+### MQTT -> backend ingestion adapter — implemented 2026-10-19
+- `apps/backend/src/modules/ingest/` subscribes to the PertaminaGLD Node-RED topics
+  (contract checked against PertaminaGLD `1bc4004`, 2026-10-15). Enabled by `MQTT_URL`.
+- Tested end-to-end with records encrypted and decoded by the real PertaminaGLD decoder
+  (vm harness) through a local broker: readings, alarm event, dedup, replay/unknown-node
+  diagnostics, CH topology, gateway status, offline sweep.
+- Unknown nodeId policy (item 4 below): **skip + UNKNOWN_DEVICE event** (option A).
+- Still open: per-RU broker credentials/ACL/TLS, `gatewayPull` pagination, field test with
+  real Gateway hardware.
 
 ## 🔴 Critical (blocks implementation)
 

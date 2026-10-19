@@ -33,6 +33,7 @@ model Device {
   status        String   @default("ONLINE")
   registeredBy  String
   isDummy       Boolean  @default(false)
+  lastSeenAt    DateTime? // last telemetry/topology/status frame from the field (MQTT ingest)
 
   parentId      String?  // For Star Topology tracking
   parent        Device?  @relation("Topology", fields: [parentId], references: [id])
@@ -53,6 +54,14 @@ model GasReading {
   aiClass       Int      @default(0)    // 0=normal, 1–8=gas type
   riskLevel     String   @default("LOW") // "LOW" | "MIDDLE" | "HIGH"
   isDummy       Boolean  @default(false)
+  // Provenance from PertaminaGLD Node-RED (null for manual/addReading rows)
+  sourceKey     String?  @unique // "<keyId>:<AES-GCM nonce>" — one per authenticated GLD record
+  seq           Int?
+  alarm         Boolean  @default(false) // GLD's own alarm flag (gld/server/alarm)
+  batteryMv     Int?
+  externalPower Boolean?
+  gatewayId     String?  // e.g. 0x0001
+  clusterHeadId String?  // CH that delivered the record, e.g. 0x0010
   timestamp     DateTime @default(now())
   device        Device   @relation(fields: [deviceId], references: [id])
 

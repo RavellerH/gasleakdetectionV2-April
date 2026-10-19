@@ -16,3 +16,17 @@ export function gasClassName(aiClass: number | null | undefined): string {
   if (aiClass === null || aiClass === undefined) return 'Unknown';
   return GAS_CLASS_NAMES[aiClass] ?? `Unknown (${aiClass})`;
 }
+
+export type RiskLevel = 'LOW' | 'MIDDLE' | 'HIGH';
+
+// Clean Air (class 0) is never a risk, however confident the model is.
+export function riskLevelFor(
+  aiClass: number,
+  confidence: number,
+  thresholds: { warningThreshold: number; criticalThreshold: number },
+): RiskLevel {
+  if (aiClass === 0) return 'LOW';
+  if (confidence >= thresholds.criticalThreshold) return 'HIGH';
+  if (confidence >= thresholds.warningThreshold) return 'MIDDLE';
+  return 'LOW';
+}
