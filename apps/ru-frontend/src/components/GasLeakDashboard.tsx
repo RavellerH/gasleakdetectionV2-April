@@ -161,9 +161,26 @@ export default function GasLeakDashboard() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [darkMode, setDarkMode] = useState(true);
 
+  /* remember the operator's theme choice in this browser */
+  useEffect(() => {
+    try { const t = localStorage.getItem('gld_theme'); if (t === 'light' || t === 'dark') setDarkMode(t === 'dark'); } catch { /* storage unavailable */ }
+  }, []);
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
+    try { localStorage.setItem('gld_theme', darkMode ? 'dark' : 'light'); } catch { /* storage unavailable */ }
   }, [darkMode]);
+
+  const themeToggle = (
+    <button
+      onClick={() => setDarkMode(m => !m)}
+      title={darkMode ? 'Ganti ke tema terang' : 'Ganti ke tema gelap'}
+      aria-label={darkMode ? 'Ganti ke tema terang' : 'Ganti ke tema gelap'}
+      style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 999, padding: '6px 12px', cursor: 'pointer', color: 'var(--t2)', display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600 }}
+    >
+      {darkMode ? <Sun size={14} color="#F2A50C" /> : <Moon size={14} color="#0055B8" />}
+      {darkMode ? 'Terang' : 'Gelap'}
+    </button>
+  );
 
   /* data */
   const [apiDevices, setApiDevices] = useState<Device[]>([]);
@@ -448,6 +465,7 @@ export default function GasLeakDashboard() {
   /* ── LOGIN ── */
   if (!currentUser) return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Sans', sans-serif", position: 'relative', overflow: 'hidden' }}>
+      <div style={{ position: 'fixed', top: 18, right: 20, zIndex: 20 }}>{themeToggle}</div>
       {/* Syner-style glow */}
       <div style={{ position: 'fixed', top: -200, right: -200, width: 700, height: 700, borderRadius: '50%', background: 'radial-gradient(circle, rgba(0,85,184,0.12) 0%, transparent 65%)', pointerEvents: 'none' }} />
       <div style={{ width: '100%', maxWidth: 380, padding: 36, background: 'var(--card-bg)', backdropFilter: 'blur(24px)', border: '1px solid var(--card-border)', borderRadius: 20, zIndex: 10, boxShadow: 'var(--shadow-card)' }}>
@@ -661,6 +679,7 @@ export default function GasLeakDashboard() {
                 </button>
               </div>
             )}
+            {themeToggle}
             <button
               onClick={() => setTab('events')}
               title="Event Log & Export"

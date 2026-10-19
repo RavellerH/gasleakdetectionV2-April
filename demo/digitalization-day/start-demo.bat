@@ -34,6 +34,13 @@ pushd "%ROOT%apps\ru-frontend" && call npx next build && popd
 
 echo [3/6] Reset database demo RU4...
 pushd "%DEMO%" && call node reset-db.js && popd
+if errorlevel 1 (
+  popd
+  echo.
+  echo   Demo dibatalkan. Tutup jendela demo lama lalu jalankan ulang start-demo.bat.
+  pause
+  exit /b 1
+)
 
 echo [4/6] Broker MQTT demo (port 1884)...
 start "GLD Demo - Broker" cmd /k "cd /d "%DEMO%" && node broker.js"

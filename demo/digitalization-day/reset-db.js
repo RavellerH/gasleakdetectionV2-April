@@ -4,8 +4,27 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
+const net = require('net');
+
+// Deleting the DB under a running backend leaves it writing to a removed file
+// ("attempt to write a readonly database") and blocks the new one on port 4000.
+function backendRunning() {
+  return new Promise(resolve => {
+    const sock = net.connect(4000, '127.0.0.1');
+    sock.once('connect', () => { sock.destroy(); resolve(true); });
+    sock.once('error', () => resolve(false));
+  });
+}
+
 const backend = path.resolve(__dirname, '../../apps/backend');
 const db = path.join(backend, 'prisma', 'dev.db');
+
+async function main() {
+if (await backendRunning()) {
+  console.error('\nBackend lama masih berjalan di port 4000. Tutup dulu jendela "GLD Demo - Backend"');
+  console.error('(dan Dashboard/Broker) dari run sebelumnya, lalu jalankan ulang start-demo.\n');
+  process.exit(1);
+}
 for (const f of [db, `${db}-journal`]) if (fs.existsSync(f)) fs.rmSync(f);
 const run = (cmd, env = {}) => execSync(cmd, { cwd: backend, stdio: 'inherit', env: { ...process.env, ...env } });
 run('npx prisma migrate deploy');
@@ -74,7 +93,9 @@ async function backfill() {
   console.log(`Riwayat simulasi: ${readings.length} pembacaan (7 hari), ${INCIDENTS.length} kejadian lampau (sudah diselesaikan).`);
 }
 
-backfill()
-  .then(() => console.log('\nDatabase demo RU4 siap. Login: demo@gld.local / demo-gld-2026'))
-  .catch(e => { console.error(e); process.exitCode = 1; })
-  .finally(() => prisma.$disconnect());
+await backfill();
+console.log('\nDatabase demo RU4 siap. Login: demo@gld.local / demo-gld-2026');
+await prisma.$disconnect();
+}
+
+main().catch(e => { console.error(e); process.exitCode = 1; });
