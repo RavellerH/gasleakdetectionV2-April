@@ -174,7 +174,7 @@ export class DeviceService {
     const fleetHealth: FleetHealthStats = {
       online,
       offline: sensorCount - online,
-      total: scopedDevices.length,
+      total: sensorCount, // online + offline are sensor counts too
       batteryDist,
       networkDist,
     };
@@ -233,7 +233,7 @@ export class DeviceService {
   }
 
   private toSafeUser(user: { id: string; email: string; name: string | null; role: string; createdAt: Date }): User {
-    return { id: user.id, email: user.email, name: user.name || undefined, role: user.role, ruId: 'ALL', createdAt: user.createdAt };
+    return { id: user.id, email: user.email, name: user.name || undefined, role: user.role, ruId: 'ALL', createdAt: user.createdAt.toISOString() };
   }
 
   // --- EVENT LOG ---

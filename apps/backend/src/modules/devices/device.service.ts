@@ -189,7 +189,7 @@ export class DeviceService {
     const fleetHealth: FleetHealthStats = {
       online,
       offline: sensorCount - online,
-      total: scopedDevices.length,
+      total: sensorCount, // online + offline are sensor counts too
       batteryDist,
       networkDist,
     };
@@ -279,7 +279,7 @@ export class DeviceService {
       name: user.name || undefined,
       ruId: user.ruId,
       role: user.role,
-      createdAt: user.createdAt,
+      createdAt: user.createdAt.toISOString(),
     };
   }
 

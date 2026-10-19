@@ -110,7 +110,7 @@ export class User {
   role!: string;
 
   @Field(() => String)
-  createdAt!: Date;
+  createdAt!: string; // ISO 8601
 }
 
 @InputType()
