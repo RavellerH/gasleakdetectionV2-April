@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Activity, AlertTriangle, ChevronLeft, ChevronRight, ClipboardList,
   Clock, Flame, HardDrive, LayoutDashboard, Map as MapIcon, Moon,
-  RefreshCw, Search, Settings, Shield, Sun, TrendingDown,
+  RefreshCw, Search, Settings, Shield, Sun,
   TrendingUp, Wifi, Network, Radio, LogOut, Filter,
   MoreHorizontal, Download, RotateCcw,
 } from 'lucide-react';
@@ -14,7 +14,7 @@ import {
   fetchDevices, fetchDashboardStats, fetchSettings, updateSettings,
   fetchUsers, createUser, deleteUser, login,
   updateDeviceName, createDevice, deleteDevice, updateDevice,
-  fetchSensorTimeline, createEventLog, setAuthToken,
+  fetchSensorTimeline, createEventLog, acknowledgeEvent, setAuthToken,
   type Device, type DashboardStats, type SystemSettings,
   type User, type Alert, type SensorTimeline,
 } from '@/lib/graphql';
@@ -37,6 +37,9 @@ const DeviceMap = dynamic(() => import('./DeviceMap').then((m) => m.DeviceMap), 
 /* This app is a single-RU child deployment: one instance runs per Refinery Unit,
    configured via NEXT_PUBLIC_RU_ID. It never sees other RUs' data. */
 const RU_ID = (process.env.NEXT_PUBLIC_RU_ID || 'RU4').toUpperCase();
+// Demo builds (Digitalization Day) label all data as simulated and poll faster.
+const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+const POLL_MS = Math.max(1000, Number(process.env.NEXT_PUBLIC_POLL_MS) || 10000);
 
 const NAV_GROUPS = [
   {
@@ -113,31 +116,7 @@ function LiveClock() {
   return <span suppressHydrationWarning style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12, color: 'var(--t3)' }}>{t} WIB</span>;
 }
 
-function Sparkline({ data, color = '#38bdf8' }: { data: number[]; color?: string }) {
-  if (!data || data.length < 2) return null;
-  const w = 80; const h = 28;
-  const max = Math.max(...data); const min = Math.min(...data);
-  const range = max - min || 1;
-  const pts = data.map((v, i) => `${(i / (data.length - 1)) * w},${h - ((v - min) / range) * (h - 4) - 2}`).join(' ');
-  return (
-    <svg width={w} height={h}>
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx={(data.length - 1) / (data.length - 1) * w} cy={h - ((data[data.length - 1] - min) / range) * (h - 4) - 2} r="2.5" fill={color} />
-    </svg>
-  );
-}
 
-function TrendBadge({ value, inverse = false }: { value: number; inverse?: boolean }) {
-  const good = inverse ? value > 0 : value < 0;
-  const color = good ? '#38bdf8' : '#ef4444';
-  const bg = good ? 'rgba(37,99,235,0.12)' : 'rgba(239,68,68,0.12)';
-  const Icon = value < 0 ? TrendingDown : TrendingUp;
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color, background: bg, padding: '2px 7px', borderRadius: 20, fontFamily: "'Geist Mono', monospace" }}>
-      <Icon size={10} /> {Math.abs(value)}%
-    </span>
-  );
-}
 
 function AnimNum({ value, suffix = '' }: { value: number; suffix?: string }) {
   const [d, setD] = useState(0);
@@ -290,12 +269,13 @@ export default function GasLeakDashboard() {
     return () => clearInterval(id);
   }, [currentUser, backendReady, loadDashboardData]);
 
-  /* normal polling: every 10s once backend is up */
+  /* normal polling: every POLL_MS (default 10s) once backend is up */
   useEffect(() => {
     if (!currentUser || !backendReady) return;
-    const id = setInterval(loadDashboardData, 10000);
+    const tick = () => { loadDashboardData(); loadDevices(activeRU); loadSensorTimeline(activeRU); };
+    const id = setInterval(tick, POLL_MS);
     return () => clearInterval(id);
-  }, [currentUser, backendReady, loadDashboardData]);
+  }, [currentUser, backendReady, loadDashboardData, loadDevices, loadSensorTimeline, activeRU]);
 
   useEffect(() => { if (currentUser && backendReady) loadDevices(activeRU); }, [activeRU, loadDevices, currentUser, backendReady]);
   useEffect(() => { if (currentUser && backendReady) loadSensorTimeline(activeRU); }, [activeRU, loadSensorTimeline, currentUser, backendReady]);
@@ -404,8 +384,13 @@ export default function GasLeakDashboard() {
     setShowDeviceModal('edit');
   };
 
-  const handleUpdateAlertStatus = (alertId: string, status: string) =>
+  const handleUpdateAlertStatus = async (alertId: string, status: string) => {
     setLocalAlerts(prev => prev.map(a => a.id === alertId ? { ...a, status } : a));
+    try {
+      await acknowledgeEvent(alertId, status === 'RESOLVED' ? 'RESOLVED' : '', currentUser?.id ?? '', currentUser?.email ?? '');
+    } catch (err) { console.error(err); }
+    loadDashboardData();
+  };
 
   /* derived — all respond to activeRU filter */
   const displayDevices  = apiDevices; // already scoped to activeRU by loadDevices
@@ -633,7 +618,14 @@ export default function GasLeakDashboard() {
         {/* Top header */}
         <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 24px', background: 'var(--header-bg)', backdropFilter: 'blur(16px)', borderBottom: '1px solid var(--card-border)' }}>
           <div>
-            <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--t1)', letterSpacing: -0.5 }}>Dashboard</h1>
+            <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--t1)', letterSpacing: -0.5, display: 'flex', alignItems: 'center', gap: 10 }}>
+              Dashboard
+              {DEMO_MODE && (
+                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, color: '#F5A524', background: 'rgba(245,165,36,0.12)', border: '1px solid rgba(245,165,36,0.4)', padding: '3px 10px', borderRadius: 20, fontFamily: "'Geist Mono', monospace" }}>
+                  DEMO — DATA SIMULASI
+                </span>
+              )}
+            </h1>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             {minutesSinceUpdate !== null && (
@@ -699,7 +691,6 @@ export default function GasLeakDashboard() {
                     <div style={{ fontSize: 11, color: 'var(--t3)', display: 'flex', alignItems: 'center', gap: 5 }}>
                       <HardDrive size={11} /> Total Devices
                     </div>
-                    <TrendBadge value={-9} />
                   </div>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 3, marginBottom: 2 }}>
                     <span style={{ fontSize: 36, fontWeight: 700, color: 'var(--t1)', letterSpacing: -1.5, lineHeight: 1 }}>
@@ -731,15 +722,14 @@ export default function GasLeakDashboard() {
                 {/* 4 small metric cards */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   {[
-                    { label: 'AVG Health', value: avgHealth, unit: '%', sub: activeRU, trend: 17, color: '#38bdf8', spark: [88,90,89,92,91,93,avgHealth] },
-                    { label: 'Compliance Rate', value: Math.min(100, Math.round(onlineDevices / Math.max(1, totalDevices) * 100)), unit: '%', sub: 'Online / Total', trend: -2, color: '#ef4444', spark: [91,89,90,88,87,89,Math.round(onlineDevices / Math.max(1, totalDevices) * 100)], inverse: true },
-                    { label: 'Active Alerts', value: totalAlerts, unit: '', sub: activeRU, trend: -4, color: '#38bdf8', spark: [12,8,10,6,9,5,totalAlerts] },
-                    { label: 'Avg Battery', value: avgBattery, unit: '%', sub: activeRU, trend: -20, color: '#38bdf8', spark: [70,72,75,74,77,76,avgBattery] },
-                  ].map(({ label, value, unit, sub, trend, color, spark, inverse }) => (
+                    { label: 'AVG Health', value: avgHealth, unit: '%', sub: activeRU },
+                    { label: 'Compliance Rate', value: Math.min(100, Math.round(onlineDevices / Math.max(1, totalDevices) * 100)), unit: '%', sub: 'Online / Total' },
+                    { label: 'Active Alerts', value: totalAlerts, unit: '', sub: activeRU },
+                    { label: 'Avg Battery', value: avgBattery, unit: '%', sub: activeRU },
+                  ].map(({ label, value, unit, sub }) => (
                     <div key={label} style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 18, padding: '14px 18px', backdropFilter: 'blur(12px)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: 'var(--shadow-card)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                         <div style={{ fontSize: 11, color: 'var(--t3)' }}>{label}</div>
-                        <TrendBadge value={trend} inverse={inverse} />
                       </div>
                       <div style={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
                         <span style={{ fontSize: 28, fontWeight: 700, color: 'var(--t1)', letterSpacing: -1 }}>{value}</span>
@@ -747,7 +737,6 @@ export default function GasLeakDashboard() {
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 6 }}>
                         <span style={{ fontSize: 10, color: 'var(--t4)' }}>{sub}</span>
-                        <Sparkline data={spark} color={color} />
                       </div>
                     </div>
                   ))}

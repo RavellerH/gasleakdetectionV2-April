@@ -40,3 +40,6 @@ apps/ru-frontend/public/tiles/
 
 # RU device registers contain plant coordinates; keep out of this public repo
 deploy/ru4/devices.ru4.json
+demo/digitalization-day/node_modules/
+demo/digitalization-day/logs/
+demo/digitalization-day/logs-run.txt

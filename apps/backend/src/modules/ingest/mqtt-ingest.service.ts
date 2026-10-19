@@ -53,7 +53,7 @@ export class MqttIngestService implements OnModuleInit, OnModuleDestroy {
     });
     this.sweepTimer = setInterval(() => {
       this.markStaleOffline().catch(err => this.logger.error(`offline sweep: ${err.message}`));
-    }, 60 * 1000);
+    }, Math.min(60 * 1000, Math.max(5 * 1000, this.offlineAfterMs / 2)));
   }
 
   async onModuleDestroy(): Promise<void> {
@@ -165,8 +165,12 @@ export class MqttIngestService implements OnModuleInit, OnModuleDestroy {
 
     if (riskLevel === 'LOW' && !ev.alarm) return;
     const type = ev.alarm ? 'GAS_ALARM' : 'THRESHOLD_BREACH';
+    // One open event per device and type; once an operator resolves it, the next frame raises a new one.
     const recent = await this.prisma.eventLog.findFirst({
-      where: { deviceId: device.id, type, timestamp: { gte: new Date(Date.now() - EVENT_SUPPRESS_MS) } },
+      where: {
+        deviceId: device.id, type, timestamp: { gte: new Date(Date.now() - EVENT_SUPPRESS_MS) },
+        OR: [{ acknowledged: false }, { ackNote: null }, { ackNote: { not: 'RESOLVED' } }],
+      },
     });
     if (recent) return;
     await this.prisma.eventLog.create({
@@ -221,7 +225,9 @@ export class MqttIngestService implements OnModuleInit, OnModuleDestroy {
     if (!d) return;
     await this.prisma.device.update({
       where: { id: d.id },
-      data: { status: 'ONLINE', healthScore: 100, lastSeenAt: this.later(d.lastSeenAt, seenAt) },
+      data: { status: 'ONLINE', healthScore: 100, lastSeenAt: this.later(d.lastSeenAt, seenAt),
+        // The gateway runs from mains power indoors; it reports no battery.
+        batteryStats: JSON.stringify({ voltage: 0, soc: 100, externalPower: true }) },
     });
   }
 

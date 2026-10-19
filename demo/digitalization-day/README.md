@@ -1,0 +1,38 @@
+# Demo Digitalization Day — dashboard RU dengan data simulasi
+
+Menjalankan backend + dashboard RU yang sebenarnya, lalu memutar skenario 5 langkah
+dengan mengirim JSON yang sama persis dengan keluaran Node-RED PertaminaGLD
+(`gld/server/decoded`, `gld/server/alarm`, `gld/server/topology`, `gld/gateway/status`).
+Semua data **simulasi**; dashboard menampilkan label `DEMO — DATA SIMULASI`.
+
+## Jalankan
+
+- Windows: dobel-klik `start-demo.bat`
+- Linux/macOS: `./start-demo.sh` (tambahkan `--auto` untuk jalan sendiri)
+
+Lalu buka http://localhost:3002, login `demo@gld.local` / `demo-gld-2026`
+(akun lokal di database demo, dibuat oleh `reset-db.js`).
+
+Di jendela skenario: **Enter** = langkah berikutnya, **1–5** = loncat, **q** = keluar.
+
+| # | Langkah | Topik MQTT yang dikirim |
+|---|---|---|
+| 1 | Operasi normal | `decoded` (Clean Air) tiap 5 dtk, `topology` + `gateway/status` tiap 5 dtk |
+| 2 | Indikasi awal LPG di GLD 2 (74 %) | `decoded` LPG → THRESHOLD_BREACH (MIDDLE) |
+| 3 | Alarm LPG (93 %) | `alarm` tiap 3 dtk → GAS_ALARM (CRITICAL) |
+| 4 | CH 2 mati | topologi CH 2 berhenti → OFFLINE setelah 20 dtk; GLD 2 & CH 5 lewat CH 3 |
+| 5 | Pulih | semua kembali normal |
+
+## File
+
+| File | Isi |
+|---|---|
+| `start-demo.bat` / `start-demo.sh` | Build, reset DB, jalankan broker + backend + dashboard + skenario |
+| `broker.js` | Broker MQTT lokal di 127.0.0.1:1884 (dilewati bila port sudah dipakai broker PertaminaGLD) |
+| `reset-db.js` | Database RU4 baru dari `deploy/ru4/devices.ru4.example.json` |
+| `scenario.js` | Pemutar skenario |
+
+Mode demo frontend: `NEXT_PUBLIC_DEMO_MODE=true` (label simulasi), `NEXT_PUBLIC_POLL_MS=3000`.
+Backend: `DEVICE_OFFLINE_AFTER_SEC=20` agar efek CH mati terlihat cepat.
+
+Catatan: tab **Map View** butuh `NEXT_PUBLIC_MAPBOX_TOKEN` dan internet; tab lain berjalan offline.

@@ -367,11 +367,11 @@ export class DeviceService {
       s.readings.forEach(r => {
         const hour = new Date(r.timestamp).getHours().toString().padStart(2, '0') + ':00';
         if (!hourlyMap.has(hour)) hourlyMap.set(hour, []);
-        hourlyMap.get(hour)!.push(r.confidence);
+        hourlyMap.get(hour)!.push(r.aiClass === 0 ? 0 : r.confidence); // Clean Air is not a gas level
       });
       const data = Array.from(hourlyMap.entries())
         .sort(([a], [b]) => a.localeCompare(b))
-        .map(([hour, vals]) => ({ hour, confidence: vals.reduce((s, p) => s + p, 0) / vals.length }));
+        .map(([hour, vals]) => ({ hour, confidence: Math.max(...vals) })); // peak, so a short leak is not averaged away
       return { deviceId: s.id, deviceName: s.name, ruId: s.ruId, data };
     });
   }
@@ -399,17 +399,25 @@ export class DeviceService {
   // --- DASHBOARD STATS ---
 
   async getDashboardStats(): Promise<DashboardStats> {
-    const [settings, allDevices, allReadings] = await Promise.all([
+    const [settings, allDevices, allReadings, alertEvents] = await Promise.all([
       this.getSettings(),
       this.prisma.device.findMany(),
-      this.prisma.gasReading.findMany({ orderBy: { timestamp: 'desc' }, take: 500 })
+      this.prisma.gasReading.findMany({ orderBy: { timestamp: 'desc' }, take: 500 }),
+      // Alarm Console = gas events from the event log, so acknowledgement survives refreshes.
+      this.prisma.eventLog.findMany({
+        where: { type: { in: ['GAS_ALARM', 'THRESHOLD_BREACH'] } },
+        orderBy: { timestamp: 'desc' },
+        take: 15,
+      }),
     ]);
+    const alertStatus = (e: { acknowledged: boolean; ackNote: string | null }) =>
+      !e.acknowledged ? 'ACTIVE' : e.ackNote === 'RESOLVED' ? 'RESOLVED' : 'ACKNOWLEDGED';
 
     const ruIds = Array.from<string>(new Set(allDevices.map(d => d.ruId))).sort();
     const ruData: RuStats[] = ruIds.map(ru => {
       const devices = allDevices.filter(d => d.ruId === ru);
       const devIds = new Set(devices.map(d => d.id));
-      const alertsCount = allReadings.filter(r => devIds.has(r.deviceId) && r.riskLevel !== 'LOW').length;
+      const alertsCount = alertEvents.filter(e => e.deviceId && devIds.has(e.deviceId) && alertStatus(e) === 'ACTIVE').length;
       
       return {
         ru: ru,
@@ -423,29 +431,23 @@ export class DeviceService {
       };
     });
 
-    const recentAlerts: Alert[] = allReadings
-      .filter(r => r.riskLevel !== 'LOW')
-      .slice(0, 15)
-      .map((r, i) => {
-        const device = allDevices.find(d => d.id === r.deviceId);
-        const isHigh = r.riskLevel === 'HIGH';
-        const statusMap = ['ACTIVE', 'ACKNOWLEDGED', 'RESOLVED'];
-        const status = statusMap[i % 3];
-        const timestamp = new Date(r.timestamp);
-        return {
-          id: r.id,
-          severity: isHigh ? 'CRITICAL' : 'WARNING',
-          message: `Gas detected — ${r.riskLevel} risk (${gasClassName(r.aiClass)}, confidence ${r.confidence.toFixed(2)})`,
-          ru: device?.ruId || 'N/A',
-          time: timestamp.toISOString().replace('T', ' ').substring(0, 19),
-          device: device?.macAddress || 'Unknown',
-          status,
-          type: 'Gas',
-          scenario: isHigh ? 'Confirmed Gas Leak' : 'Gas Sensor Alert',
-          resolvedAt: status === 'RESOLVED' ? new Date(timestamp.getTime() + 20 * 60000).toISOString() : undefined,
-          notes: status === 'RESOLVED' ? 'Issue resolved.' : undefined
-        };
-      });
+    const recentAlerts: Alert[] = alertEvents.map(e => {
+      const device = allDevices.find(d => d.id === e.deviceId);
+      const status = alertStatus(e);
+      return {
+        id: e.id,
+        severity: e.severity,
+        message: e.message,
+        ru: e.ruId || device?.ruId || 'N/A',
+        time: e.timestamp.toISOString(),
+        device: device?.macAddress || 'Unknown',
+        status,
+        type: 'Gas',
+        scenario: e.type === 'GAS_ALARM' ? 'GLD Alarm (push)' : 'Threshold Breach',
+        resolvedAt: status === 'RESOLVED' ? e.acknowledgedAt?.toISOString() : undefined,
+        notes: e.acknowledgedBy ? `${status === 'RESOLVED' ? 'Resolved' : 'Acknowledged'} by ${e.acknowledgedBy}` : undefined,
+      };
+    });
 
     const batteryDist: BatteryDistEntry[] = [
       { range: '0-20%', fill: '#ef4444', count: 0 },
@@ -502,7 +504,7 @@ export class DeviceService {
       networkQuality,
       totalDevices: allDevices.length,
       onlineDevices: allDevices.filter(d => d.status === 'ONLINE').length,
-      totalAlerts: recentAlerts.length,
+      totalAlerts: recentAlerts.filter(a => a.status === 'ACTIVE').length,
       avgHealth: allDevices.length > 0 ? Math.round(allDevices.reduce((s, d) => s + d.healthScore, 0) / allDevices.length) : 0
     };
   }
