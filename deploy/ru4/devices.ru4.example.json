@@ -1,0 +1,16 @@
+{
+  "_comment": "RU IV Cilacap device register. Planning basis: 3 GLD + 6 CH + 1 GW. macAddress must equal the PertaminaGLD nodeIdHex (GW 0x0001-0x000F, CH 0x0010-0x0FFF, GLD 0x1001-0xFEFF). Replace placeholder coordinates and areas with surveyed values before go-live.",
+  "ruId": "RU4",
+  "devices": [
+    { "macAddress": "0x0001", "name": "RU4 Gateway 1",      "deviceType": "GATEWAY", "area": "Server room",   "parent": null,     "location": { "lat": -7.7196, "lng": 108.9887 } },
+    { "macAddress": "0x0010", "name": "RU4 Cluster Head 1", "deviceType": "CLUSTER", "area": "SRU perimeter", "parent": "0x0001", "location": { "lat": -7.7191, "lng": 108.9892 } },
+    { "macAddress": "0x0011", "name": "RU4 Cluster Head 2", "deviceType": "CLUSTER", "area": "SRU perimeter", "parent": "0x0001", "location": { "lat": -7.7201, "lng": 108.9892 } },
+    { "macAddress": "0x0012", "name": "RU4 Cluster Head 3", "deviceType": "CLUSTER", "area": "SRU perimeter", "parent": "0x0001", "location": { "lat": -7.7191, "lng": 108.9882 } },
+    { "macAddress": "0x0013", "name": "RU4 Cluster Head 4", "deviceType": "CLUSTER", "area": "SRU perimeter", "parent": "0x0001", "location": { "lat": -7.7201, "lng": 108.9882 } },
+    { "macAddress": "0x0014", "name": "RU4 Cluster Head 5", "deviceType": "CLUSTER", "area": "SRU perimeter", "parent": "0x0001", "location": { "lat": -7.7186, "lng": 108.9887 } },
+    { "macAddress": "0x0015", "name": "RU4 Cluster Head 6", "deviceType": "CLUSTER", "area": "SRU perimeter", "parent": "0x0001", "location": { "lat": -7.7206, "lng": 108.9887 } },
+    { "macAddress": "0x1001", "name": "RU4 GLD 1",          "deviceType": "SENSOR",  "area": "SRU perimeter", "parent": "0x0010", "location": { "lat": -7.7190, "lng": 108.9893 } },
+    { "macAddress": "0x1002", "name": "RU4 GLD 2",          "deviceType": "SENSOR",  "area": "SRU perimeter", "parent": "0x0011", "location": { "lat": -7.7202, "lng": 108.9893 } },
+    { "macAddress": "0x1003", "name": "RU4 GLD 3",          "deviceType": "SENSOR",  "area": "SRU perimeter", "parent": "0x0012", "location": { "lat": -7.7190, "lng": 108.9881 } }
+  ]
+}

@@ -1,6 +1,7 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { Device, DeviceLocation, BatteryMetrics, NetworkMetrics, CreateDeviceInput, UpdateDeviceInput, GasReading, DashboardStats, RuStats, TimelineEntry, Alert, BatteryDistEntry, NetworkQualityEntry, SystemSettings, UpdateSettingsInput, User, CreateUserInput, UpdateUserInput, LoginResult, AnalyticsStats, WeeklyTrendEntry, HeatmapEntry, SiteRanking, EventLog, CreateEventLogInput, SensorTimeline, TrendPoint, RuComparisonEntry, HeatmapCell, TopSensorEntry, FleetBatteryBucket, FleetNetworkBucket, FleetHealthStats, GatewayPullResult } from './device.model';
+import { gasClassName } from './gas-class';
 import { PrismaService } from '../prisma/prisma.service';
 import { signToken } from '../auth/auth';
 
@@ -67,7 +68,7 @@ export class DeviceService {
         const label = `${String(bEnd.getHours()).padStart(2, '0')}:00`;
         trendData.push({
           label,
-          avgPpm: bucket.length > 0 ? Math.round(bucket.reduce((s, r) => s + r.confidence, 0) / bucket.length * 1000) / 1000 : 0,
+          avgConfidence: bucket.length > 0 ? Math.round(bucket.reduce((s, r) => s + r.confidence, 0) / bucket.length * 1000) / 1000 : 0,
           breachCount: bucket.filter(r => r.riskLevel !== 'LOW').length,
         });
       }
@@ -82,7 +83,7 @@ export class DeviceService {
         });
         trendData.push({
           label: dayNames[bEnd.getDay()],
-          avgPpm: bucket.length > 0 ? Math.round(bucket.reduce((s, r) => s + r.confidence, 0) / bucket.length * 1000) / 1000 : 0,
+          avgConfidence: bucket.length > 0 ? Math.round(bucket.reduce((s, r) => s + r.confidence, 0) / bucket.length * 1000) / 1000 : 0,
           breachCount: bucket.filter(r => r.riskLevel !== 'LOW').length,
         });
       }
@@ -97,8 +98,8 @@ export class DeviceService {
       const ruIds7d = new Set(ruDevs.map(d => d.id));
       const ruR = allReadings7d.filter(r => ruIds7d.has(r.deviceId));
       const ruRScoped = ruR.filter(r => new Date(r.timestamp).getTime() >= cutoff.getTime());
-      const avgPpm = ruRScoped.length > 0 ? ruRScoped.reduce((s, r) => s + r.confidence, 0) / ruRScoped.length : 0;
-      const maxPpm = ruRScoped.length > 0 ? Math.max(...ruRScoped.map(r => r.confidence)) : 0;
+      const avgConfidence = ruRScoped.length > 0 ? ruRScoped.reduce((s, r) => s + r.confidence, 0) / ruRScoped.length : 0;
+      const maxConfidence = ruRScoped.length > 0 ? Math.max(...ruRScoped.map(r => r.confidence)) : 0;
 
       const socValues = ruDevs.map(d => {
         try { return (JSON.parse(d.batteryStats as string) as any).soc ?? 0; } catch { return 0; }
@@ -111,8 +112,8 @@ export class DeviceService {
 
       return {
         ruId: ru,
-        avgPpm: Math.round(avgPpm * 10) / 10,
-        maxPpm: Math.round(maxPpm * 10) / 10,
+        avgConfidence: Math.round(avgConfidence * 1000) / 1000,
+        maxConfidence: Math.round(maxConfidence * 1000) / 1000,
         breachCount: ruRScoped.filter(r => r.riskLevel !== 'LOW').length,
         totalDevices: ruDevs.length,
         onlineDevices: recentDeviceIds.size,
@@ -131,7 +132,7 @@ export class DeviceService {
         heatmap.push({
           hour: h,
           ruId: ru,
-          avgPpm: hourReadings.filter(r => r.riskLevel !== 'LOW').length,
+          detectionCount: hourReadings.filter(r => r.riskLevel !== 'LOW').length,
         });
       }
     }
@@ -140,17 +141,17 @@ export class DeviceService {
     const sensorDevices = scopedDevices.filter(d => d.deviceType === 'SENSOR');
     const topSensors: TopSensorEntry[] = sensorDevices.map(sensor => {
       const sr = scopedReadings.filter(r => r.deviceId === sensor.id);
-      const avgPpm = sr.length > 0 ? sr.reduce((s, r) => s + r.confidence, 0) / sr.length : 0;
-      const maxPpm = sr.length > 0 ? Math.max(...sr.map(r => r.confidence)) : 0;
+      const avgConfidence = sr.length > 0 ? sr.reduce((s, r) => s + r.confidence, 0) / sr.length : 0;
+      const maxConfidence = sr.length > 0 ? Math.max(...sr.map(r => r.confidence)) : 0;
       return {
         deviceId: sensor.id,
         deviceName: sensor.name,
         ruId: sensor.ruId,
-        avgPpm: Math.round(avgPpm * 1000) / 1000,
-        maxPpm: Math.round(maxPpm * 1000) / 1000,
+        avgConfidence: Math.round(avgConfidence * 1000) / 1000,
+        maxConfidence: Math.round(maxConfidence * 1000) / 1000,
         breachCount: sr.filter(r => r.riskLevel !== 'LOW').length,
       };
-    }).sort((a, b) => b.avgPpm - a.avgPpm).slice(0, 15);
+    }).sort((a, b) => b.avgConfidence - a.avgConfidence).slice(0, 15);
 
     // ── Fleet health (scoped) ─────────────────────────────────────────────
     const BATTERY_BUCKETS = [
@@ -194,7 +195,7 @@ export class DeviceService {
 
     // ── Backwards-compat fields ───────────────────────────────────────────
     const weeklyTrends: WeeklyTrendEntry[] = trendData.map(t => ({
-      day: t.label, avgPpm: t.avgPpm, alertCount: t.breachCount,
+      day: t.label, avgConfidence: t.avgConfidence, alertCount: t.breachCount,
     }));
     const siteRankings: SiteRanking[] = ruComparison.map(r => ({
       ru: r.ruId, uptime: 97, incidents: r.breachCount, avgResponseTime: 3,
@@ -434,7 +435,7 @@ export class DeviceService {
         return {
           id: r.id,
           severity: isHigh ? 'CRITICAL' : 'WARNING',
-          message: `Gas detected — ${r.riskLevel} risk (class ${r.aiClass}, confidence ${r.confidence.toFixed(2)})`,
+          message: `Gas detected — ${r.riskLevel} risk (${gasClassName(r.aiClass)}, confidence ${r.confidence.toFixed(2)})`,
           ru: device?.ruId || 'N/A',
           time: timestamp.toISOString().replace('T', ' ').substring(0, 19),
           device: device?.macAddress || 'Unknown',
@@ -531,7 +532,7 @@ export class DeviceService {
     return {
       devices: devices.map(d => this.mapToDevice(d)),
       readings: readings.map(r => ({
-        id: r.id, deviceId: r.deviceId, confidence: r.confidence, aiClass: r.aiClass, riskLevel: r.riskLevel, timestamp: r.timestamp,
+        id: r.id, deviceId: r.deviceId, confidence: r.confidence, aiClass: r.aiClass, gasName: gasClassName(r.aiClass), riskLevel: r.riskLevel, timestamp: r.timestamp,
       })),
       eventLogs: eventLogs.map(l => this.serializeEvent(l)),
       serverTime,
@@ -562,13 +563,13 @@ export class DeviceService {
             severity: riskLevel === 'HIGH' ? 'CRITICAL' : 'WARNING',
             deviceId: device.id,
             ruId: device.ruId,
-            message: `${device.name} — ${riskLevel} risk detected (class ${aiClass}, confidence ${confidence.toFixed(2)})`,
+            message: `${device.name} — ${riskLevel} risk detected (${gasClassName(aiClass)}, confidence ${confidence.toFixed(2)})`,
             details: JSON.stringify({ confidence, aiClass, riskLevel, macAddress, deviceName: device.name }),
           }
         });
       }
     }
-    return { id: r.id, deviceId: r.deviceId, confidence: r.confidence, aiClass: r.aiClass, riskLevel: r.riskLevel, timestamp: r.timestamp };
+    return { id: r.id, deviceId: r.deviceId, confidence: r.confidence, aiClass: r.aiClass, gasName: gasClassName(r.aiClass), riskLevel: r.riskLevel, timestamp: r.timestamp };
   }
 
   async create(input: CreateDeviceInput): Promise<Device> {
@@ -578,13 +579,14 @@ export class DeviceService {
         name: input.name || input.macAddress,
         deviceType: input.deviceType,
         ruId: input.ruId,
+        area: input.area?.trim() ?? '',
         location: JSON.stringify(input.location),
         registeredBy: input.registeredBy,
         batteryStats: JSON.stringify({ voltage: 4.0, soc: 100 }), 
         networkStats: JSON.stringify({ rssi: -50, qualityScore: 'A' }),
         healthScore: 100,
         status: 'ONLINE',
-        isDummy: true
+        isDummy: false
       }
     });
     return this.mapToDevice(d);
@@ -609,6 +611,7 @@ export class DeviceService {
     if (input.name !== undefined) data.name = input.name;
     if (input.deviceType !== undefined) data.deviceType = input.deviceType;
     if (input.ruId !== undefined) data.ruId = input.ruId;
+    if (input.area !== undefined) data.area = input.area.trim();
     if (input.status !== undefined) data.status = input.status;
     const d = await this.prisma.device.update({ where: { id }, data });
     return this.mapToDevice(d);
@@ -633,6 +636,7 @@ export class DeviceService {
         macAddress: d.macAddress,
         name: d.name || d.macAddress,
         ruId: d.ruId,
+        area: d.area ?? '',
         type: d.deviceType,
         parentMac: netStats.parentMac || null,
         location: JSON.parse(d.location || '{"lat":0,"lng":0}') as DeviceLocation,
@@ -650,12 +654,14 @@ export class DeviceService {
         } as NetworkMetrics,
         healthScore: d.healthScore,
         latestConfidence: d.readings?.[0]?.confidence ?? 0,
+        latestGasClass: d.readings?.[0]?.aiClass ?? null,
+        latestGasName: d.readings?.[0] ? gasClassName(d.readings[0].aiClass) : null,
         status: d.status
       };
     } catch (e) {
       console.error('[mapToDevice] Error mapping device:', d.id, e);
       return {
-        id: d.id, macAddress: d.macAddress, name: d.macAddress, ruId: d.ruId, type: d.deviceType, location: { lat: 0, lng: 0 },
+        id: d.id, macAddress: d.macAddress, name: d.macAddress, ruId: d.ruId, area: d.area ?? '', type: d.deviceType, location: { lat: 0, lng: 0 },
         battery: { voltage: 0, soc: 0 }, network: { rssi: -100 }, healthScore: 0, status: 'ERROR'
       };
     }

@@ -13,7 +13,8 @@
     "start:debug": "nest start --debug --watch",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev"
+    "prisma:migrate": "prisma migrate dev",
+    "seed:ru4": "node prisma/seed-ru4-cilacap.js"
   },
   "dependencies": {
     "@apollo/server": "^4.10.0",

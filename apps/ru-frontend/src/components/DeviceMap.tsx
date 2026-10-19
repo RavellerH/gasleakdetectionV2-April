@@ -10,6 +10,7 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { X, Compass, Mountain, Share2, BatteryMedium, Wifi, Activity, MapPin, Network, Flame, RefreshCw } from 'lucide-react';
 import type { Device, SensorTimeline } from '@/lib/graphql';
+import { gasAlertConfidence } from '@/lib/gasClass';
 import { updateDeviceLocation } from '@/lib/graphql';
 import { DevicePin } from './DevicePin';
 
@@ -147,8 +148,8 @@ export function DeviceMap({
       healthScore:  d.healthScore,
       latestConfidence: d.latestConfidence ?? 0,
       status:           d.status,
-      hasCritical:      (d.latestConfidence ?? 0) >= criticalThreshold,
-      hasWarning:       (d.latestConfidence ?? 0) >= warningThreshold,
+      hasCritical:      gasAlertConfidence(d) >= criticalThreshold,
+      hasWarning:       gasAlertConfidence(d) >= warningThreshold,
     },
     geometry: { type: 'Point' as const, coordinates: [d.location.lng, d.location.lat] },
   })), [devices, criticalThreshold, warningThreshold]);
@@ -439,10 +440,10 @@ export function DeviceMap({
       {/* ── Detail overlay — full device breakdown, slides in over the map ── */}
       {selectedDevice && (() => {
         const d = selectedDevice;
-        const conf   = d.latestConfidence ?? 0;
+        const conf   = gasAlertConfidence(d);
         const isHigh = conf >= criticalThreshold;
         const isMid  = !isHigh && conf >= warningThreshold;
-        const riskLabel = isHigh ? 'HIGH RISK' : isMid ? 'MIDDLE RISK' : 'SAFE';
+        const riskLabel = (isHigh ? 'HIGH RISK' : isMid ? 'MIDDLE RISK' : 'SAFE') + ((isHigh || isMid) && d.latestGasName ? ` · ${d.latestGasName}` : '');
         const riskColor = isHigh ? '#ef4444' : isMid ? '#f59e0b' : '#38bdf8';
         const statusCol = d.status === 'ONLINE' ? '#38bdf8' : d.status === 'OFFLINE' ? '#ef4444' : '#f59e0b';
         const battCol   = d.battery.soc >= 60 ? '#38bdf8' : d.battery.soc >= 30 ? '#f59e0b' : '#ef4444';

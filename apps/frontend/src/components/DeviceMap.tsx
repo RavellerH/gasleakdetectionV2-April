@@ -7,6 +7,7 @@ import useSupercluster from 'use-supercluster';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { X, Compass, Mountain, Share2 } from 'lucide-react';
 import type { Device } from '@/lib/graphql';
+import { gasAlertConfidence } from '@/lib/gasClass';
 import { updateDeviceLocation } from '@/lib/graphql';
 import { DevicePin } from './DevicePin';
 
@@ -120,8 +121,8 @@ export function DeviceMap({
       healthScore:  d.healthScore,
       latestConfidence: d.latestConfidence ?? 0,
       status:           d.status,
-      hasCritical:      (d.latestConfidence ?? 0) >= criticalThreshold,
-      hasWarning:       (d.latestConfidence ?? 0) >= warningThreshold,
+      hasCritical:      gasAlertConfidence(d) >= criticalThreshold,
+      hasWarning:       gasAlertConfidence(d) >= warningThreshold,
     },
     geometry: { type: 'Point' as const, coordinates: [d.location.lng, d.location.lat] },
   })), [devices, criticalThreshold, warningThreshold]);
@@ -437,10 +438,10 @@ export function DeviceMap({
               <div style={{ fontSize:15, fontWeight:600, color:'var(--t1)', marginBottom:12 }}>{selectedDevice.name}</div>
 
               {selectedDevice.type === 'SENSOR' && (() => {
-                const conf = selectedDevice.latestConfidence ?? 0;
+                const conf = gasAlertConfidence(selectedDevice);
                 const isHigh = conf >= criticalThreshold;
                 const isMid  = !isHigh && conf >= warningThreshold;
-                const riskLabel = isHigh ? '⚠ HIGH RISK' : isMid ? '⚠ MIDDLE RISK' : '● SAFE';
+                const riskLabel = (isHigh ? '⚠ HIGH RISK' : isMid ? '⚠ MIDDLE RISK' : '● SAFE') + ((isHigh || isMid) && selectedDevice.latestGasName ? ` · ${selectedDevice.latestGasName}` : '');
                 const riskColor = isHigh ? '#ef4444' : isMid ? '#f59e0b' : '#38bdf8';
                 const bgColor   = isHigh ? 'rgba(239,68,68,0.1)' : isMid ? 'rgba(245,158,11,0.1)' : 'rgba(56,189,248,0.05)';
                 const bdColor   = isHigh ? 'rgba(239,68,68,0.2)'  : isMid ? 'rgba(245,158,11,0.2)'  : 'rgba(56,189,248,0.1)';

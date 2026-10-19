@@ -37,3 +37,6 @@ Thumbs.db
 
 # Downloaded map tiles (regenerate with: npm run tiles -w @gas-leak/ru-frontend)
 apps/ru-frontend/public/tiles/
+
+# RU device registers contain plant coordinates; keep out of this public repo
+deploy/ru4/devices.ru4.json

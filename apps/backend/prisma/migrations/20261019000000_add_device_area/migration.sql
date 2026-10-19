@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Device" ADD COLUMN "area" TEXT NOT NULL DEFAULT '';

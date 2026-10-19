@@ -79,6 +79,11 @@ export class CreateDeviceInput {
   @IsString()
   ruId!: string;
 
+  @Field({ nullable: true })
+  @IsString()
+  @IsOptional()
+  area?: string;
+
   @Field(() => CoordinatesInput)
   location!: CoordinatesInput;
 
@@ -180,6 +185,11 @@ export class UpdateDeviceInput {
   @Field({ nullable: true })
   @IsString()
   @IsOptional()
+  area?: string;
+
+  @Field({ nullable: true })
+  @IsString()
+  @IsOptional()
   status?: string;
 }
 
@@ -233,7 +243,7 @@ export class WeeklyTrendEntry {
   @Field()
   day!: string;
   @Field(() => Float)
-  avgPpm!: number;
+  avgConfidence!: number;
   @Field(() => Int)
   alertCount!: number;
 }
@@ -263,15 +273,15 @@ export class SiteRanking {
 @ObjectType()
 export class TrendPoint {
   @Field() label!: string;
-  @Field(() => Float) avgPpm!: number;
+  @Field(() => Float) avgConfidence!: number;
   @Field(() => Int) breachCount!: number;
 }
 
 @ObjectType()
 export class RuComparisonEntry {
   @Field() ruId!: string;
-  @Field(() => Float) avgPpm!: number;
-  @Field(() => Float) maxPpm!: number;
+  @Field(() => Float) avgConfidence!: number;
+  @Field(() => Float) maxConfidence!: number;
   @Field(() => Int) breachCount!: number;
   @Field(() => Int) totalDevices!: number;
   @Field(() => Int) onlineDevices!: number;
@@ -282,7 +292,7 @@ export class RuComparisonEntry {
 export class HeatmapCell {
   @Field(() => Int) hour!: number;
   @Field() ruId!: string;
-  @Field(() => Float) avgPpm!: number;
+  @Field(() => Int) detectionCount!: number;
 }
 
 @ObjectType()
@@ -290,8 +300,8 @@ export class TopSensorEntry {
   @Field() deviceId!: string;
   @Field() deviceName!: string;
   @Field() ruId!: string;
-  @Field(() => Float) avgPpm!: number;
-  @Field(() => Float) maxPpm!: number;
+  @Field(() => Float) avgConfidence!: number;
+  @Field(() => Float) maxConfidence!: number;
   @Field(() => Int) breachCount!: number;
 }
 
@@ -575,6 +585,9 @@ export class GasReading {
   aiClass!: number;
 
   @Field()
+  gasName!: string;
+
+  @Field()
   riskLevel!: string;
 
   @Field(() => Date)
@@ -610,6 +623,9 @@ export class Device {
   @Field()
   ruId!: string;
 
+  @Field()
+  area!: string;
+
   @Field({ nullable: true })
   parentMac?: string;
 
@@ -630,6 +646,12 @@ export class Device {
 
   @Field(() => Float, { nullable: true })
   latestConfidence?: number;
+
+  @Field(() => Int, { nullable: true })
+  latestGasClass?: number | null;
+
+  @Field(() => String, { nullable: true })
+  latestGasName?: string | null;
 
   @Field()
   status!: string;

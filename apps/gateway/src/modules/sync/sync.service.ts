@@ -12,6 +12,7 @@ const GATEWAY_PULL_QUERY = gql`
         macAddress
         name
         ruId
+        area
         type
         parentMac
         location { lat lng }
@@ -56,6 +57,7 @@ interface GatewayPullResponse {
       macAddress: string;
       name: string;
       ruId: string;
+      area?: string | null;
       type: string;
       parentMac?: string | null;
       location: { lat: number; lng: number };
@@ -158,6 +160,7 @@ export class SyncService {
               name: device.name,
               deviceType: device.type,
               ruId,
+              area: device.area ?? '',
               location: JSON.stringify(device.location),
               batteryStats: JSON.stringify(device.battery),
               networkStats: JSON.stringify(device.network),
@@ -171,6 +174,7 @@ export class SyncService {
               macAddress: device.macAddress,
               name: device.name,
               deviceType: device.type,
+              area: device.area ?? '',
               location: JSON.stringify(device.location),
               batteryStats: JSON.stringify(device.battery),
               networkStats: JSON.stringify(device.network),

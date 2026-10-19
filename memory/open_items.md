@@ -2,6 +2,17 @@
 
 Things that are unresolved and will block specific implementation steps.
 
+## 🔴 Re-checked 2026-10-19
+
+### MQTT -> backend ingestion adapter still missing
+- `apps/backend/src` has no MQTT client and no handler for `gld/server/decoded` / `gld/server/alarm`.
+- Upstream `fadlurrahmanf/PertaminaGLD` at `1bc4004` (2026-10-15) was checked: Node-RED decodes and
+  republishes to `gld/server/*` MQTT topics only; nothing in that repo writes to a database or calls
+  this backend's GraphQL API.
+- Gas class codes come from that decoder (`GAS_CLASS`, 0..7); mirrored in
+  `apps/backend/src/modules/devices/gas-class.ts`. Confidence there is 0..100 -> divide by 100.
+- Until this adapter exists, field telemetry cannot reach the RU dashboard.
+
 ## 🔴 Critical (blocks implementation)
 
 ### 1. Which CH protocol version is the firmware implementing?

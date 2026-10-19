@@ -40,6 +40,7 @@ export interface Device {
   macAddress: string;
   name: string;
   ruId: string;
+  area?: string;
   parentMac?: string | null;
   type: string;
   location: DeviceLocation;
@@ -47,6 +48,8 @@ export interface Device {
   network: NetworkMetrics;
   healthScore: number;
   latestConfidence?: number;
+  latestGasClass?: number | null;
+  latestGasName?: string | null;
   status: string;
 }
 
@@ -57,6 +60,7 @@ const DEVICES_QUERY = /* GraphQL */ `
       macAddress
       name
       ruId
+      area
       type
       parentMac
       location { lat lng }
@@ -64,6 +68,8 @@ const DEVICES_QUERY = /* GraphQL */ `
       network { rssi rssiMesh rssiStar peersCount hopsToGateway qualityScore parentMac }
       healthScore
       latestConfidence
+      latestGasClass
+      latestGasName
       status
     }
   }
@@ -193,7 +199,7 @@ const DASHBOARD_STATS_QUERY = /* GraphQL */ `
 
 export interface WeeklyTrendEntry {
   day: string;
-  avgPpm: number;
+  avgConfidence: number;
   alertCount: number;
 }
 
@@ -210,18 +216,18 @@ export interface SiteRanking {
   avgResponseTime: number;
 }
 
-export interface TrendPoint { label: string; avgPpm: number; breachCount: number; }
+export interface TrendPoint { label: string; avgConfidence: number; breachCount: number; }
 
 export interface RuComparisonEntry {
-  ruId: string; avgPpm: number; maxPpm: number; breachCount: number;
+  ruId: string; avgConfidence: number; maxConfidence: number; breachCount: number;
   totalDevices: number; onlineDevices: number; avgHealth: number;
 }
 
-export interface HeatmapCell { hour: number; ruId: string; avgPpm: number; }
+export interface HeatmapCell { hour: number; ruId: string; detectionCount: number; }
 
 export interface TopSensorEntry {
   deviceId: string; deviceName: string; ruId: string;
-  avgPpm: number; maxPpm: number; breachCount: number;
+  avgConfidence: number; maxConfidence: number; breachCount: number;
 }
 
 export interface FleetBatteryBucket { range: string; count: number; }
@@ -246,12 +252,12 @@ export interface AnalyticsStats {
 const ANALYTICS_QUERY = /* GraphQL */ `
   query GetAnalytics($ruId: String, $hours: Int) {
     getAnalytics(ruId: $ruId, hours: $hours) {
-      weeklyTrends { day avgPpm alertCount }
+      weeklyTrends { day avgConfidence alertCount }
       siteRankings { ru uptime incidents avgResponseTime }
-      trendData { label avgPpm breachCount }
-      ruComparison { ruId avgPpm maxPpm breachCount totalDevices onlineDevices avgHealth }
-      heatmap { hour ruId avgPpm }
-      topSensors { deviceId deviceName ruId avgPpm maxPpm breachCount }
+      trendData { label avgConfidence breachCount }
+      ruComparison { ruId avgConfidence maxConfidence breachCount totalDevices onlineDevices avgHealth }
+      heatmap { hour ruId detectionCount }
+      topSensors { deviceId deviceName ruId avgConfidence maxConfidence breachCount }
       fleetHealth {
         online offline total
         batteryDist { range count }
@@ -399,7 +405,7 @@ const DELETE_DEVICE_MUTATION = /* GraphQL */ `
 const UPDATE_DEVICE_MUTATION = /* GraphQL */ `
   mutation UpdateDevice($id: String!, $input: UpdateDeviceInput!) {
     updateDevice(id: $id, input: $input) {
-      id macAddress name ruId type healthScore status
+      id macAddress name ruId area type healthScore status
       location { lat lng }
       battery { voltage soc }
       network { rssi qualityScore }
@@ -410,7 +416,7 @@ const UPDATE_DEVICE_MUTATION = /* GraphQL */ `
 const CREATE_DEVICE_MUTATION = /* GraphQL */ `
   mutation CreateDevice($input: CreateDeviceInput!) {
     createDevice(input: $input) {
-      id macAddress name ruId type healthScore status
+      id macAddress name ruId area type healthScore status
       location { lat lng }
       battery { voltage soc }
       network { rssi qualityScore }
@@ -422,6 +428,7 @@ export interface UpdateDeviceInput {
   name?: string;
   deviceType?: string;
   ruId?: string;
+  area?: string;
   status?: string;
 }
 
@@ -440,6 +447,7 @@ export async function createDevice(input: {
   name?: string;
   deviceType: string;
   ruId: string;
+  area?: string;
   location: { lat: number; lng: number };
   registeredBy: string;
 }): Promise<Device> {

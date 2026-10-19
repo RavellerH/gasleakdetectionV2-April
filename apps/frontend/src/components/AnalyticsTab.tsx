@@ -95,8 +95,8 @@ export function AnalyticsTab({ activeRU, warningThreshold = 0.70, criticalThresh
   if (data) {
     for (const cell of data.heatmap) {
       if (!heatmapByRu[cell.ruId]) heatmapByRu[cell.ruId] = Array(24).fill(0);
-      heatmapByRu[cell.ruId][cell.hour] = cell.avgPpm; // avgPpm now holds detection count
-      if (cell.avgPpm > heatmapMax) heatmapMax = cell.avgPpm;
+      heatmapByRu[cell.ruId][cell.hour] = cell.detectionCount;
+      if (cell.detectionCount > heatmapMax) heatmapMax = cell.detectionCount;
     }
   }
 
@@ -148,7 +148,7 @@ export function AnalyticsTab({ activeRU, warningThreshold = 0.70, criticalThresh
               <Tooltip content={<ChartTooltip />} />
               <ReferenceLine y={warningThreshold} stroke="#f59e0b" strokeDasharray="4 3" strokeWidth={1} />
               <ReferenceLine y={criticalThreshold} stroke="#ef4444" strokeDasharray="4 3" strokeWidth={1} />
-              <Area type="monotone" dataKey="avgPpm" stroke="#38bdf8" strokeWidth={2} fill="url(#aGrad)" name="Avg Confidence" dot={false} />
+              <Area type="monotone" dataKey="avgConfidence" stroke="#38bdf8" strokeWidth={2} fill="url(#aGrad)" name="Avg Confidence" dot={false} />
             </AreaChart>
           </ResponsiveContainer>
           <div style={{ display: 'flex', gap: 14, marginTop: 8 }}>
@@ -191,11 +191,11 @@ export function AnalyticsTab({ activeRU, warningThreshold = 0.70, criticalThresh
               <YAxis type="category" dataKey="ruId" tick={{ fill: 'var(--t2)', fontSize: 11, fontFamily: "'Geist Mono', monospace", fontWeight: 700 }} axisLine={false} tickLine={false} width={34} />
               <Tooltip content={<ChartTooltip />} />
               <ReferenceLine x={warningThreshold} stroke="#f59e0b" strokeDasharray="3 3" strokeWidth={1} />
-              <Bar dataKey="avgPpm" radius={[0, 4, 4, 0]} name="Avg Confidence" maxBarSize={18}>
+              <Bar dataKey="avgConfidence" radius={[0, 4, 4, 0]} name="Avg Confidence" maxBarSize={18}>
                 {(data?.ruComparison || []).map((r) => (
                   <Cell key={r.ruId} fill={
-                    r.avgPpm >= criticalThreshold ? '#ef4444' :
-                    r.avgPpm >= warningThreshold ? '#f59e0b' :
+                    r.avgConfidence >= criticalThreshold ? '#ef4444' :
+                    r.avgConfidence >= warningThreshold ? '#f59e0b' :
                     (RU_COLORS[r.ruId] || '#38bdf8')
                   } />
                 ))}
@@ -298,11 +298,11 @@ export function AnalyticsTab({ activeRU, warningThreshold = 0.70, criticalThresh
                     <div style={{ fontSize: 12, color: 'var(--t1)', fontWeight: i < 3 ? 700 : 400 }}>{s.deviceName}</div>
                     <div style={{ fontSize: 10, color: RU_COLORS[s.ruId] || '#38bdf8', fontFamily: "'Geist Mono', monospace" }}>{s.ruId}</div>
                   </div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: confidenceTextColor(s.avgPpm, warningThreshold, criticalThreshold), fontFamily: "'Geist Mono', monospace" }}>
-                    {s.avgPpm.toFixed(2)}
+                  <div style={{ fontSize: 12, fontWeight: 700, color: confidenceTextColor(s.avgConfidence, warningThreshold, criticalThreshold), fontFamily: "'Geist Mono', monospace" }}>
+                    {s.avgConfidence.toFixed(2)}
                   </div>
-                  <div style={{ fontSize: 11, color: confidenceTextColor(s.maxPpm, warningThreshold, criticalThreshold), fontFamily: "'Geist Mono', monospace" }}>
-                    {s.maxPpm.toFixed(2)}
+                  <div style={{ fontSize: 11, color: confidenceTextColor(s.maxConfidence, warningThreshold, criticalThreshold), fontFamily: "'Geist Mono', monospace" }}>
+                    {s.maxConfidence.toFixed(2)}
                   </div>
                   <div>
                     {s.breachCount > 0 ? (

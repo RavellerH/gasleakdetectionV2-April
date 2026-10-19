@@ -18,6 +18,7 @@ import {
   type Device, type DashboardStats, type SystemSettings,
   type User, type Alert, type SensorTimeline,
 } from '@/lib/graphql';
+import { gasAlertConfidence } from '@/lib/gasClass';
 import { SensorListPanel } from './SensorListPanel';
 import { UnitLayoutMap } from './UnitLayoutMap';
 import { EventsTab } from './EventsTab';
@@ -211,7 +212,7 @@ export default function GasLeakDashboard() {
   const [newDeviceName, setNewDeviceName] = useState('');
   const [showDeviceModal, setShowDeviceModal] = useState<'create'|'edit'|null>(null);
   const [deviceForm, setDeviceForm] = useState({
-    macAddress: '', name: '', deviceType: 'SENSOR', ruId: RU_ID, status: 'ONLINE', lat: '0', lng: '0',
+    macAddress: '', name: '', deviceType: 'SENSOR', ruId: RU_ID, status: 'ONLINE', area: '', lat: '0', lng: '0',
   });
   const [deviceToEdit, setDeviceToEdit] = useState<Device | null>(null);
 
@@ -353,11 +354,12 @@ export default function GasLeakDashboard() {
         name: deviceForm.name,
         deviceType: deviceForm.deviceType,
         ruId: deviceForm.ruId,
+        area: deviceForm.area.trim(),
         location: { lat: parseFloat(deviceForm.lat) || 0, lng: parseFloat(deviceForm.lng) || 0 },
         registeredBy: currentUser?.id ?? '',
       });
       setShowDeviceModal(null);
-      setDeviceForm({ macAddress: '', name: '', deviceType: 'SENSOR', ruId: RU_ID, status: 'ONLINE', lat: '0', lng: '0' });
+      setDeviceForm({ macAddress: '', name: '', deviceType: 'SENSOR', ruId: RU_ID, status: 'ONLINE', area: '', lat: '0', lng: '0' });
       loadDevices(activeRU);
     } catch (err) { console.error(err); } finally { setIsSaving(false); }
   };
@@ -371,10 +373,11 @@ export default function GasLeakDashboard() {
         deviceType: deviceForm.deviceType,
         ruId: deviceForm.ruId,
         status: deviceForm.status,
+        area: deviceForm.area.trim(),
       });
       setShowDeviceModal(null);
       setDeviceToEdit(null);
-      setDeviceForm({ macAddress: '', name: '', deviceType: 'SENSOR', ruId: RU_ID, status: 'ONLINE', lat: '0', lng: '0' });
+      setDeviceForm({ macAddress: '', name: '', deviceType: 'SENSOR', ruId: RU_ID, status: 'ONLINE', area: '', lat: '0', lng: '0' });
       loadDevices(activeRU);
     } catch (err) { console.error(err); } finally { setIsSaving(false); }
   };
@@ -387,14 +390,14 @@ export default function GasLeakDashboard() {
 
   const openCreateDevice = () => {
     const center = RU_CENTERS[RU_ID] ?? { lat: 0, lng: 0 };
-    setDeviceForm({ macAddress: '', name: '', deviceType: 'SENSOR', ruId: RU_ID, status: 'ONLINE', lat: String(center.lat), lng: String(center.lng) });
+    setDeviceForm({ macAddress: '', name: '', deviceType: 'SENSOR', ruId: RU_ID, status: 'ONLINE', area: '', lat: String(center.lat), lng: String(center.lng) });
     setShowDeviceModal('create');
   };
 
   const openEditDevice = (d: Device) => {
     setDeviceForm({
       macAddress: d.macAddress, name: d.name, deviceType: d.type,
-      ruId: d.ruId, status: d.status,
+      ruId: d.ruId, status: d.status, area: d.area ?? '',
       lat: String(d.location.lat), lng: String(d.location.lng),
     });
     setDeviceToEdit(d);
@@ -954,8 +957,8 @@ export default function GasLeakDashboard() {
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead style={{ position: 'sticky', top: 0, background: 'var(--sidebar-bg)', zIndex: 10 }}>
                       <tr>
-                        {[{l:'Device',k:'id'},{l:'Type',k:'type'},{l:'Site',k:'ru'},{l:'Battery',k:'battery'},{l:'Signal',k:'rssi'},{l:'Health',k:'health'},{l:'Status',k:'status'},{l:'',k:'actions'}].map(col => (
-                          <th key={col.k} onClick={() => { if (col.k !== 'actions' && col.k !== 'id' && col.k !== 'type' && col.k !== 'ru') { setSortDir(sortCol === col.k && sortDir === 'asc' ? 'desc' : 'asc'); setSortCol(col.k); } }}
+                        {[{l:'Device',k:'id'},{l:'Type',k:'type'},{l:'Site',k:'ru'},{l:'Area',k:'area'},{l:'Last Gas',k:'gas'},{l:'Battery',k:'battery'},{l:'Signal',k:'rssi'},{l:'Health',k:'health'},{l:'Status',k:'status'},{l:'',k:'actions'}].map(col => (
+                          <th key={col.k} onClick={() => { if (col.k !== 'actions' && col.k !== 'id' && col.k !== 'type' && col.k !== 'ru' && col.k !== 'area' && col.k !== 'gas') { setSortDir(sortCol === col.k && sortDir === 'asc' ? 'desc' : 'asc'); setSortCol(col.k); } }}
                             style={{ textAlign: 'left', padding: '12px 16px', fontSize: 10, color: 'var(--t4)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, fontFamily: "'Geist Mono', monospace", borderBottom: '1px solid var(--card-border)', cursor: col.k !== 'actions' ? 'pointer' : 'default' }}>
                             {col.l}
                           </th>
@@ -965,7 +968,7 @@ export default function GasLeakDashboard() {
                     <tbody>
                       {filteredDevices.map((d, i) => {
                         const Icon = typeIcon(d.type);
-                        const isAlert = (d.latestConfidence ?? 0) >= (sysSettings?.warningThreshold ?? 0.70);
+                        const isAlert = gasAlertConfidence(d) >= (sysSettings?.warningThreshold ?? 0.70);
                         return (
                           <tr key={d.id} onClick={() => setSelectedDevice(d)} style={{ background: selectedDevice?.id === d.id ? 'rgba(56,189,248,0.04)' : i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)', cursor: 'pointer', borderBottom: '1px solid var(--divider)' }}
                             onMouseEnter={e => (e.currentTarget as HTMLTableRowElement).style.background = 'rgba(56,189,248,0.03)'}
@@ -984,6 +987,8 @@ export default function GasLeakDashboard() {
                             </td>
                             <td style={{ padding: '11px 16px', fontSize: 11, color: 'var(--t3)', fontFamily: "'Geist Mono', monospace", fontWeight: 600 }}>{d.type}</td>
                             <td style={{ padding: '11px 16px', fontSize: 12, color: 'var(--green)', fontFamily: "'Geist Mono', monospace", fontWeight: 700 }}>{d.ruId}</td>
+                            <td style={{ padding: '11px 16px', fontSize: 12, color: d.area ? 'var(--t2)' : 'var(--t4)' }}>{d.area || '—'}</td>
+                            <td style={{ padding: '11px 16px', fontSize: 11, fontWeight: 600, fontFamily: "'Geist Mono', monospace", color: isAlert ? '#ef4444' : 'var(--t3)' }}>{d.type === 'SENSOR' && d.latestGasName ? d.latestGasName : '—'}</td>
                             <td style={{ padding: '11px 16px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                 <div style={{ width: 36, height: 3, background: 'var(--card-border)', borderRadius: 2, overflow: 'hidden' }}>
@@ -1248,6 +1253,11 @@ export default function GasLeakDashboard() {
               <div>
                 <label style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 4, display: 'block' }}>Device Name *</label>
                 <input autoFocus required placeholder="Sensor A1" value={deviceForm.name} onChange={e => setDeviceForm(f => ({ ...f, name: e.target.value }))}
+                  style={{ width:'100%',background:'var(--input-bg)',border:'1px solid var(--card-border)',borderRadius:10,padding:'10px 14px',color:'var(--t1)',fontSize:13 }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 4, display: 'block' }}>Area / Unit</label>
+                <input placeholder="e.g. SRU perimeter" value={deviceForm.area} onChange={e => setDeviceForm(f => ({ ...f, area: e.target.value }))}
                   style={{ width:'100%',background:'var(--input-bg)',border:'1px solid var(--card-border)',borderRadius:10,padding:'10px 14px',color:'var(--t1)',fontSize:13 }} />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>

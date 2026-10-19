@@ -1,6 +1,7 @@
 'use client';
 
 import { Device } from '@/lib/graphql';
+import { gasAlertConfidence } from '@/lib/gasClass';
 import { Network, Radio, Zap } from 'lucide-react';
 
 interface UnitLayoutMapProps {
@@ -89,7 +90,7 @@ export function UnitLayoutMap({ devices, onNodeClick }: UnitLayoutMapProps) {
                       const x = Math.cos(angle) * radius;
                       const y = Math.sin(angle) * radius;
                       
-                      const isAlert = (s.latestConfidence ?? 0) >= 0.70;
+                      const isAlert = gasAlertConfidence(s) >= 0.70;
                       
                       return (
                         <div 

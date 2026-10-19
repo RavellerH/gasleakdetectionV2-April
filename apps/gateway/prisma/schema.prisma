@@ -36,6 +36,7 @@ model Device {
   name         String
   deviceType   String
   ruId         String
+  area         String   @default("")
   location     String
   batteryStats String
   networkStats String

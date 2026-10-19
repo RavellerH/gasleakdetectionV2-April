@@ -2,6 +2,7 @@
 
 import { CheckCircle2, Link, Network } from 'lucide-react';
 import type { Device } from '@/lib/graphql';
+import { gasAlertConfidence } from '@/lib/gasClass';
 
 interface SensorListPanelProps {
   devices: Device[];
@@ -71,7 +72,7 @@ export function SensorListPanel({ devices }: SensorListPanelProps) {
 }
 
 function SensorCard({ sensor }: { sensor: Device }) {
-  const isAlert = (sensor.latestConfidence ?? 0) >= 0.70;
+  const isAlert = gasAlertConfidence(sensor) >= 0.70;
   
   return (
     <div 
@@ -81,6 +82,7 @@ function SensorCard({ sensor }: { sensor: Device }) {
       <div className="flex items-center justify-between text-xs">
         <div className="flex items-center gap-2 text-[var(--t3)] font-mono">
           <span className="bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded uppercase tracking-tighter">ID: {sensor.name.split('-').pop()}</span>
+          {sensor.area && <span className="text-[var(--t4)] normal-case">{sensor.area}</span>}
         </div>
         <div className="flex items-center gap-1.5 text-[var(--t4)] font-mono">
           <div 
@@ -99,7 +101,7 @@ function SensorCard({ sensor }: { sensor: Device }) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm font-semibold" style={{ color: !isAlert ? 'var(--t1)' : 'var(--danger)' }}>
           <CheckCircle2 size={16} className={!isAlert ? 'text-emerald-500' : 'text-rose-500'} />
-          <span>{!isAlert ? 'Safe' : 'Leak Detected'}</span>
+          <span>{!isAlert ? 'Safe' : `Leak Detected${sensor.latestGasName ? ` · ${sensor.latestGasName}` : ''}`}</span>
         </div>
         <div className="text-right">
            <div className="text-[10px] text-[var(--t4)] font-mono leading-none mb-1">CONF</div>

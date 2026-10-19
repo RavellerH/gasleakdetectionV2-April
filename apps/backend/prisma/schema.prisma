@@ -25,6 +25,7 @@ model Device {
   name          String   // User-friendly device name
   deviceType    String   // SENSOR, ROUTING_NODE, CLUSTER_HEAD, GATEWAY
   ruId          String
+  area          String   @default("") // Plant area / process unit inside the RU (Pertamina request 6 Aug 2026)
   location      String   
   batteryStats  String   
   networkStats  String   // Will now store { rssiMesh, rssiStar, role, parentMac }
