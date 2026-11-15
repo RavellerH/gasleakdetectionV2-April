@@ -74,6 +74,6 @@ Things that are unresolved and will block specific implementation steps.
 | Sensor data unit | AI risk level (LOW/MIDDLE/HIGH), not PPM |
 | Gateway transport | MQTT broker |
 | Node identity | uint16 nodeId as hex string in macAddress field |
-| DB strategy | Hybrid: SQLite + MySQL staging |
+| DB strategy | SQLite for dev/demo; MySQL/MariaDB for the RU site server (MoC 15769, `prisma/mysql/schema.prisma`, 15 Nov 2026) |
 | Node-RED role | Aggregator → MySQL staging → backend polls |
 | MQTT topic scheme | `gld/gw/{gatewayId}/up` and `gld/gw/{gatewayId}/dn` (proposed) |

@@ -1,8 +1,9 @@
 # Project Memory Index
 
 > Notes compiled from all design docs, architecture files, and session research.
-> Last updated: 2026-08-05
+> Last updated: 2026-11-15
 
+- **[Catatan Update 2026-11-15](catatan_update_2026-11-15.md)** — merge MQTT ingest ke main, register RU4 per MoC 15769 (4 GLD/5 CH/1 GW), dukungan MySQL/MariaDB untuk server RU, hal yang masih terbuka
 - **[Authoritative Pre-installation Handoff](PRE_INSTALLATION_HANDOFF_2026-08-05.md)** - read this first; current architecture, implemented preparation, validation evidence, security findings, blockers, deployment order, and timestamped work log
 - [RU Backend Study: PertaminaGLD](ru_backend_pertaminagld_study_2026-08-05.md) - timestamped source study, verified MQTT/Node-RED contract, compatibility gaps, validation results, and recommended ingestion work
 

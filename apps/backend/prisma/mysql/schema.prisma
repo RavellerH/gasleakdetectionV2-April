@@ -1,0 +1,102 @@
+// MySQL / MariaDB variant of ../schema.prisma for the RU site server.
+// MoC Pertamina 15769/RU IV specifies MySQL, and the PertaminaGLD handover
+// package ships MariaDB 10.4 on the same PC. Keep the models identical to
+// ../schema.prisma (check: npm run prisma:check-parity); only the datasource
+// and the @db.* column types differ.
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../generated/prisma-client"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  password  String   @default("admin")
+  ruId      String   @default("ALL")
+  role      String   @default("ADMIN") 
+  devices   Device[] @relation("RegisteredBy")
+  createdAt DateTime @default(now())
+}
+
+model Device {
+  id            String   @id @default(cuid())
+  macAddress    String   @unique
+  name          String   // User-friendly device name
+  deviceType    String   // SENSOR, ROUTING_NODE, CLUSTER_HEAD, GATEWAY
+  ruId          String
+  area          String   @default("") // Plant area / process unit inside the RU (Pertamina request 6 Aug 2026)
+  location      String @db.Text   
+  batteryStats  String @db.Text   
+  networkStats  String @db.Text   // Will now store { rssiMesh, rssiStar, role, parentMac }
+  healthScore   Int      @default(100)
+  status        String   @default("ONLINE")
+  registeredBy  String
+  isDummy       Boolean  @default(false)
+  lastSeenAt    DateTime? // last telemetry/topology/status frame from the field (MQTT ingest)
+
+  parentId      String?  // For Star Topology tracking
+  parent        Device?  @relation("Topology", fields: [parentId], references: [id])
+  children      Device[] @relation("Topology")
+
+  readings      GasReading[]
+  registeredByUser User? @relation("RegisteredBy", fields: [registeredBy], references: [id])
+  registeredAt  DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([ruId, status])
+}
+
+model GasReading {
+  id            String   @id @default(cuid())
+  deviceId      String
+  confidence    Float                    // AI confidence score 0.0–1.0
+  aiClass       Int      @default(0)    // 0=normal, 1–8=gas type
+  riskLevel     String   @default("LOW") // "LOW" | "MIDDLE" | "HIGH"
+  isDummy       Boolean  @default(false)
+  // Provenance from PertaminaGLD Node-RED (null for manual/addReading rows)
+  sourceKey     String?  @unique // "<keyId>:<AES-GCM nonce>" — one per authenticated GLD record
+  seq           Int?
+  alarm         Boolean  @default(false) // GLD's own alarm flag (gld/server/alarm)
+  batteryMv     Int?
+  externalPower Boolean?
+  gatewayId     String?  // e.g. 0x0001
+  clusterHeadId String?  // CH that delivered the record, e.g. 0x0010
+  timestamp     DateTime @default(now())
+  device        Device   @relation(fields: [deviceId], references: [id])
+
+  @@index([deviceId, timestamp])
+}
+
+model SystemSettings {
+  id                Int     @id @default(1)
+  warningThreshold  Float   @default(0.70)  // MIDDLE risk: confidence >= this
+  criticalThreshold Float   @default(0.80)  // HIGH risk:   confidence >= this
+  refreshInterval   Int     @default(10)
+  updatedAt         DateTime @updatedAt
+}
+
+model EventLog {
+  id             String    @id @default(cuid())
+  type           String
+  severity       String    @default("INFO")
+  deviceId       String?
+  ruId           String?
+  operatorId     String?
+  operatorEmail  String?
+  message        String @db.Text
+  details        String? @db.Text
+  acknowledged   Boolean   @default(false)
+  acknowledgedBy String?
+  acknowledgedAt DateTime?
+  ackNote        String? @db.Text
+  timestamp      DateTime  @default(now())
+
+  @@index([timestamp])
+  @@index([acknowledged])
+}

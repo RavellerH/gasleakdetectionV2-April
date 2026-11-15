@@ -14,7 +14,11 @@
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "seed:ru4": "node prisma/seed-ru4-cilacap.js"
+    "seed:ru4": "node prisma/seed-ru4-cilacap.js",
+    "prisma:generate:mysql": "prisma generate --schema prisma/mysql/schema.prisma",
+    "prisma:deploy:mysql": "prisma migrate deploy --schema prisma/mysql/schema.prisma",
+    "build:mysql": "prisma generate --schema prisma/mysql/schema.prisma && nest build",
+    "prisma:check-parity": "node scripts/check-schema-parity.js"
   },
   "dependencies": {
     "@apollo/server": "^4.10.0",

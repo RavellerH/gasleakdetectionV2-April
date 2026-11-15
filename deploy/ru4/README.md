@@ -33,7 +33,45 @@ Before go-live, replace in the register file:
 - `parent` with the planned CH attachment (the live parent is learned from
   topology later).
 
-Device counts follow the installation planning basis (3 GLD, 6 CH, 1 Gateway).
+Device counts follow MoC Pertamina No. 15769/RU IV (area SRU): 4 GLD
+(GLD-01…04), 5 CH (CH-01…05) and 1 Gateway in the SRU Control Room. JB-01
+(junction box at pipe support PS27) is passive and is not registered. The
+device allocation table of 3 Nov 2026 lists RU4 as 3 GLD / 2 CH / 1 GW —
+confirm with Pertamina which applies and delete unused rows before go-live.
+
+## Database: SQLite (dev/demo) or MySQL/MariaDB (RU site server)
+
+The MoC specifies MySQL on the PC server, and the PertaminaGLD handover package
+already runs MariaDB 10.4 on that PC. The backend therefore has two Prisma
+schemas with identical models:
+
+| Schema | Use | Migrations |
+|---|---|---|
+| `prisma/schema.prisma` (SQLite, `file:./dev.db`) | local dev, `start.bat`/`start.sh`, demo | `prisma/migrations/` |
+| `prisma/mysql/schema.prisma` (MySQL/MariaDB, `DATABASE_URL`) | RU site server | `prisma/mysql/migrations/` |
+
+Use a separate database (e.g. `gasguard_ru`) on the same MariaDB server, not
+the PertaminaGLD `pertamina_gld` database, so the two applications never write
+to each other's tables:
+
+```sql
+CREATE DATABASE gasguard_ru CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'gasguard'@'localhost' IDENTIFIED BY '<strong password>';
+GRANT ALL PRIVILEGES ON gasguard_ru.* TO 'gasguard'@'localhost';
+```
+
+```bash
+cd apps/backend
+export DATABASE_URL="mysql://gasguard:<password>@127.0.0.1:3306/gasguard_ru"
+npm run prisma:deploy:mysql      # create / upgrade tables
+npm run build:mysql              # generate the MySQL client and build
+node prisma/seed-ru4-cilacap.js ../../deploy/ru4/devices.ru4.json
+npm start
+```
+
+Do not run `npm run build` on the site server: its `prebuild` step regenerates
+the SQLite client. After changing a model, edit **both** schema files, add a
+migration for each, and run `npm run prisma:check-parity`.
 
 ## Live data from PertaminaGLD (MQTT ingest)
 

@@ -1,16 +1,16 @@
 {
-  "_comment": "RU IV Cilacap device register. Planning basis: 3 GLD + 6 CH + 1 GW. macAddress must equal the PertaminaGLD nodeIdHex (GW 0x0001-0x000F, CH 0x0010-0x0FFF, GLD 0x1001-0xFEFF). Replace placeholder coordinates and areas with surveyed values before go-live.",
+  "_comment": "RU IV Cilacap device register, area SRU. Basis: MoC Pertamina No. 15769/RU IV (field test Multi-Modality Gas Leak Detector, area SRU) = 4 GLD (GLD-01..04) + 5 CH (CH-01..05) + 1 Gateway in the SRU Control Room. JB-01 (junction box at pipe support PS27) is passive and is not registered. The device allocation table of 3 Nov 2026 lists RU4 = 3 GLD / 2 CH / 1 GW; confirm with Pertamina before go-live and delete the unused rows. macAddress must equal the PertaminaGLD nodeIdHex (GW 0x0001-0x000F, CH 0x0010-0x0FFF, GLD 0x1001-0xFEFF). Replace placeholder node IDs, coordinates and parents with the flashed IDs and surveyed values before go-live.",
   "ruId": "RU4",
   "devices": [
-    { "macAddress": "0x0001", "name": "RU4 Gateway 1",      "deviceType": "GATEWAY", "area": "Server room",   "parent": null,     "location": { "lat": -7.7196, "lng": 108.9887 } },
-    { "macAddress": "0x0010", "name": "RU4 Cluster Head 1", "deviceType": "CLUSTER", "area": "SRU perimeter", "parent": "0x0001", "location": { "lat": -7.7191, "lng": 108.9892 } },
-    { "macAddress": "0x0011", "name": "RU4 Cluster Head 2", "deviceType": "CLUSTER", "area": "SRU perimeter", "parent": "0x0001", "location": { "lat": -7.7201, "lng": 108.9892 } },
-    { "macAddress": "0x0012", "name": "RU4 Cluster Head 3", "deviceType": "CLUSTER", "area": "SRU perimeter", "parent": "0x0001", "location": { "lat": -7.7191, "lng": 108.9882 } },
-    { "macAddress": "0x0013", "name": "RU4 Cluster Head 4", "deviceType": "CLUSTER", "area": "SRU perimeter", "parent": "0x0001", "location": { "lat": -7.7201, "lng": 108.9882 } },
-    { "macAddress": "0x0014", "name": "RU4 Cluster Head 5", "deviceType": "CLUSTER", "area": "SRU perimeter", "parent": "0x0001", "location": { "lat": -7.7186, "lng": 108.9887 } },
-    { "macAddress": "0x0015", "name": "RU4 Cluster Head 6", "deviceType": "CLUSTER", "area": "SRU perimeter", "parent": "0x0001", "location": { "lat": -7.7206, "lng": 108.9887 } },
-    { "macAddress": "0x1001", "name": "RU4 GLD 1",          "deviceType": "SENSOR",  "area": "SRU perimeter", "parent": "0x0010", "location": { "lat": -7.7190, "lng": 108.9893 } },
-    { "macAddress": "0x1002", "name": "RU4 GLD 2",          "deviceType": "SENSOR",  "area": "SRU perimeter", "parent": "0x0011", "location": { "lat": -7.7202, "lng": 108.9893 } },
-    { "macAddress": "0x1003", "name": "RU4 GLD 3",          "deviceType": "SENSOR",  "area": "SRU perimeter", "parent": "0x0012", "location": { "lat": -7.7190, "lng": 108.9881 } }
+    { "macAddress": "0x0001", "name": "RU4 GW-01",  "deviceType": "GATEWAY", "area": "SRU Control Room", "parent": null,     "location": { "lat": -7.7196, "lng": 108.9887 } },
+    { "macAddress": "0x0010", "name": "RU4 CH-01",  "deviceType": "CLUSTER", "area": "SRU perimeter",    "parent": "0x0001", "location": { "lat": -7.7191, "lng": 108.9892 } },
+    { "macAddress": "0x0011", "name": "RU4 CH-02",  "deviceType": "CLUSTER", "area": "SRU perimeter",    "parent": "0x0001", "location": { "lat": -7.7201, "lng": 108.9892 } },
+    { "macAddress": "0x0012", "name": "RU4 CH-03",  "deviceType": "CLUSTER", "area": "SRU perimeter",    "parent": "0x0001", "location": { "lat": -7.7191, "lng": 108.9882 } },
+    { "macAddress": "0x0013", "name": "RU4 CH-04",  "deviceType": "CLUSTER", "area": "SRU perimeter",    "parent": "0x0001", "location": { "lat": -7.7201, "lng": 108.9882 } },
+    { "macAddress": "0x0014", "name": "RU4 CH-05",  "deviceType": "CLUSTER", "area": "SRU perimeter",    "parent": "0x0001", "location": { "lat": -7.7186, "lng": 108.9887 } },
+    { "macAddress": "0x1001", "name": "RU4 GLD-01", "deviceType": "SENSOR",  "area": "SRU",              "parent": "0x0010", "location": { "lat": -7.7190, "lng": 108.9893 } },
+    { "macAddress": "0x1002", "name": "RU4 GLD-02", "deviceType": "SENSOR",  "area": "SRU",              "parent": "0x0011", "location": { "lat": -7.7202, "lng": 108.9893 } },
+    { "macAddress": "0x1003", "name": "RU4 GLD-03", "deviceType": "SENSOR",  "area": "SRU",              "parent": "0x0012", "location": { "lat": -7.7190, "lng": 108.9881 } },
+    { "macAddress": "0x1004", "name": "RU4 GLD-04", "deviceType": "SENSOR",  "area": "SRU",              "parent": "0x0013", "location": { "lat": -7.7202, "lng": 108.9881 } }
   ]
 }
